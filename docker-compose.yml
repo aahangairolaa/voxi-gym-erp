@@ -1,0 +1,15 @@
+# Local PostgreSQL for development.  Run:  docker compose up -d
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: voxi
+      POSTGRES_PASSWORD: voxi
+      POSTGRES_DB: voxi
+    ports:
+      - "5432:5432"
+    volumes:
+      - voxi-db:/var/lib/postgresql/data
+volumes:
+  voxi-db:

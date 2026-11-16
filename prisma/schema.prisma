@@ -1,0 +1,475 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  VOXI database schema (PostgreSQL + Prisma)
+//
+//  Money:  every amount is stored as a whole number of Qatari Riyal (QAR).
+//  Times:  stored in UTC. The app displays them in Qatar time (Asia/Qatar).
+//
+//  After editing this file run:  npm run db:push
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  MANAGER
+  RECEPTION
+  TRAINER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MembershipStatus {
+  ACTIVE
+  FROZEN
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  FAWRAN
+  ONLINE
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  REFUNDED
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum AccessSource {
+  MANUAL
+  BIOMETRIC
+  QR
+}
+
+enum BiometricType {
+  FINGERPRINT
+  FACE
+  CARD
+  PALM
+}
+
+enum BiometricResult {
+  GRANTED_IN
+  GRANTED_OUT
+  DENIED
+  UNKNOWN_USER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  TRIAL
+  CONVERTED
+  LOST
+}
+
+enum LeadSource {
+  WALK_IN
+  INSTAGRAM
+  WHATSAPP
+  WEBSITE
+  REFERRAL
+  OTHER
+}
+
+enum BookingStatus {
+  BOOKED
+  ATTENDED
+  CANCELLED
+  NO_SHOW
+}
+
+// ── Gym setup ────────────────────────────────────────────────────────────────
+
+/// Single row holding the gym's profile & preferences.
+model GymSettings {
+  id             String   @id @default("default")
+  gymName        String   @default("VOXI Fitness")
+  legalName      String?
+  crNumber       String? // Qatar Commercial Registration number
+  phone          String?
+  email          String?
+  address        String?
+  website        String?
+  currency       String   @default("QAR")
+  timezone       String   @default("Asia/Qatar")
+  invoicePrefix  String   @default("INV")
+  invoiceFooter  String?
+  expiryWarnDays Int      @default(7) // "Expiring soon" window
+  updatedAt      DateTime @updatedAt
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  staff        Staff[]
+  members      Member[]
+  attendance   Attendance[]
+  cashSessions CashSession[]
+  devices      BiometricDevice[]
+  classes      GymClass[]
+  expenses     Expense[]
+}
+
+/// Atomic counters used for human-friendly numbers (M-1001, INV-000123 …)
+model Counter {
+  key   String @id
+  value Int
+}
+
+// ── People ───────────────────────────────────────────────────────────────────
+
+/// Staff = anyone who logs into VOXI (owner, managers, reception, trainers).
+model Staff {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  phone        String?
+  passwordHash String
+  role         Role      @default(RECEPTION)
+  branchId     String?
+  branch       Branch?   @relation(fields: [branchId], references: [id])
+  salary       Int? // monthly, QAR
+  specialty    String? // for trainers, e.g. "Strength & Conditioning"
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  paymentsReceived Payment[]      @relation("ReceivedBy")
+  sessionsOpened   CashSession[]  @relation("OpenedBy")
+  sessionsClosed   CashSession[]  @relation("ClosedBy")
+  workoutPlans     WorkoutPlan[]
+  classes          GymClass[]
+  leads            Lead[]
+  expenses         Expense[]
+}
+
+model Member {
+  id                String    @id @default(cuid())
+  code              String    @unique // human-friendly id, e.g. M-1001
+  firstName         String
+  lastName          String
+  phone             String
+  email             String?
+  gender            Gender?
+  dateOfBirth       DateTime?
+  qid               String? // Qatar ID number
+  nationality       String?
+  emergencyName     String?
+  emergencyPhone    String?
+  notes             String?
+  branchId          String?
+  branch            Branch?   @relation(fields: [branchId], references: [id])
+  /// The user id the member is enrolled under on the biometric device(s).
+  biometricId       String?   @unique
+  biometricEnrolled DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  memberships     Membership[]
+  payments        Payment[]
+  attendance      Attendance[]
+  workoutPlans    WorkoutPlan[]
+  workoutLogs     WorkoutLog[]
+  bookings        ClassBooking[]
+  biometricEvents BiometricEvent[]
+  convertedLead   Lead?
+
+  @@index([lastName, firstName])
+  @@index([phone])
+}
+
+// ── Plans & memberships ──────────────────────────────────────────────────────
+
+model Plan {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  durationDays  Int // 30 = monthly, 90 = quarterly …
+  price         Int // QAR
+  sessions      Int? // e.g. personal-training packs; null = unlimited gym access
+  freezeDays    Int      @default(0) // how many days a member may freeze
+  features      String[]
+  color         String   @default("#7C5CFF")
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  memberships Membership[]
+}
+
+model Membership {
+  id             String           @id @default(cuid())
+  memberId       String
+  member         Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           Plan             @relation(fields: [planId], references: [id])
+  startDate      DateTime
+  endDate        DateTime
+  status         MembershipStatus @default(ACTIVE)
+  price          Int // list price at time of sale
+  discount       Int              @default(0)
+  frozenAt       DateTime?
+  freezeDaysUsed Int              @default(0)
+  sessionsUsed   Int              @default(0)
+  notes          String?
+  createdAt      DateTime         @default(now())
+
+  payments Payment[]
+
+  @@index([memberId, endDate])
+  @@index([status, endDate])
+}
+
+// ── Money ────────────────────────────────────────────────────────────────────
+
+model Payment {
+  id            String        @id @default(cuid())
+  invoiceNo     String        @unique
+  memberId      String?
+  member        Member?       @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  membershipId  String?
+  membership    Membership?   @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  amount        Int // QAR
+  method        PaymentMethod
+  status        PaymentStatus @default(PAID)
+  description   String?
+  reference     String? // card slip / transfer reference
+  paidAt        DateTime      @default(now())
+  receivedById  String?
+  receivedBy    Staff?        @relation("ReceivedBy", fields: [receivedById], references: [id])
+  cashSessionId String?
+  cashSession   CashSession?  @relation(fields: [cashSessionId], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@index([paidAt])
+}
+
+/// A cash drawer "shift": opened with a float, closed with a physical count.
+model CashSession {
+  id           String            @id @default(cuid())
+  branchId     String
+  branch       Branch            @relation(fields: [branchId], references: [id])
+  status       CashSessionStatus @default(OPEN)
+  openingFloat Int
+  expectedCash Int? // calculated on close
+  countedCash  Int? // what staff counted
+  difference   Int? // counted - expected
+  notes        String?
+  openedById   String
+  openedBy     Staff             @relation("OpenedBy", fields: [openedById], references: [id])
+  closedById   String?
+  closedBy     Staff?            @relation("ClosedBy", fields: [closedById], references: [id])
+  openedAt     DateTime          @default(now())
+  closedAt     DateTime?
+
+  payments Payment[]
+  expenses Expense[]
+}
+
+model Expense {
+  id            String        @id @default(cuid())
+  category      String // Rent, Salaries, Utilities, Equipment, Marketing …
+  description   String?
+  amount        Int // QAR
+  method        PaymentMethod @default(BANK_TRANSFER)
+  spentAt       DateTime      @default(now())
+  branchId      String?
+  branch        Branch?       @relation(fields: [branchId], references: [id])
+  createdById   String?
+  createdBy     Staff?        @relation(fields: [createdById], references: [id])
+  cashSessionId String? // set when paid out of an open cash drawer
+  cashSession   CashSession?  @relation(fields: [cashSessionId], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@index([spentAt])
+}
+
+// ── Attendance & biometric ───────────────────────────────────────────────────
+
+model Attendance {
+  id         String           @id @default(cuid())
+  memberId   String
+  member     Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  branchId   String?
+  branch     Branch?          @relation(fields: [branchId], references: [id])
+  checkInAt  DateTime         @default(now())
+  checkOutAt DateTime?
+  source     AccessSource     @default(MANUAL)
+  deviceId   String?
+  device     BiometricDevice? @relation(fields: [deviceId], references: [id])
+
+  @@index([checkInAt])
+  @@index([memberId, checkInAt])
+}
+
+model BiometricDevice {
+  id           String        @id @default(cuid())
+  name         String // "Main entrance turnstile"
+  type         BiometricType @default(FINGERPRINT)
+  vendor       String? // ZKTeco, Suprema, Hikvision …
+  serialNumber String        @unique
+  apiKeyHash   String // sha256 of the device API key (key itself is shown once)
+  apiKeyHint   String // last 4 chars, for display
+  branchId     String?
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  isActive     Boolean       @default(true)
+  lastSeenAt   DateTime?
+  createdAt    DateTime      @default(now())
+
+  events     BiometricEvent[]
+  attendance Attendance[]
+}
+
+/// Every scan a device reports — useful for auditing & troubleshooting.
+model BiometricEvent {
+  id              String          @id @default(cuid())
+  deviceId        String
+  device          BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  biometricUserId String
+  memberId        String?
+  member          Member?         @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  result          BiometricResult
+  reason          String?
+  scannedAt       DateTime
+  raw             Json?
+  createdAt       DateTime        @default(now())
+
+  @@index([createdAt])
+}
+
+// ── Training ─────────────────────────────────────────────────────────────────
+
+model Exercise {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  muscleGroup String // Chest, Back, Legs …
+  equipment   String? // Barbell, Dumbbell, Machine, Bodyweight …
+
+  items WorkoutItem[]
+}
+
+/// A workout programme. memberId = null means it's a reusable template.
+model WorkoutPlan {
+  id          String   @id @default(cuid())
+  name        String
+  goal        String? // Fat loss, Hypertrophy, Strength …
+  level       String? // Beginner / Intermediate / Advanced
+  description String?
+  daysPerWeek Int      @default(3)
+  trainerId   String?
+  trainer     Staff?   @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  memberId    String?
+  member      Member?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  items WorkoutItem[]
+  logs  WorkoutLog[]
+}
+
+model WorkoutItem {
+  id            String      @id @default(cuid())
+  workoutPlanId String
+  workoutPlan   WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exerciseId    String
+  exercise      Exercise    @relation(fields: [exerciseId], references: [id])
+  day           Int         @default(1) // Day 1, Day 2 …
+  sets          Int         @default(3)
+  reps          String      @default("10") // "8-12", "AMRAP", "30s"
+  restSeconds   Int         @default(60)
+  order         Int         @default(0)
+}
+
+/// A completed workout — feeds the leaderboard.
+model WorkoutLog {
+  id            String       @id @default(cuid())
+  memberId      String
+  member        Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  workoutPlanId String?
+  workoutPlan   WorkoutPlan? @relation(fields: [workoutPlanId], references: [id], onDelete: SetNull)
+  durationMin   Int
+  calories      Int?
+  notes         String?
+  loggedAt      DateTime     @default(now())
+
+  @@index([loggedAt])
+}
+
+// ── Classes ──────────────────────────────────────────────────────────────────
+
+model GymClass {
+  id          String   @id @default(cuid())
+  name        String // "HIIT Burn", "Ladies Yoga" …
+  description String?
+  trainerId   String?
+  trainer     Staff?   @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  branchId    String?
+  branch      Branch?  @relation(fields: [branchId], references: [id])
+  room        String?
+  startsAt    DateTime
+  durationMin Int      @default(60)
+  capacity    Int      @default(15)
+  createdAt   DateTime @default(now())
+
+  bookings ClassBooking[]
+
+  @@index([startsAt])
+}
+
+model ClassBooking {
+  id        String        @id @default(cuid())
+  classId   String
+  gymClass  GymClass      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  status    BookingStatus @default(BOOKED)
+  createdAt DateTime      @default(now())
+
+  @@unique([classId, memberId])
+}
+
+// ── Sales ────────────────────────────────────────────────────────────────────
+
+model Lead {
+  id                String     @id @default(cuid())
+  name              String
+  phone             String
+  email             String?
+  source            LeadSource @default(WALK_IN)
+  status            LeadStatus @default(NEW)
+  interest          String? // which plan / goal they asked about
+  notes             String?
+  followUpAt        DateTime?
+  assignedToId      String?
+  assignedTo        Staff?     @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  convertedMemberId String?    @unique
+  convertedMember   Member?    @relation(fields: [convertedMemberId], references: [id], onDelete: SetNull)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+}

@@ -1,0 +1,283 @@
+@import "tailwindcss";
+
+/* Dark mode is switched by adding class="dark" on <html> (see ThemeToggle). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   VOXI design tokens
+   Change colours here and the whole app follows.
+   Use them in classes like: bg-surface, text-ink, text-muted, border-line, bg-brand-600
+   ───────────────────────────────────────────────────────────────────────────── */
+:root {
+  --bg: #f7f6fb;
+  --surface: #ffffff;
+  --surface-2: #f3f1fa;
+  --surface-3: #ebe8f6;
+  --ink: #15122b;
+  --ink-soft: #3b3757;
+  --muted: #6e6a88;
+  --line: #e8e5f2;
+  --line-strong: #d9d4ea;
+  --ring: rgba(124, 92, 255, 0.35);
+  --glow: rgba(124, 92, 255, 0.18);
+  --shadow-color: 250 30% 30%;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0b0a13;
+  --surface: #12101d;
+  --surface-2: #191627;
+  --surface-3: #221e33;
+  --ink: #f4f2fb;
+  --ink-soft: #d3cfe6;
+  --muted: #9b96b6;
+  --line: #262238;
+  --line-strong: #332d4a;
+  --ring: rgba(150, 119, 255, 0.45);
+  --glow: rgba(124, 92, 255, 0.28);
+  --shadow-color: 250 60% 2%;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-heading), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme {
+  /* VOXI violet — sampled from the logo orb */
+  --color-brand-50: #f5f2ff;
+  --color-brand-100: #ebe5ff;
+  --color-brand-200: #d8ccff;
+  --color-brand-300: #bba8ff;
+  --color-brand-400: #9a7bff;
+  --color-brand-500: #7c5cff;
+  --color-brand-600: #6a44f2;
+  --color-brand-700: #5932d6;
+  --color-brand-800: #4526a8;
+  --color-brand-900: #2d1a6e;
+  --color-brand-950: #1a0f45;
+
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.5rem;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-fade-up: fade-up 0.5s var(--ease-out-soft) both;
+  --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-scale-in: scale-in 0.25s var(--ease-out-soft) both;
+  --animate-slide-up: slide-up 0.35s var(--ease-out-soft) both;
+  --animate-slide-in-left: slide-in-left 0.3s var(--ease-out-soft) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-pulse-ring: pulse-ring 2s ease-out infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.96) translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(100%); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes slide-in-left {
+    from { transform: translateX(-100%); }
+    to { transform: none; }
+  }
+  @keyframes shimmer {
+    from { background-position: -400px 0; }
+    to { background-position: 400px 0; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-12px) rotate(2deg); }
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+    80%, 100% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+  }
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  ::selection {
+    background: var(--color-brand-200);
+    color: var(--color-brand-950);
+  }
+  *:focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+  }
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+}
+
+/* ── Reusable component classes ───────────────────────────────────────────── */
+@layer components {
+  /* The white cards everything sits on */
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+    box-shadow:
+      0 1px 2px hsl(var(--shadow-color) / 0.04),
+      0 4px 16px -6px hsl(var(--shadow-color) / 0.08);
+  }
+  .card-hover {
+    @apply transition duration-300 ease-out hover:-translate-y-0.5 hover:border-brand-200 dark:hover:border-brand-800;
+  }
+  .card-hover:hover {
+    box-shadow:
+      0 1px 2px hsl(var(--shadow-color) / 0.05),
+      0 14px 34px -12px rgba(106, 68, 242, 0.25);
+  }
+
+  .input {
+    @apply h-10 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-muted/70 transition outline-none;
+    @apply focus:border-brand-400 focus:ring-4 focus:ring-[var(--ring)];
+    @apply disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  textarea.input {
+    @apply h-auto min-h-[84px] py-2.5;
+  }
+  select.input {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%237c5cff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.7rem center;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-semibold tracking-wide text-ink-soft;
+  }
+
+  /* Data tables */
+  .table {
+    @apply w-full text-left text-sm;
+  }
+  .table thead th {
+    @apply sticky top-0 z-[1] border-b border-line bg-surface px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted whitespace-nowrap;
+  }
+  .table tbody td {
+    @apply border-b border-line/70 px-4 py-3 align-middle;
+  }
+  .table tbody tr {
+    @apply transition-colors duration-150;
+  }
+  .table tbody tr:hover {
+    @apply bg-surface-2/60;
+  }
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .skeleton {
+    @apply rounded-lg;
+    background: linear-gradient(90deg, var(--surface-2) 0px, var(--surface-3) 120px, var(--surface-2) 240px);
+    background-size: 800px 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  /* Soft purple gradient used behind headings, the logo, highlights */
+  .text-gradient {
+    background: linear-gradient(110deg, var(--color-brand-700) 0%, var(--color-brand-500) 45%, #b06bff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .dark .text-gradient {
+    background: linear-gradient(110deg, #c9b8ff 0%, var(--color-brand-400) 50%, #d48bff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  .brand-gradient {
+    background: linear-gradient(135deg, #8a6bff 0%, #6a44f2 55%, #5226d9 100%);
+  }
+
+  .glass {
+    background: color-mix(in oklab, var(--surface) 78%, transparent);
+    -webkit-backdrop-filter: saturate(160%) blur(16px);
+    backdrop-filter: saturate(160%) blur(16px);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Grid items may shrink below their content (lets wide tables scroll inside cards on phones) */
+.grid > * {
+  min-width: 0;
+}
+
+/* Stagger children: <div className="stagger"> children fade up one after another */
+.stagger > * {
+  animation: var(--animate-fade-up);
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 250ms; }
+.stagger > *:nth-child(n + 7) { animation-delay: 300ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body { background: #fff !important; }
+  .no-print { display: none !important; }
+}
