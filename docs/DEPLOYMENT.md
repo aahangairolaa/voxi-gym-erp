@@ -115,3 +115,12 @@ Devices must reach your public URL over HTTPS. See [BIOMETRIC.md](BIOMETRIC.md).
 
 Demo logins are hidden on the live site. To show them on a demo deployment, set
 `NEXT_PUBLIC_SHOW_DEMO_LOGINS=true` and seed demo data.
+
+### Our live setup (Nov 2026)
+
+- Database: **Google Cloud SQL for PostgreSQL 18**, instance `voxi-erp-db`, region **me-central1 (Doha)**,
+  database `voxi_erp`, user `voxi_app`, "Allow only SSL connections", authorised network `vercel (0.0.0.0/0)`.
+  Connection string: `postgresql://voxi_app:<password>@<public-ip>:5432/voxi_erp?sslmode=require`
+  (password: letters and numbers only, or URL-encode symbols such as `@` → `%40`).
+- Hosting: Vercel project imported from GitHub `aahangairolaa/voxi-gym-erp` (deploys on every push to `main`).
+- Domain: voxiai.co (GoDaddy DNS → Vercel).
