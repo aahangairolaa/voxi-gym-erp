@@ -289,7 +289,7 @@ export type Lead = {
 export type StaffMember = {
   id: string;
   name: string;
-  email: string;
+  email: string | null; // housekeeping staff may have none
   phone: string | null;
   role: Role;
   branchId: string | null;
@@ -408,42 +408,6 @@ export type WhatsAppMessage = {
   sentBy: string | null;
 };
 export type MessagesResponse = { messages: WhatsAppMessage[]; last30Days: Partial<Record<MessageStatus, number>> };
-
-// ── Housekeeping ────────────────────────────────────────────────────────────
-export type Shift = "MORNING" | "AFTERNOON" | "EVENING" | "ANYTIME";
-export type HousekeepingTask = {
-  id: string;
-  area: string;
-  title: string;
-  frequency: "DAILY" | "WEEKLY";
-  weekday: number | null;
-  shift: Shift;
-  isActive: boolean;
-  branchId: string | null;
-  assignedToId: string | null;
-  branch: { id: string; name: string } | null;
-  assignedTo: { id: string; name: string } | null;
-};
-export type HousekeepingToday = {
-  date: ISODate;
-  items: {
-    id: string;
-    area: string;
-    title: string;
-    shift: Shift;
-    frequency: "DAILY" | "WEEKLY";
-    branch: { id: string; name: string } | null;
-    assignedTo: { id: string; name: string } | null;
-    status: "PENDING" | "DONE" | "ISSUE";
-    logId: string | null;
-    note: string | null;
-    doneBy: string | null;
-    doneAt: ISODate | null;
-  }[];
-  progress: { total: number; done: number; issues: number; pending: number };
-  openIssues: { id: string; area: string; title: string | null; note: string | null; reportedBy: string | null; reportedAt: ISODate }[];
-  week: { date: ISODate; done: number }[];
-};
 
 // ── Activity log ────────────────────────────────────────────────────────────
 export type ActivityEntry = {

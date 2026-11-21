@@ -16,7 +16,7 @@ const ROLE_HELP: Record<Role, string> = {
   MANAGER: "All operations, reports, staff (except owners/managers)",
   RECEPTION: "Members, sales, payments, cash drawer, check-in",
   TRAINER: "Members (view), check-in, workouts, classes",
-  HOUSEKEEPING: "Cleaning checklist & reporting problems only (phone-friendly)",
+  HOUSEKEEPING: "Cleaning team — kept on your staff list (branch, phone, salary). No VOXI login needed.",
   SUPER_ADMIN: "VOXI platform team",
 };
 const blank = { name: "", email: "", phone: "", role: "RECEPTION" as Role, branchId: "", salary: "" as number | "", specialty: "", isActive: true, password: "" };
@@ -28,6 +28,7 @@ export default function StaffPage() {
   const { data, loading, reload } = useApi<{ staff: StaffMember[] }>("/api/staff");
   const [editing, setEditing] = useState<StaffMember | "new" | null>(null);
   const [form, setForm] = useState(blank);
+  const signsIn = form.role !== "HOUSEKEEPING"; // housekeeping staff don't get a VOXI login
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const allowedRoles = me.role === "OWNER" ? ROLES : (["RECEPTION", "TRAINER", "HOUSEKEEPING"] as Role[]);
@@ -37,7 +38,7 @@ export default function StaffPage() {
     if (editing === "new") setForm(blank);
     else if (editing)
       setForm({
-        name: editing.name, email: editing.email, phone: editing.phone ?? "", role: editing.role, branchId: editing.branchId ?? "",
+        name: editing.name, email: editing.email ?? "", phone: editing.phone ?? "", role: editing.role, branchId: editing.branchId ?? "",
         salary: editing.salary ?? "", specialty: editing.specialty ?? "", isActive: editing.isActive, password: "",
       });
   }, [editing]);
@@ -46,7 +47,7 @@ export default function StaffPage() {
     setSaving(true);
     setError(null);
     try {
-      const body = { ...form, phone: form.phone || null, branchId: form.branchId || null, salary: form.salary === "" ? null : form.salary, specialty: form.specialty || null };
+      const body = { ...form, email: form.email || null, password: signsIn ? form.password : "", phone: form.phone || null, branchId: form.branchId || null, salary: form.salary === "" ? null : form.salary, specialty: form.specialty || null };
       if (editing === "new") await api.post("/api/staff", body);
       else if (editing) await api.put(`/api/staff/${editing.id}`, body);
       toast("success", "Staff saved");
@@ -82,7 +83,7 @@ export default function StaffPage() {
               <Avatar name={s.name} size={46} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{s.name}</p>
-                <p className="truncate text-xs text-muted">{s.email}</p>
+                <p className="truncate text-xs text-muted">{s.role === "HOUSEKEEPING" ? s.email || "No VOXI login" : s.email}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <Badge tone={ROLE_TONE[s.role]}>{ROLE_LABEL[s.role]}</Badge>
                   {s.branch && <Badge>{s.branch.name}</Badge>}
@@ -101,8 +102,10 @@ export default function StaffPage() {
                 <p className="truncate font-medium">{s.specialty ?? s.phone ?? "—"}</p>
               </div>
               <div className="text-right">
-                <p className="text-muted">{s.salary !== null ? "Salary" : "Last login"}</p>
-                <p className="font-medium tabular-nums">{s.salary !== null ? formatQAR(s.salary) : s.lastLoginAt ? timeAgo(s.lastLoginAt) : "Never"}</p>
+                <p className="text-muted">{s.salary !== null ? "Salary" : s.role === "HOUSEKEEPING" ? "Login" : "Last login"}</p>
+                <p className="font-medium tabular-nums">
+                  {s.salary !== null ? formatQAR(s.salary) : s.role === "HOUSEKEEPING" ? "Not needed" : s.lastLoginAt ? timeAgo(s.lastLoginAt) : "Never"}
+                </p>
               </div>
             </div>
           </Card>
@@ -128,7 +131,7 @@ export default function StaffPage() {
           <Field label="Full name" required>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
-          <Field label="Email (login)" required>
+          <Field label={signsIn ? "Email (login)" : "Email (optional)"} required={signsIn}>
             <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </Field>
           <Field label="Role" hint={ROLE_HELP[form.role]}>
@@ -163,11 +166,13 @@ export default function StaffPage() {
               <Input value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} placeholder="Strength & Conditioning" />
             </Field>
           )}
-          <Field label={editing === "new" ? "Password" : "New password"} hint={editing === "new" ? "At least 8 characters" : "Leave empty to keep the current password"} required={editing === "new"}>
-            <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />
-          </Field>
+          {signsIn && (
+            <Field label={editing === "new" ? "Password" : "New password"} hint={editing === "new" ? "At least 8 characters" : "Leave empty to keep the current password"} required={editing === "new"}>
+              <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />
+            </Field>
+          )}
           <div className="sm:col-span-2">
-            <Toggle checked={form.isActive} onChange={(v) => setForm({ ...form, isActive: v })} label="Account active (can sign in)" />
+            <Toggle checked={form.isActive} onChange={(v) => setForm({ ...form, isActive: v })} label={signsIn ? "Account active (can sign in)" : "Currently working here"} />
           </div>
           {error && <p className="text-sm text-rose-600 sm:col-span-2">{error}</p>}
         </div>

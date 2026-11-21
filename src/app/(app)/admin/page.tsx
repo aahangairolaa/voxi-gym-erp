@@ -180,7 +180,7 @@ function CreateGymModal({ open, onClose, onDone }: { open: boolean; onClose: () 
       onClose={onClose}
       size="lg"
       title={created ? "Gym created 🎉" : "New gym"}
-      description={created ? "Send these login details to the owner. They should change the password after signing in." : "Creates the gym, its owner account, a first branch, starter plans, an exercise library and a cleaning checklist."}
+      description={created ? "Send these login details to the owner. They should change the password after signing in." : "Creates the gym, its owner account, a first branch, starter plans and an exercise library."}
       footer={
         created ? (
           <>

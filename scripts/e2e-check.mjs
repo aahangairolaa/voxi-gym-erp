@@ -172,22 +172,16 @@ await step("tenant isolation", async () => {
   check("Pulse dashboard", d.status === 200 && d.json?.kpis?.totalMembers === 12, d.json?.kpis?.totalMembers);
 });
 
-// ── Housekeeping role ──────────────────────────────────────────────────────
+// ── Housekeeping: a staff role without a login ────────────────────────────
 await step("housekeeping", async () => {
-  const hk = await login("housekeeping@voxi.qa");
-  check("login housekeeping → home /housekeeping", hk.json?.home === "/housekeeping", JSON.stringify(hk.json));
-  const H = { cookie: hk.cookie };
-  const t = await call("GET", "/api/housekeeping/today", H);
-  check("today's cleaning checklist", t.json?.items?.length > 0, t.text);
-  const pending = t.json?.items?.find((i) => i.status === "PENDING") ?? t.json?.items?.[0];
-  const done = await call("POST", "/api/housekeeping/logs", { ...H, body: { taskId: pending?.id, status: "DONE" } });
-  check("tick a task done", done.status === 200 && !!done.json?.id, done.text);
-  if (pending?.status === "PENDING") {
-    const undo = await call("DELETE", `/api/housekeeping/logs/${done.json?.id}`, H);
-    check("undo the tick", undo.status === 200, undo.text);
-  }
-  const blocked = await call("GET", "/api/members", H);
-  check("housekeeping can't open members (403)", blocked.status === 403, blocked.status);
+  const add = await call("POST", "/api/staff", { ...O, body: { name: "Test Cleaner", role: "HOUSEKEEPING", phone: "5500 1122", salary: 2500 } });
+  check("add housekeeping staff without email or password", add.status === 200 && add.json?.role === "HOUSEKEEPING", add.text);
+  const list = await call("GET", "/api/staff", O);
+  check("housekeeping staff appear on the team list", list.json?.staff?.some((s) => s.name === "Test Cleaner"), list.text?.slice(0, 120));
+  const noEmail = await call("POST", "/api/staff", { ...O, body: { name: "No Email Reception", role: "RECEPTION", password: "longpassword1" } });
+  check("other roles still need an email", noEmail.status === 400, noEmail.text);
+  const gone = await call("GET", "/api/housekeeping/today", O);
+  check("no separate housekeeping section", gone.status === 404, gone.status);
 });
 
 // ── VOXI platform admin ────────────────────────────────────────────────────

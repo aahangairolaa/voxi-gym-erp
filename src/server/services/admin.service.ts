@@ -9,7 +9,7 @@ import { addDays } from "@/lib/dates";
 import { db } from "../db";
 import { ApiError } from "../http";
 import { randomToken } from "../crypto";
-import { EXERCISE_LIBRARY, HOUSEKEEPING_TASKS, STARTER_PLANS, SUBSCRIPTION_PRICE } from "../gym-defaults";
+import { EXERCISE_LIBRARY, STARTER_PLANS, SUBSCRIPTION_PRICE } from "../gym-defaults";
 import type { createGymSchema, updateGymSchema } from "../validators";
 
 function slugify(name: string) {
@@ -110,15 +110,12 @@ export async function createGym(input: CreateGymInput) {
         whatsappVerifyToken: randomToken(12),
       },
     });
-    const branch = await tx.branch.create({ data: { gymId: gym.id, name: input.branchName || "Main branch", address: input.address, phone: input.phone } });
+    await tx.branch.create({ data: { gymId: gym.id, name: input.branchName || "Main branch", address: input.address, phone: input.phone } });
     await tx.staff.create({
       data: { gymId: gym.id, name: input.ownerName, email, passwordHash, googleId, role: "OWNER", branchId: null, phone: input.phone },
     });
     await tx.plan.createMany({ data: STARTER_PLANS.map((p) => ({ ...p, gymId: gym.id })) });
     await tx.exercise.createMany({ data: EXERCISE_LIBRARY.map(([name, muscleGroup, equipment]) => ({ gymId: gym.id, name, muscleGroup, equipment })) });
-    await tx.housekeepingTask.createMany({
-      data: HOUSEKEEPING_TASKS.map((t) => ({ ...t, gymId: gym.id, branchId: branch.id, weekday: t.weekday ?? null })),
-    });
     return { id: gym.id, name: gym.name, slug: gym.slug, ownerEmail: email };
   });
 }

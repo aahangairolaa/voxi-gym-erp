@@ -70,7 +70,7 @@ echo "✓ Packages installed"
 DB_VERSION=v2
 if [ "$(cat .voxi-db-ready 2>/dev/null)" != "$DB_VERSION" ]; then
   if [ -f .voxi-db-ready ]; then
-    echo; purple "This VOXI update changes the database (multiple gyms, photos, WhatsApp, housekeeping)."
+    echo; purple "This VOXI update changes the database (multiple gyms, photos, WhatsApp and more)."
     echo "The DEMO data will be wiped and re-created in 5 seconds — close this window to cancel."
     sleep 5
   fi
@@ -85,7 +85,7 @@ echo "✓ Database ready"
 # 5. Start
 echo
 purple "Starting VOXI at http://localhost:3000"
-echo "Sign in with owner@voxi.qa / voxi1234  (also: housekeeping@ · pulse@ (2nd gym) · admin@voxi.qa)"
+echo "Sign in with owner@voxi.qa / voxi1234  (also: pulse@voxi.qa = 2nd gym · admin@voxi.qa = VOXI admin)"
 echo "Keep this window open while you use VOXI. Close it (or press Ctrl+C) to stop."
 echo
 ( sleep 6; open "http://localhost:3000" ) &

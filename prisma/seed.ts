@@ -12,7 +12,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { addDays, endOfDay, startOfDay } from "../src/lib/dates";
-import { EXERCISE_LIBRARY, HOUSEKEEPING_TASKS, STARTER_PLANS } from "../src/server/gym-defaults";
+import { EXERCISE_LIBRARY, STARTER_PLANS } from "../src/server/gym-defaults";
 import { DEMO_DEVICE_KEYS, DEMO_GYM_ID, generateSeedData } from "./seed-data";
 
 const db = new PrismaClient();
@@ -57,8 +57,6 @@ async function main() {
   await insert("leads", tag(data.leads), (d) => db.lead.createMany({ data: d }));
   await insert("expenses", tag(data.expenses), (d) => db.expense.createMany({ data: d }));
   await insert("counters", tag(data.counters), (d) => db.counter.createMany({ data: d }));
-  await insert("cleaning tasks", tag(data.housekeepingTasks), (d) => db.housekeepingTask.createMany({ data: d }));
-  await insert("cleaning ticks", tag(data.housekeepingLogs), (d) => db.housekeepingLog.createMany({ data: d }));
   await insert("whatsapp log", tag(data.whatsappMessages), (d) => db.whatsAppMessage.createMany({ data: d }));
   await insert("activity log", tag(data.auditLogs), (d) => db.auditLog.createMany({ data: d }));
 
@@ -79,7 +77,6 @@ Done! Sign in at http://localhost:3000/login (password for all: ${password})
     manager@voxi.qa       Manager
     reception@voxi.qa     Reception (The Pearl)
     trainer@voxi.qa       Trainer
-    housekeeping@voxi.qa  Housekeeping (cleaning checklist)
 
   Pulse Ladies Studio (a second gym — sees only its own data)
     pulse@voxi.qa         Owner
@@ -122,7 +119,6 @@ async function seedSecondGym(passwordHash: string) {
   });
   await db.plan.createMany({ data: STARTER_PLANS.map((p, i) => ({ ...p, id: `pl_pulse_${i}`, gymId })) });
   await db.exercise.createMany({ data: EXERCISE_LIBRARY.map(([name, muscleGroup, equipment]) => ({ gymId, name, muscleGroup, equipment })) });
-  await db.housekeepingTask.createMany({ data: HOUSEKEEPING_TASKS.map((t) => ({ ...t, gymId, branchId: "br_pulse", weekday: t.weekday ?? null })) });
 
   const names = ["Aisha Al-Khater", "Sara Haddad", "Maryam Al-Marri", "Priya Nair", "Lina Saleh", "Emma Clarke", "Noora Al-Thani", "Fatima Rahman", "Reem Al-Kuwari", "Maria Santos", "Hessa Al-Naimi", "Dana Khoury"];
   let invoice = 0;

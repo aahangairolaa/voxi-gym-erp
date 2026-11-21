@@ -6,7 +6,7 @@ import type { IconType } from "react-icons";
 import {
   LuLayoutDashboard, LuUsers, LuIdCard, LuClipboardList, LuUserPlus, LuScanFace, LuFingerprint, LuDumbbell,
   LuCalendarDays, LuTrophy, LuReceipt, LuBanknote, LuWallet, LuChartColumn, LuUserCog, LuSettings,
-  LuMessageCircle, LuSparkles, LuHistory, LuBuilding2,
+  LuMessageCircle, LuHistory, LuBuilding2,
 } from "react-icons/lu";
 import type { Module } from "@/lib/permissions";
 
@@ -54,7 +54,6 @@ export const NAV: NavSection[] = [
   {
     title: "Management",
     items: [
-      { href: "/housekeeping", label: "Housekeeping", icon: LuSparkles, module: "housekeeping" },
       { href: "/staff", label: "Staff", icon: LuUserCog, module: "staff" },
       { href: "/activity", label: "Activity Log", icon: LuHistory, module: "activity" },
       { href: "/settings", label: "Settings", icon: LuSettings, module: "settings" },

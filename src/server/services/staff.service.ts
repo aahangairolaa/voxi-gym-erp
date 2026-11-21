@@ -40,7 +40,7 @@ export async function listTrainers(gymId: string) {
   return db.staff.findMany({ where: { gymId, role: "TRAINER", isActive: true }, select: { id: true, name: true, specialty: true } });
 }
 
-/** Active staff for "assign to" dropdowns (housekeeping, leads …). */
+/** Active staff for "assign to" dropdowns (leads …). */
 export async function listAssignable(gymId: string, role?: string | null) {
   return db.staff.findMany({
     where: { gymId, isActive: true, ...(role ? { role: role as never } : {}) },
@@ -53,9 +53,17 @@ export async function createStaff(input: StaffInput, session: GymSession) {
   assertCanManage(session, input.role);
   await checkBranch(session.gymId, input.branchId);
   const { password, ...data } = input;
-  if (!password) throw new ApiError(400, "Set a password for the new account (min 8 characters).");
+  const signsIn = data.role !== "HOUSEKEEPING";
+  if (signsIn && !data.email) throw new ApiError(400, "Enter an email — it's how this person signs in.");
+  if (signsIn && !password) throw new ApiError(400, "Set a password for the new account (min 8 characters).");
   return db.staff.create({
-    data: { ...data, gymId: session.gymId, passwordHash: await bcrypt.hash(password, 10) },
+    data: {
+      ...data,
+      email: data.email || null,
+      gymId: session.gymId,
+      // Housekeeping staff are kept on the team list but don't get a VOXI login
+      passwordHash: signsIn && password ? await bcrypt.hash(password, 10) : "!no-password",
+    },
     select: safeSelect,
   });
 }
@@ -69,13 +77,21 @@ export async function updateStaff(id: string, input: StaffInput, session: GymSes
     throw new ApiError(400, "You can't deactivate yourself or change your own role.");
   }
   const { password, ...data } = input;
+  const signsIn = data.role !== "HOUSEKEEPING";
+  if (signsIn && !data.email) throw new ApiError(400, "Enter an email — it's how this person signs in.");
+  if (signsIn && !password && existing.passwordHash === "!no-password" && !existing.googleId) {
+    throw new ApiError(400, "Set a password so this person can sign in (min 8 characters).");
+  }
+  const loginRemoved = !signsIn && existing.role !== "HOUSEKEEPING";
   return db.staff.update({
     where: { id },
     data: {
       ...data,
-      ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
-      // A new password or deactivation signs this person out on every device
-      ...(password || !input.isActive ? { sessionVersion: { increment: 1 } } : {}),
+      email: data.email || null,
+      ...(signsIn && password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+      ...(!signsIn ? { passwordHash: "!no-password" } : {}),
+      // A new password, deactivation or losing the login signs this person out on every device
+      ...(password || !input.isActive || loginRemoved ? { sessionVersion: { increment: 1 } } : {}),
     },
     select: safeSelect,
   });

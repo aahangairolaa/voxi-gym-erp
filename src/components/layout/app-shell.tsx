@@ -27,11 +27,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => setMenuOpen(false), [pathname]);
 
-  // Send people away from pages their role can't use (e.g. housekeeping opening /payments)
+  // Send people away from pages their role can't use (e.g. a trainer opening /payments)
   const mod = moduleForPath(pathname);
   // (/settings is open to everyone for "change my password"; only owners can edit the gym there)
   const blocked =
-    !!user && (mod ? !can(user.role, mod) : pathname !== "/settings" && (user.role === "SUPER_ADMIN" || user.role === "HOUSEKEEPING"));
+    !!user && (mod ? !can(user.role, mod) : pathname !== "/settings" && user.role === "SUPER_ADMIN");
   useEffect(() => {
     if (user && blocked) router.replace(homeFor(user.role));
   }, [user, blocked, router]);

@@ -14,7 +14,7 @@ export const NO_PASSWORD = "!no-password";
 type StaffForSession = {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   role: Session["role"];
   gymId: string | null;
   branchId: string | null;
@@ -25,7 +25,7 @@ export function sessionFor(staff: StaffForSession): Session {
   return {
     staffId: staff.id,
     name: staff.name,
-    email: staff.email,
+    email: staff.email ?? "",
     role: staff.role,
     gymId: staff.role === "SUPER_ADMIN" ? null : staff.gymId,
     branchId: staff.branchId,
@@ -35,6 +35,7 @@ export function sessionFor(staff: StaffForSession): Session {
 
 /** Throws a friendly error if this account may not sign in right now. */
 function assertCanSignIn(staff: { isActive: boolean; role: string; gymId: string | null; gym: { status: string } | null }) {
+  if (staff.role === "HOUSEKEEPING") throw new ApiError(403, "Housekeeping team members don't have a VOXI login.");
   if (!staff.isActive) throw new ApiError(403, "This account has been deactivated. Ask your manager.");
   if (staff.role !== "SUPER_ADMIN" && !staff.gymId) throw new ApiError(403, "This account isn't attached to a gym.");
   if (staff.gym?.status === "SUSPENDED") throw new ApiError(403, "Your gym's VOXI account is suspended. Please contact VOXI.");
@@ -47,7 +48,7 @@ export async function login(email: string, password: string): Promise<Session> {
     throw new ApiError(429, `Too many wrong passwords. Try again in ${mins} minute${mins === 1 ? "" : "s"}, or reset your password.`);
   }
   // Same message for "no such user" and "wrong password" so emails can't be guessed
-  if (!staff || !(await bcrypt.compare(password, staff.passwordHash))) {
+  if (!staff || staff.role === "HOUSEKEEPING" || !(await bcrypt.compare(password, staff.passwordHash))) {
     if (staff) {
       const failed = staff.failedLogins + 1;
       await db.staff.update({
@@ -115,8 +116,8 @@ const hashToken = (t: string) => createHash("sha256").update(t).digest("hex");
 /** Always answers the same way, so nobody can find out which emails have accounts. */
 export async function requestPasswordReset(email: string, origin: string) {
   if (!emailEnabled()) return { emailEnabled: false };
-  const staff = await db.staff.findUnique({ where: { email }, select: { id: true, name: true, email: true, isActive: true } });
-  if (staff?.isActive) {
+  const staff = await db.staff.findUnique({ where: { email }, select: { id: true, name: true, email: true, isActive: true, role: true } });
+  if (staff?.isActive && staff.email && staff.role !== "HOUSEKEEPING") {
     const recent = await db.passwordReset.count({ where: { staffId: staff.id, createdAt: { gt: new Date(Date.now() - 15 * 60_000) } } });
     if (recent < 3) {
       const token = randomBytes(32).toString("base64url");

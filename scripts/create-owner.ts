@@ -8,7 +8,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
-import { EXERCISE_LIBRARY, HOUSEKEEPING_TASKS, STARTER_PLANS } from "../src/server/gym-defaults";
+import { EXERCISE_LIBRARY, STARTER_PLANS } from "../src/server/gym-defaults";
 
 const db = new PrismaClient();
 const args = process.argv.slice(2);
@@ -35,11 +35,10 @@ async function main() {
 
   const gym = await db.$transaction(async (tx) => {
     const g = await tx.gym.create({ data: { name: gymName, slug, status: "ACTIVE", whatsappVerifyToken: randomBytes(12).toString("base64url") } });
-    const b = await tx.branch.create({ data: { gymId: g.id, name: branchName } });
+    await tx.branch.create({ data: { gymId: g.id, name: branchName } });
     await tx.staff.create({ data: { gymId: g.id, email: email.toLowerCase(), name, role: "OWNER", passwordHash } });
     await tx.plan.createMany({ data: STARTER_PLANS.map((p) => ({ ...p, gymId: g.id })) });
     await tx.exercise.createMany({ data: EXERCISE_LIBRARY.map(([n, muscleGroup, equipment]) => ({ gymId: g.id, name: n, muscleGroup, equipment })) });
-    await tx.housekeepingTask.createMany({ data: HOUSEKEEPING_TASKS.map((t) => ({ ...t, gymId: g.id, branchId: b.id, weekday: t.weekday ?? null })) });
     return g;
   });
   console.log(`✓ Gym "${gym.name}" and owner ${email} created. Sign in, then adjust plans, staff and settings.`);

@@ -25,7 +25,6 @@ export type Module =
   | "reports"
   | "leads"
   | "messages"
-  | "housekeeping"
   | "staff"
   | "activity"
   | "settings"
@@ -51,7 +50,6 @@ export const ACCESS: Record<Module, Role[]> = {
   reports: MANAGEMENT,
   leads: FRONT_DESK,
   messages: FRONT_DESK,
-  housekeeping: ["OWNER", "MANAGER", "HOUSEKEEPING"],
   staff: MANAGEMENT,
   activity: MANAGEMENT,
   settings: ["OWNER"],
@@ -74,7 +72,6 @@ export const ROLE_LABEL: Record<Role, string> = {
 /** The page each role lands on after signing in. */
 export function homeFor(role: Role): string {
   if (role === "SUPER_ADMIN") return "/admin";
-  if (role === "HOUSEKEEPING") return "/housekeeping";
   return "/dashboard";
 }
 
@@ -95,7 +92,6 @@ export const PATH_MODULE: [string, Module][] = [
   ["/expenses", "expenses"],
   ["/reports", "reports"],
   ["/messages", "messages"],
-  ["/housekeeping", "housekeeping"],
   ["/staff", "staff"],
   ["/activity", "activity"],
   ["/admin", "admin"],

@@ -128,7 +128,7 @@ export default function RegisterPage() {
           Create my gym <LuArrowRight className="h-4 w-4" />
         </Button>
         <ul className="space-y-1.5 pt-2 text-xs text-muted">
-          {["Starter plans, exercise library and cleaning checklist ready to go", "Add your team, import members, connect WhatsApp", "Your data stays yours — export it anytime"].map((t) => (
+          {["Starter plans in QAR and an exercise library ready to go", "Add your team, import members, connect WhatsApp", "Your data stays yours — export it anytime"].map((t) => (
             <li key={t} className="flex items-center gap-2">
               <LuCircleCheck className="h-3.5 w-3.5 text-emerald-500" /> {t}
             </li>

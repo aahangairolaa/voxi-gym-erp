@@ -68,13 +68,13 @@ for h in "$DIRECT_HOST" "$POOLED_HOST"; do
   done
 done
 
-DB_VERSION=v2   # bump when the database layout changes (v2 = multi-gym, photos, WhatsApp, housekeeping)
+DB_VERSION=v2   # bump when the database layout changes (v2 = multi-gym, photos, WhatsApp)
 if [ "$(cat .voxi-db-ready 2>/dev/null)" = "$DB_VERSION" ]; then
   echo "Tables and demo data already match this version of VOXI — skipping."
 else
   if [ -f .voxi-db-ready ]; then
     step "Upgrade the database to the new VOXI layout"
-    echo "This version adds multiple gyms, member photos, WhatsApp, housekeeping and more."
+    echo "This version adds multiple gyms, member photos, WhatsApp and more."
     echo "The DEMO data will be wiped and re-created in 5 seconds (close this window to cancel)."
     sleep 5
   else
@@ -112,7 +112,7 @@ node scripts/e2e-check.mjs http://localhost:3000 || echo "(some checks failed �
 
 step "Done"
 echo "VOXI is running on Neon at http://localhost:3000"
-echo "Sign in (password voxi1234): owner@voxi.qa · housekeeping@voxi.qa · pulse@voxi.qa (2nd gym) · admin@voxi.qa (VOXI admin)"
+echo "Sign in (password voxi1234): owner@voxi.qa · pulse@voxi.qa (2nd gym) · admin@voxi.qa (VOXI admin)"
 echo "Keep this window open while you use it; close it to stop the app."
 echo "SETUP_RESULT=COMPLETE"
 open http://localhost:3000

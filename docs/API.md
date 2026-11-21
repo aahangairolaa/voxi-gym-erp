@@ -58,11 +58,7 @@ Money is whole **QAR**. Dates are ISO strings (UTC); date filters accept `YYYY-M
 | POST | `/api/leads/:id/convert` | Create member from lead |
 | GET / POST | `/api/staff` | List / create |
 | PUT | `/api/staff/:id` | Update (empty password = unchanged) |
-| GET | `/api/staff/trainers` | Trainer dropdown (`?role=HOUSEKEEPING` → other staff) |
-| GET | `/api/housekeeping/today?mine=1` | Today's checklist, progress, open problems, 7-day chart |
-| GET / POST | `/api/housekeeping/tasks` · PUT / DELETE `/api/housekeeping/tasks/:id` | Cleaning tasks (owner/manager edit) |
-| POST | `/api/housekeeping/logs` | `{ taskId?, status: "DONE" \| "ISSUE", note?, area? }` |
-| DELETE / POST | `/api/housekeeping/logs/:id` | Undo a tick / mark a problem fixed |
+| GET | `/api/staff/trainers` | Trainer dropdown (`?role=ALL` → all active staff) |
 | GET | `/api/activity?staffId=&area=` | Activity log (owner/manager) |
 | * | `/api/whatsapp/*` | See [WHATSAPP.md](WHATSAPP.md) |
 | GET / POST | `/api/admin/gyms` · PUT `/api/admin/gyms/:id` | VOXI admin: list / create gym + owner / change plan, status, trial |

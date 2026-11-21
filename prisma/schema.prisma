@@ -146,22 +146,8 @@ enum MessageStatus {
   OPENED // LINK: WhatsApp was opened with the message ready
 }
 
-enum TaskFrequency {
-  DAILY
-  WEEKLY
-}
 
-enum Shift {
-  MORNING
-  AFTERNOON
-  EVENING
-  ANYTIME
-}
 
-enum TaskLogStatus {
-  DONE
-  ISSUE
-}
 
 // ── Gyms (tenants) ───────────────────────────────────────────────────────────
 
@@ -220,8 +206,6 @@ model Gym {
   classes          GymClass[]
   leads            Lead[]
   messages         WhatsAppMessage[]
-  housekeepingTasks HousekeepingTask[]
-  housekeepingLogs HousekeepingLog[]
   auditLogs        AuditLog[]
 }
 
@@ -242,7 +226,6 @@ model Branch {
   devices           BiometricDevice[]
   classes           GymClass[]
   expenses          Expense[]
-  housekeepingTasks HousekeepingTask[]
 
   @@index([gymId])
 }
@@ -265,7 +248,7 @@ model Staff {
   gymId        String?
   gym          Gym?      @relation(fields: [gymId], references: [id], onDelete: Cascade)
   name         String
-  email        String    @unique
+  email        String?   @unique // sign-in email; housekeeping staff don't sign in and may have none
   phone        String?
   passwordHash String
   role         Role      @default(RECEPTION)
@@ -292,8 +275,6 @@ model Staff {
   leads             Lead[]
   expenses          Expense[]
   messagesSent      WhatsAppMessage[]
-  housekeepingTasks HousekeepingTask[]
-  housekeepingLogs  HousekeepingLog[]
   auditLogs         AuditLog[]
 
   @@index([gymId])
@@ -676,49 +657,6 @@ model WhatsAppMessage {
   @@index([gymId, createdAt])
   @@index([gymId, memberId, type])
   @@index([providerId])
-}
-
-// ── Housekeeping ─────────────────────────────────────────────────────────────
-
-/// A recurring cleaning / upkeep task, e.g. "Sanitise cardio machines".
-model HousekeepingTask {
-  id           String        @id @default(cuid())
-  gymId        String
-  gym          Gym           @relation(fields: [gymId], references: [id], onDelete: Cascade)
-  branchId     String?
-  branch       Branch?       @relation(fields: [branchId], references: [id])
-  area         String // Gym floor, Ladies locker room …
-  title        String
-  frequency    TaskFrequency @default(DAILY)
-  weekday      Int? // for WEEKLY tasks: 0 = Sunday … 6 = Saturday
-  shift        Shift         @default(ANYTIME)
-  assignedToId String?
-  assignedTo   Staff?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-
-  logs HousekeepingLog[]
-
-  @@index([gymId])
-}
-
-/// A task being done (or a problem reported) on a given day.
-model HousekeepingLog {
-  id            String           @id @default(cuid())
-  gymId         String
-  gym           Gym              @relation(fields: [gymId], references: [id], onDelete: Cascade)
-  taskId        String?
-  task          HousekeepingTask? @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  day           DateTime // start of the Qatar day it counts for
-  status        TaskLogStatus
-  note          String?
-  area          String? // for issues reported without a task
-  completedById String?
-  completedBy   Staff?           @relation(fields: [completedById], references: [id], onDelete: SetNull)
-  resolvedAt    DateTime? // for issues
-  createdAt     DateTime         @default(now())
-
-  @@index([gymId, day])
 }
 
 // ── Activity log ─────────────────────────────────────────────────────────────

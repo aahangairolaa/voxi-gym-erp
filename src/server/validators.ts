@@ -264,7 +264,8 @@ export const leadSchema = z.object({
 // ── Staff ────────────────────────────────────────────────────────────────────
 export const staffSchema = z.object({
   name: str(100).min(1),
-  email: z.string().trim().toLowerCase().email(),
+  /** Required for everyone who signs in; housekeeping staff don't sign in, so it's optional for them. */
+  email: z.string().trim().toLowerCase().email("Enter a valid email").optional().nullable().or(z.literal("").transform(() => null)),
   phone: optStr(20),
   role,
   branchId: optId,
@@ -357,25 +358,6 @@ export const whatsappConfigSchema = z.object({
   accessToken: z.string().trim().max(1000).nullable().optional(),
   appSecret: z.string().trim().max(200).nullable().optional(),
   templates: z.record(messageType, templateConfig).optional(),
-});
-
-// ── Housekeeping ─────────────────────────────────────────────────────────────
-export const housekeepingTaskSchema = z.object({
-  area: str(60).min(1, "Choose an area"),
-  title: str(120).min(1, "Describe the task"),
-  frequency: z.enum(["DAILY", "WEEKLY"]).default("DAILY"),
-  weekday: z.coerce.number().int().min(0).max(6).optional().nullable(),
-  shift: z.enum(["MORNING", "AFTERNOON", "EVENING", "ANYTIME"]).default("ANYTIME"),
-  branchId: optId,
-  assignedToId: optId,
-  isActive: z.boolean().default(true),
-});
-
-export const housekeepingLogSchema = z.object({
-  taskId: optId,
-  status: z.enum(["DONE", "ISSUE"]),
-  note: optStr(500),
-  area: optStr(60),
 });
 
 // ── VOXI admin (gyms) ────────────────────────────────────────────────────────

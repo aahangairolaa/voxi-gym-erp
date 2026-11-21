@@ -48,7 +48,6 @@ Open **http://localhost:3000** → landing page. Click **Sign in** and use a dem
 | `manager@voxi.qa` | Manager | Operations, reports, staff |
 | `reception@voxi.qa` | Reception | Members, sales, payments, cash drawer, check-in |
 | `trainer@voxi.qa` | Trainer | Members (view), check-in, workouts, classes |
-| `housekeeping@voxi.qa` | Housekeeping | Today's cleaning checklist & problem reports only |
 | `pulse@voxi.qa` | Owner of **Pulse Ladies Studio** | A second gym — sees only its own data |
 | `admin@voxi.qa` | VOXI admin | All gyms on `/admin` (create gyms, plans, trials, suspend) — no member details |
 
@@ -175,7 +174,8 @@ Short version (full guide in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)):
 - **Many gyms in one VOXI** (multi-tenant): every record belongs to a gym and every query is filtered by
   the signed-in person's gym. VOXI admins create gyms, set plans/trials and suspend gyms on `/admin`
 - Gym profiles: logo, brand colour, opening hours, Instagram — used on invoices, the sidebar and member cards
-- Role-based login (Owner, Manager, Reception, Trainer, **Housekeeping**, VOXI admin) with secure httpOnly cookies
+- Role-based login (Owner, Manager, Reception, Trainer, VOXI admin) with secure httpOnly cookies, plus a
+  **Housekeeping** staff role (on the team list with branch, phone and salary — no login needed)
 - **Member photos**: upload or take with the webcam/phone camera; shown at check-in, in lists and on cards
 - **Digital member card + QR**: a public link (`/c/<token>`) members save on their phone; reception scans
   the QR with the camera (Attendance → Scan QR) or a USB scanner. Cards can be re-issued
@@ -185,8 +185,6 @@ Short version (full guide in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)):
   Tokens are stored encrypted. Full message log on `/messages` ([`docs/WHATSAPP.md`](docs/WHATSAPP.md))
 - **Dashboard**: renewal reminders (ending soon / recently expired, last reminded) and celebrations
   (birthdays this week, 10th/25th/50th… visit milestones)
-- **Housekeeping**: daily/weekly cleaning tasks by area & shift, phone-friendly checklist, problem reports,
-  manager view with progress and a 7-day chart
 - **Activity log**: who sold, refunded, deleted, overrode or changed settings, and when
 - **Accounts**: self-service sign-up (14-day free trial with starter data), “Continue with Google”
   (when Google keys are set), forgot-password emails (when Resend is set), lockout after 5 wrong

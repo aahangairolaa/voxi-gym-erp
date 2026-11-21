@@ -40,7 +40,6 @@ const ICONS: Record<string, IconType> = {
   class: LuCalendarDays,
   lead: LuUserPlus,
   device: LuFingerprint,
-  housekeeping: LuSparkles,
   report: LuDownload,
 };
 const LINKS: Record<string, (id: string) => string> = {

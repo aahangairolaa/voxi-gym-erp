@@ -21,18 +21,5 @@ export const EXERCISE_LIBRARY: [name: string, muscleGroup: string, equipment: st
   ["Rowing Machine", "Cardio", "Machine"], ["Assault Bike", "Cardio", "Machine"], ["Incline Treadmill Walk", "Cardio", "Machine"],
 ];
 
-export const HOUSEKEEPING_TASKS: { area: string; title: string; shift: "MORNING" | "AFTERNOON" | "EVENING" | "ANYTIME"; frequency: "DAILY" | "WEEKLY"; weekday?: number }[] = [
-  { area: "Gym floor", title: "Wipe & sanitise all cardio machines", shift: "MORNING", frequency: "DAILY" },
-  { area: "Gym floor", title: "Re-rack dumbbells and plates", shift: "AFTERNOON", frequency: "DAILY" },
-  { area: "Gym floor", title: "Vacuum and mop the floor", shift: "EVENING", frequency: "DAILY" },
-  { area: "Men's locker room", title: "Clean showers and restock soap", shift: "MORNING", frequency: "DAILY" },
-  { area: "Men's locker room", title: "Empty bins and replace towels", shift: "EVENING", frequency: "DAILY" },
-  { area: "Ladies' locker room", title: "Clean showers and restock soap", shift: "MORNING", frequency: "DAILY" },
-  { area: "Ladies' locker room", title: "Empty bins and replace towels", shift: "EVENING", frequency: "DAILY" },
-  { area: "Studios", title: "Clean mats, bikes and mirrors", shift: "AFTERNOON", frequency: "DAILY" },
-  { area: "Reception", title: "Dust counter, refill water station", shift: "MORNING", frequency: "DAILY" },
-  { area: "Whole gym", title: "Deep-clean air-con vents", shift: "ANYTIME", frequency: "WEEKLY", weekday: 5 },
-];
-
 /** Monthly VOXI subscription price per plan (QAR) — keep in sync with the pricing page. */
 export const SUBSCRIPTION_PRICE = { ESSENTIAL: 549, PROFESSIONAL: 1099, ELITE: 1999 } as const;

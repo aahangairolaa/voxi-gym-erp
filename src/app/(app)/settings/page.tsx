@@ -15,8 +15,8 @@ export default function SettingsPage() {
   const confirm = useConfirm();
   const toast = useToast();
   const isOwner = can(user.role, "settings");
-  // VOXI admins and housekeeping staff only use this page to change their password
-  const gymStaff = !!user.gymId && user.role !== "HOUSEKEEPING";
+  // VOXI admins only use this page to change their password
+  const gymStaff = !!user.gymId;
   const settings = useApi<Settings>(gymStaff ? "/api/settings" : null);
   const branches = useApi<{ branches: Branch[] }>(gymStaff ? "/api/branches" : null);
   const [branchEdit, setBranchEdit] = useState<Branch | "new" | null>(null);

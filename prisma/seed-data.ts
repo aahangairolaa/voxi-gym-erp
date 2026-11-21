@@ -5,7 +5,6 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import { addDays, endOfDay, qatarParts, startOfDay } from "../src/lib/dates";
-import { HOUSEKEEPING_TASKS } from "../src/server/gym-defaults";
 
 export const DEMO_GYM_ID = "gym_voxi";
 const qrToken = () => randomBytes(18).toString("base64url");
@@ -81,9 +80,15 @@ export function generateSeedData(passwordHash: string) {
     { id: "st_tr2", name: "Coach Elena Petrova", email: "elena@voxi.qa", role: "TRAINER", branchId: "br_pearl", salary: 11500, specialty: "Pilates & Mobility", phone: "+974 5500 0006" },
     { id: "st_tr3", name: "Coach Marcus Reid", email: "marcus@voxi.qa", role: "TRAINER", branchId: "br_lusail", salary: 11000, specialty: "Boxing & HIIT", phone: "+974 5500 0007" },
     { id: "st_tr4", name: "Coach Hessa Al-Sada", email: "hessa@voxi.qa", role: "TRAINER", branchId: "br_lusail", salary: 11000, specialty: "Ladies Fitness", phone: "+974 5500 0008" },
-    { id: "st_hk1", name: "Maricel Dela Cruz", email: "housekeeping@voxi.qa", role: "HOUSEKEEPING", branchId: "br_pearl", salary: 2800, specialty: null, phone: "+974 5500 0009" },
-    { id: "st_hk2", name: "Suresh Bhandari", email: "suresh@voxi.qa", role: "HOUSEKEEPING", branchId: "br_lusail", salary: 2600, specialty: null, phone: "+974 5500 0010" },
-  ].map((s) => ({ ...s, passwordHash, isActive: true, role: s.role as "OWNER" | "MANAGER" | "RECEPTION" | "TRAINER" | "HOUSEKEEPING" }));
+    { id: "st_hk1", name: "Maricel Dela Cruz", email: null, role: "HOUSEKEEPING", branchId: "br_pearl", salary: 2800, specialty: null, phone: "+974 5500 0009" },
+    { id: "st_hk2", name: "Suresh Bhandari", email: null, role: "HOUSEKEEPING", branchId: "br_lusail", salary: 2600, specialty: null, phone: "+974 5500 0010" },
+  ].map((s) => ({
+    ...s,
+    // Housekeeping staff are on the team list but don't sign in
+    passwordHash: s.role === "HOUSEKEEPING" ? "!no-password" : passwordHash,
+    isActive: true,
+    role: s.role as "OWNER" | "MANAGER" | "RECEPTION" | "TRAINER" | "HOUSEKEEPING",
+  }));
   const trainers = staff.filter((s) => s.role === "TRAINER");
 
   // ── Plans (QAR) ────────────────────────────────────────────────────────────
@@ -431,41 +436,6 @@ export function generateSeedData(passwordHash: string) {
     m.dateOfBirth = new Date(Date.UTC(todayParts.year - int(22, 45), p.month, p.day));
   });
 
-  // ── Housekeeping: tasks, this week's ticks, two open problems ─────────────
-  const housekeepingTasks = branches.flatMap((b) =>
-    HOUSEKEEPING_TASKS.map((t) => ({
-      id: id("hkt"),
-      branchId: b.id,
-      area: t.area,
-      title: t.title,
-      shift: t.shift,
-      frequency: t.frequency,
-      weekday: t.weekday ?? null,
-      assignedToId: t.shift === "EVENING" ? null : b.id === "br_pearl" ? "st_hk1" : "st_hk2",
-      isActive: true,
-    })),
-  );
-  const housekeepingLogs: Record<string, unknown>[] = [];
-  for (let d = 6; d >= 0; d--) {
-    const day = addDays(today, -d);
-    const weekday = qatarParts(day).weekday;
-    for (const t of housekeepingTasks) {
-      if (t.frequency === "WEEKLY" && t.weekday !== weekday) continue;
-      const hour = t.shift === "MORNING" ? 7 : t.shift === "AFTERNOON" ? 14 : t.shift === "EVENING" ? 21 : 11;
-      if (d === 0 && hour > nowHour) continue; // not yet today
-      if (!chance(d === 0 ? 0.8 : 0.93)) continue;
-      const at_ = at(day, hour, int(0, 50));
-      housekeepingLogs.push({
-        id: id("hkl"), taskId: t.id, day, status: "DONE", note: null, area: t.area,
-        completedById: t.branchId === "br_pearl" ? "st_hk1" : "st_hk2", createdAt: at_,
-      });
-    }
-  }
-  housekeepingLogs.push(
-    { id: id("hkl"), taskId: null, day: today, status: "ISSUE", note: "Treadmill 3 belt is slipping", area: "Gym floor", completedById: "st_hk1", createdAt: at(today, Math.max(6, nowHour - 2), 10) },
-    { id: id("hkl"), taskId: null, day: addDays(today, -1), status: "ISSUE", note: "Ladies' shower 2 drain is blocked", area: "Ladies' locker room", completedById: "st_hk2", createdAt: at(addDays(today, -1), 9, 40) },
-  );
-
   // ── WhatsApp log & activity log (recent examples) ─────────────────────────
   const whatsappMessages: Record<string, unknown>[] = [];
   const auditLogs: Record<string, unknown>[] = [];
@@ -510,6 +480,6 @@ export function generateSeedData(passwordHash: string) {
     gym, branches, staff, plans, members, memberships,
     payments: payments.map(({ branchId: _b, ...p }) => ({ cashSessionId: null, ...p })),
     devices, attendance, events, cashSessions, exercises, workoutPlans, workoutItems, workoutLogs,
-    classes, bookings, leads, expenses, counters, housekeepingTasks, housekeepingLogs, whatsappMessages, auditLogs,
+    classes, bookings, leads, expenses, counters, whatsappMessages, auditLogs,
   };
 }

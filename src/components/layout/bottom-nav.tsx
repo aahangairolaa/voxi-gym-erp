@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LuLayoutDashboard, LuUsers, LuScanFace, LuReceipt, LuMenu, LuSparkles, LuBuilding2 } from "react-icons/lu";
+import { LuLayoutDashboard, LuUsers, LuScanFace, LuReceipt, LuMenu, LuBuilding2 } from "react-icons/lu";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useUser } from "./session-context";
@@ -19,12 +19,12 @@ export function BottomNav({ onMenu }: { onMenu: () => void }) {
       </Link>
     );
   };
-  // Housekeeping staff and VOXI admins get a simpler bar
-  if (user.role === "HOUSEKEEPING" || user.role === "SUPER_ADMIN") {
+  // VOXI admins get a simpler bar
+  if (user.role === "SUPER_ADMIN") {
     return (
       <nav className="glass fixed inset-x-0 bottom-0 z-30 border-t border-line pb-[env(safe-area-inset-bottom)] lg:hidden">
         <div className="flex items-end px-2">
-          {user.role === "HOUSEKEEPING" ? tab("/housekeeping", "Today", LuSparkles) : tab("/admin", "Gyms", LuBuilding2)}
+          {tab("/admin", "Gyms", LuBuilding2)}
           <button onClick={onMenu} className="flex flex-1 flex-col items-center gap-1 py-2 text-[10.5px] font-semibold text-muted">
             <LuMenu className="h-5 w-5" />
             More
