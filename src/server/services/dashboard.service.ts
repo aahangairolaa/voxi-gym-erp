@@ -1,17 +1,17 @@
 import { addDays, addMonths, monthKey, qatarParts, startOfDay, startOfMonth } from "@/lib/dates";
 import { db } from "../db";
-import { daysLeft, fullName, getWarnDays } from "./_shared";
+import { daysLeft, fullName, getWarnDays, memberPhotoUrl } from "./_shared";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export async function getDashboard() {
+export async function getDashboard(gymId: string) {
   const now = new Date();
   const today = startOfDay(now);
   const monthStart = startOfMonth(now);
   const lastMonthStart = addMonths(now, -1);
   const sixMonthsAgo = addMonths(now, -5);
   const twoWeeksAgo = addDays(today, -13);
-  const warnDays = await getWarnDays();
+  const warnDays = await getWarnDays(gymId);
 
   const [
     runningMemberships,
@@ -29,7 +29,7 @@ export async function getDashboard() {
     openLeads,
   ] = await Promise.all([
     db.membership.findMany({
-      where: { status: { in: ["ACTIVE", "FROZEN"] }, endDate: { gte: today } },
+      where: { gymId, status: { in: ["ACTIVE", "FROZEN"] }, endDate: { gte: today } },
       select: {
         memberId: true,
         status: true,
@@ -38,31 +38,33 @@ export async function getDashboard() {
         member: { select: { firstName: true, lastName: true, code: true, phone: true } },
       },
     }),
-    db.member.count(),
-    db.member.count({ where: { createdAt: { gte: monthStart } } }),
-    db.payment.aggregate({ where: { status: "PAID", paidAt: { gte: monthStart } }, _sum: { amount: true } }),
+    db.member.count({ where: { gymId } }),
+    db.member.count({ where: { gymId, createdAt: { gte: monthStart } } }),
+    db.payment.aggregate({ where: { gymId, status: "PAID", paidAt: { gte: monthStart } }, _sum: { amount: true } }),
     // Same number of days last month, so mid-month comparisons are fair
-    db.payment.aggregate({ where: { status: "PAID", paidAt: { gte: lastMonthStart, lt: new Date(lastMonthStart.getTime() + (now.getTime() - monthStart.getTime())) } }, _sum: { amount: true } }),
-    db.attendance.count({ where: { checkInAt: { gte: today } } }),
-    db.attendance.count({ where: { checkInAt: { gte: today }, checkOutAt: null } }),
-    db.payment.findMany({ where: { status: "PAID", paidAt: { gte: sixMonthsAgo } }, select: { amount: true, paidAt: true } }),
-    db.attendance.findMany({ where: { checkInAt: { gte: twoWeeksAgo } }, select: { checkInAt: true } }),
+    db.payment.aggregate({ where: { gymId, status: "PAID", paidAt: { gte: lastMonthStart, lt: new Date(lastMonthStart.getTime() + (now.getTime() - monthStart.getTime())) } }, _sum: { amount: true } }),
+    db.attendance.count({ where: { gymId, checkInAt: { gte: today } } }),
+    db.attendance.count({ where: { gymId, checkInAt: { gte: today }, checkOutAt: null } }),
+    db.payment.findMany({ where: { gymId, status: "PAID", paidAt: { gte: sixMonthsAgo } }, select: { amount: true, paidAt: true } }),
+    db.attendance.findMany({ where: { gymId, checkInAt: { gte: twoWeeksAgo } }, select: { checkInAt: true } }),
     db.payment.findMany({
+      where: { gymId },
       orderBy: { paidAt: "desc" },
       take: 6,
       include: { member: { select: { id: true, firstName: true, lastName: true } }, membership: { select: { plan: { select: { name: true } } } } },
     }),
     db.attendance.findMany({
+      where: { gymId },
       orderBy: { checkInAt: "desc" },
       take: 6,
-      include: { member: { select: { id: true, firstName: true, lastName: true, code: true } } },
+      include: { member: { select: { id: true, firstName: true, lastName: true, code: true, photoUpdatedAt: true } } },
     }),
     db.gymClass.findMany({
-      where: { startsAt: { gte: today, lt: addDays(today, 1) } },
+      where: { gymId, startsAt: { gte: today, lt: addDays(today, 1) } },
       orderBy: { startsAt: "asc" },
       include: { trainer: { select: { name: true } }, _count: { select: { bookings: { where: { status: { not: "CANCELLED" } } } } } },
     }),
-    db.lead.count({ where: { status: { in: ["NEW", "CONTACTED", "TRIAL"] } } }),
+    db.lead.count({ where: { gymId, status: { in: ["NEW", "CONTACTED", "TRIAL"] } } }),
   ]);
 
   // Keep only each member's latest running membership
@@ -153,7 +155,7 @@ export async function getDashboard() {
       checkInAt: v.checkInAt,
       checkOutAt: v.checkOutAt,
       source: v.source,
-      member: { id: v.member.id, code: v.member.code, name: fullName(v.member) },
+      member: { id: v.member.id, code: v.member.code, name: fullName(v.member), photoUrl: memberPhotoUrl(v.member) },
     })),
     classesToday: classesToday.map((c) => ({
       id: c.id,

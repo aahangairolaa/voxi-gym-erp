@@ -109,7 +109,7 @@ export default function MembersPage() {
                     <tr key={m.id} className="cursor-pointer" onClick={() => router.push(`/members/${m.id}`)}>
                       <td>
                         <div className="flex items-center gap-3">
-                          <Avatar name={m.name} size={34} />
+                          <Avatar name={m.name} src={m.photoUrl} size={34} />
                           <div className="min-w-0">
                             <Link href={`/members/${m.id}`} className="block truncate font-semibold text-ink hover:text-brand-600" onClick={(e) => e.stopPropagation()}>
                               {m.name}
@@ -152,7 +152,7 @@ export default function MembersPage() {
               {page.visible.map((m) => (
                 <li key={m.id}>
                   <Link href={`/members/${m.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-surface-2">
-                    <Avatar name={m.name} size={40} />
+                    <Avatar name={m.name} src={m.photoUrl} size={40} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-ink">{m.name}</p>
                       <p className="truncate text-xs text-muted">

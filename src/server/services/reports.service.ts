@@ -15,16 +15,16 @@ function monthBuckets(from: Date, to: Date) {
   return out;
 }
 
-export async function getReport(from: Date, to: Date) {
+export async function getReport(gymId: string, from: Date, to: Date) {
   const [payments, expenses, newMembers, visits, sales] = await Promise.all([
     db.payment.findMany({
-      where: { status: "PAID", paidAt: { gte: from, lte: to } },
+      where: { gymId, status: "PAID", paidAt: { gte: from, lte: to } },
       select: { amount: true, method: true, paidAt: true, membership: { select: { plan: { select: { name: true } } } } },
     }),
-    db.expense.findMany({ where: { spentAt: { gte: from, lte: to } }, select: { amount: true, category: true, spentAt: true } }),
-    db.member.findMany({ where: { createdAt: { gte: from, lte: to } }, select: { createdAt: true } }),
-    db.attendance.findMany({ where: { checkInAt: { gte: from, lte: to } }, select: { checkInAt: true, memberId: true } }),
-    db.membership.groupBy({ by: ["planId"], where: { createdAt: { gte: from, lte: to } }, _count: { _all: true } }),
+    db.expense.findMany({ where: { gymId, spentAt: { gte: from, lte: to } }, select: { amount: true, category: true, spentAt: true } }),
+    db.member.findMany({ where: { gymId, createdAt: { gte: from, lte: to } }, select: { createdAt: true } }),
+    db.attendance.findMany({ where: { gymId, checkInAt: { gte: from, lte: to } }, select: { checkInAt: true, memberId: true } }),
+    db.membership.groupBy({ by: ["planId"], where: { gymId, createdAt: { gte: from, lte: to } }, _count: { _all: true } }),
   ]);
 
   const months = monthBuckets(from, to);
@@ -57,7 +57,7 @@ export async function getReport(from: Date, to: Date) {
     heatmap[weekday]![hour]!++;
   }
 
-  const plans = await db.plan.findMany({ where: { id: { in: sales.map((s) => s.planId) } }, select: { id: true, name: true, color: true } });
+  const plans = await db.plan.findMany({ where: { gymId, id: { in: sales.map((s) => s.planId) } }, select: { id: true, name: true, color: true } });
   const revenue = payments.reduce((s, p) => s + p.amount, 0);
   const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0);
 
@@ -87,10 +87,10 @@ export async function getReport(from: Date, to: Date) {
 }
 
 /** Builds a CSV file for download. */
-export async function exportCsv(type: string, from: Date, to: Date): Promise<string> {
+export async function exportCsv(gymId: string, type: string, from: Date, to: Date): Promise<string> {
   switch (type) {
     case "members": {
-      const rows = await db.member.findMany({ orderBy: { code: "asc" }, include: { branch: { select: { name: true } } } });
+      const rows = await db.member.findMany({ where: { gymId }, orderBy: { code: "asc" }, include: { branch: { select: { name: true } } } });
       return toCsv(
         rows.map((m) => ({
           code: m.code, name: fullName(m), phone: m.phone, email: m.email, gender: m.gender, nationality: m.nationality,
@@ -100,7 +100,7 @@ export async function exportCsv(type: string, from: Date, to: Date): Promise<str
     }
     case "payments": {
       const rows = await db.payment.findMany({
-        where: { paidAt: { gte: from, lte: to } },
+        where: { gymId, paidAt: { gte: from, lte: to } },
         orderBy: { paidAt: "asc" },
         include: { member: { select: { code: true, firstName: true, lastName: true } }, receivedBy: { select: { name: true } } },
       });
@@ -113,7 +113,7 @@ export async function exportCsv(type: string, from: Date, to: Date): Promise<str
     }
     case "attendance": {
       const rows = await db.attendance.findMany({
-        where: { checkInAt: { gte: from, lte: to } },
+        where: { gymId, checkInAt: { gte: from, lte: to } },
         orderBy: { checkInAt: "asc" },
         include: { member: { select: { code: true, firstName: true, lastName: true } }, branch: { select: { name: true } } },
       });
@@ -124,7 +124,7 @@ export async function exportCsv(type: string, from: Date, to: Date): Promise<str
       );
     }
     case "expenses": {
-      const rows = await db.expense.findMany({ where: { spentAt: { gte: from, lte: to } }, orderBy: { spentAt: "asc" } });
+      const rows = await db.expense.findMany({ where: { gymId, spentAt: { gte: from, lte: to } }, orderBy: { spentAt: "asc" } });
       return toCsv(rows.map((e) => ({ date: e.spentAt, category: e.category, description: e.description, amountQAR: e.amount, method: e.method })));
     }
     default:

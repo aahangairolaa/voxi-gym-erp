@@ -48,6 +48,9 @@ Open **http://localhost:3000** → landing page. Click **Sign in** and use a dem
 | `manager@voxi.qa` | Manager | Operations, reports, staff |
 | `reception@voxi.qa` | Reception | Members, sales, payments, cash drawer, check-in |
 | `trainer@voxi.qa` | Trainer | Members (view), check-in, workouts, classes |
+| `housekeeping@voxi.qa` | Housekeeping | Today's cleaning checklist & problem reports only |
+| `pulse@voxi.qa` | Owner of **Pulse Ladies Studio** | A second gym — sees only its own data |
+| `admin@voxi.qa` | VOXI admin | All gyms on `/admin` (create gyms, plans, trials, suspend) — no member details |
 
 Useful commands:
 
@@ -58,7 +61,9 @@ Useful commands:
 | `npm run db:reset` | **Wipe** the database and re-seed demo data |
 | `npm run typecheck` | Check the whole project for TypeScript errors |
 | `npm run biometric:simulate -- 1001` | Pretend to be a turnstile scanning member 1001 |
-| `npm run create-owner -- email pass "Name"` | Create the first owner on an empty (real) database |
+| `npm run create-owner -- email pass "Name" "Gym name"` | Create a gym + its owner on a real database |
+| `npm run create-owner -- --admin email pass "Name"` | Create a VOXI platform admin |
+| `npm run test:e2e` | Run the end-to-end checks against the running app |
 
 ---
 
@@ -167,7 +172,22 @@ Short version (full guide in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)):
 
 ## 6. What's included in this MVP
 
-- Role-based login (Owner, Manager, Reception, Trainer) with secure httpOnly session cookies
+- **Many gyms in one VOXI** (multi-tenant): every record belongs to a gym and every query is filtered by
+  the signed-in person's gym. VOXI admins create gyms, set plans/trials and suspend gyms on `/admin`
+- Gym profiles: logo, brand colour, opening hours, Instagram — used on invoices, the sidebar and member cards
+- Role-based login (Owner, Manager, Reception, Trainer, **Housekeeping**, VOXI admin) with secure httpOnly cookies
+- **Member photos**: upload or take with the webcam/phone camera; shown at check-in, in lists and on cards
+- **Digital member card + QR**: a public link (`/c/<token>`) members save on their phone; reception scans
+  the QR with the camera (Attendance → Scan QR) or a USB scanner. Cards can be re-issued
+- **WhatsApp** (phase 2): renewal / expired / welcome / card / birthday / milestone / custom messages.
+  Works immediately via WhatsApp links; with Meta WhatsApp Business (Cloud) API keys it sends
+  automatically, supports “Remind all”, approved templates, and delivery/read receipts via webhook.
+  Tokens are stored encrypted. Full message log on `/messages` ([`docs/WHATSAPP.md`](docs/WHATSAPP.md))
+- **Dashboard**: renewal reminders (ending soon / recently expired, last reminded) and celebrations
+  (birthdays this week, 10th/25th/50th… visit milestones)
+- **Housekeeping**: daily/weekly cleaning tasks by area & shift, phone-friendly checklist, problem reports,
+  manager view with progress and a 7-day chart
+- **Activity log**: who sold, refunded, deleted, overrode or changed settings, and when
 - Members with QID, nationality, emergency contacts, notes, branch, biometric ID
 - Plans (QAR prices, duration, PT session packs, freeze allowance)
 - Selling & renewing memberships (auto-chained renewals), discounts, partial payments & balances,
@@ -189,6 +209,6 @@ Short version (full guide in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)):
 
 ### Suggested next steps
 
-Arabic (RTL) interface · WhatsApp/SMS reminders for expiring memberships · member mobile app/portal
-with QR check-in · online payments (e.g. a Qatar payment gateway) · multi-tenant SaaS mode (many gyms
-in one deployment) · automated tests.
+Arabic (RTL) interface · scheduled (automatic daily) WhatsApp reminders · member portal for bookings ·
+online payments (a Qatar payment gateway) · VOXI subscription billing · photo storage in object storage
+(S3/R2) for very large gyms.

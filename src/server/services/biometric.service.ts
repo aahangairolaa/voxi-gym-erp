@@ -21,7 +21,7 @@ import { db } from "../db";
 import { ApiError } from "../http";
 import type { deviceSchema } from "../validators";
 import { recordAccess } from "./attendance.service";
-import { fullName } from "./_shared";
+import { fullName, ownedOr404 } from "./_shared";
 
 type DeviceInput = z.infer<typeof deviceSchema>;
 
@@ -33,11 +33,17 @@ function newKey() {
   return `vxk_${randomBytes(24).toString("hex")}`;
 }
 
+async function checkBranch(gymId: string, branchId: string | null | undefined) {
+  if (!branchId) return;
+  ownedOr404(await db.branch.findFirst({ where: { id: branchId, gymId }, select: { id: true } }), "Branch");
+}
+
 // ── Devices ─────────────────────────────────────────────────────────────────
 
-export async function listDevices() {
+export async function listDevices(gymId: string) {
   const since = new Date(Date.now() - 24 * 3600 * 1000);
   const devices = await db.biometricDevice.findMany({
+    where: { gymId },
     orderBy: { createdAt: "asc" },
     include: {
       branch: { select: { id: true, name: true } },
@@ -52,34 +58,40 @@ export async function listDevices() {
 }
 
 /** Returns the plain API key ONCE — only its hash is stored. */
-export async function createDevice(input: DeviceInput) {
+export async function createDevice(gymId: string, input: DeviceInput) {
+  await checkBranch(gymId, input.branchId);
   const key = newKey();
   const device = await db.biometricDevice.create({
-    data: { ...input, apiKeyHash: hashKey(key), apiKeyHint: key.slice(-4) },
+    data: { ...input, gymId, apiKeyHash: hashKey(key), apiKeyHint: key.slice(-4) },
   });
   const { apiKeyHash: _h, ...safe } = device;
   return { device: safe, apiKey: key };
 }
 
-export async function updateDevice(id: string, input: DeviceInput) {
+export async function updateDevice(gymId: string, id: string, input: DeviceInput) {
+  ownedOr404(await db.biometricDevice.findFirst({ where: { id, gymId }, select: { id: true } }), "Device");
+  await checkBranch(gymId, input.branchId);
   const { apiKeyHash: _h, ...safe } = await db.biometricDevice.update({ where: { id }, data: input });
   return safe;
 }
 
-export async function rotateDeviceKey(id: string) {
+export async function rotateDeviceKey(gymId: string, id: string) {
+  ownedOr404(await db.biometricDevice.findFirst({ where: { id, gymId }, select: { id: true } }), "Device");
   const key = newKey();
   await db.biometricDevice.update({ where: { id }, data: { apiKeyHash: hashKey(key), apiKeyHint: key.slice(-4) } });
   return { apiKey: key };
 }
 
-export async function deleteDevice(id: string) {
+export async function deleteDevice(gymId: string, id: string) {
+  ownedOr404(await db.biometricDevice.findFirst({ where: { id, gymId }, select: { id: true } }), "Device");
   await db.biometricDevice.delete({ where: { id } });
   return { ok: true };
 }
 
 // ── Enrollment ──────────────────────────────────────────────────────────────
 
-export async function setEnrollment(memberId: string, biometricId: string | null) {
+export async function setEnrollment(gymId: string, memberId: string, biometricId: string | null) {
+  ownedOr404(await db.member.findFirst({ where: { id: memberId, gymId }, select: { id: true } }), "Member");
   return db.member.update({
     where: { id: memberId },
     data: { biometricId, biometricEnrolled: biometricId ? new Date() : null },
@@ -87,14 +99,14 @@ export async function setEnrollment(memberId: string, biometricId: string | null
   });
 }
 
-export async function listEnrollments() {
+export async function listEnrollments(gymId: string) {
   const members = await db.member.findMany({
-    where: { biometricId: { not: null } },
+    where: { gymId, biometricId: { not: null } },
     orderBy: { biometricEnrolled: "desc" },
     select: { id: true, code: true, firstName: true, lastName: true, biometricId: true, biometricEnrolled: true },
     take: 500,
   });
-  const total = await db.member.count();
+  const total = await db.member.count({ where: { gymId } });
   return {
     enrolled: members.map((m) => ({ ...m, name: fullName(m) })),
     totalMembers: total,
@@ -103,8 +115,9 @@ export async function listEnrollments() {
 
 // ── Events / scans ──────────────────────────────────────────────────────────
 
-export async function listEvents(limit = 100) {
+export async function listEvents(gymId: string, limit = 100) {
   const events = await db.biometricEvent.findMany({
+    where: { gymId },
     orderBy: { createdAt: "desc" },
     take: limit,
     include: {
@@ -128,15 +141,16 @@ export async function authenticateDevice(headers: Headers) {
   const auth = headers.get("authorization");
   const key = headers.get("x-device-key") ?? (auth?.startsWith("Bearer ") ? auth.slice(7) : null);
   if (!key) throw new ApiError(401, "Missing device key.");
-  const device = await db.biometricDevice.findFirst({ where: { apiKeyHash: hashKey(key) } });
+  const device = await db.biometricDevice.findFirst({ where: { apiKeyHash: hashKey(key) }, include: { gym: { select: { status: true } } } });
   if (!device) throw new ApiError(401, "Unknown device key.");
   if (!device.isActive) throw new ApiError(403, "This device is disabled in VOXI.");
+  if (device.gym.status === "SUSPENDED") throw new ApiError(403, "This gym's VOXI account is suspended.");
   return device;
 }
 
 /** Handle one scan from a device: log it, and check the member in/out. */
 export async function handleScan(opts: {
-  device: { id: string; branchId: string | null };
+  device: { id: string; gymId: string; branchId: string | null };
   biometricUserId: string;
   scannedAt?: Date;
   direction?: "in" | "out" | "auto";
@@ -145,10 +159,14 @@ export async function handleScan(opts: {
   const scannedAt = opts.scannedAt ?? new Date();
   await db.biometricDevice.update({ where: { id: opts.device.id }, data: { lastSeenAt: new Date() } });
 
-  const member = await db.member.findUnique({ where: { biometricId: opts.biometricUserId } });
+  const member = await db.member.findUnique({
+    where: { gymId_biometricId: { gymId: opts.device.gymId, biometricId: opts.biometricUserId } },
+    select: { id: true },
+  });
   if (!member) {
     await db.biometricEvent.create({
       data: {
+        gymId: opts.device.gymId,
         deviceId: opts.device.id,
         biometricUserId: opts.biometricUserId,
         result: "UNKNOWN_USER",
@@ -161,6 +179,7 @@ export async function handleScan(opts: {
   }
 
   const result = await recordAccess({
+    gymId: opts.device.gymId,
     memberId: member.id,
     branchId: opts.device.branchId,
     source: "BIOMETRIC",
@@ -171,6 +190,7 @@ export async function handleScan(opts: {
 
   await db.biometricEvent.create({
     data: {
+      gymId: opts.device.gymId,
       deviceId: opts.device.id,
       biometricUserId: opts.biometricUserId,
       memberId: member.id,
@@ -188,14 +208,14 @@ export async function handleScan(opts: {
 
 export async function findDeviceBySerial(sn: string | null) {
   if (!sn) throw new ApiError(400, "Missing SN");
-  const device = await db.biometricDevice.findUnique({ where: { serialNumber: sn } });
-  if (!device || !device.isActive) throw new ApiError(403, "Device not registered in VOXI");
+  const device = await db.biometricDevice.findUnique({ where: { serialNumber: sn }, include: { gym: { select: { status: true } } } });
+  if (!device || !device.isActive || device.gym.status === "SUSPENDED") throw new ApiError(403, "Device not registered in VOXI");
   await db.biometricDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
   return device;
 }
 
 /** ZKTeco sends lines like:  "1001\t2026-11-12 18:30:05\t0\t1\t0\t0" (PIN, local time, status, verify…) */
-export async function handleAdmsAttlog(device: { id: string; branchId: string | null }, body: string) {
+export async function handleAdmsAttlog(device: { id: string; gymId: string; branchId: string | null }, body: string) {
   const lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   let processed = 0;
   for (const line of lines) {

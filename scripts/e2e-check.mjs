@@ -1,0 +1,201 @@
+/**
+ * End-to-end checks against a running VOXI (default http://localhost:3000).
+ *   node scripts/e2e-check.mjs [baseUrl]
+ * Uses the demo accounts from the seed. Prints PASS/FAIL lines and a summary.
+ * Leaves the data as it found it (test payment is refunded, test photo removed).
+ */
+const BASE = process.argv[2] || "http://localhost:3000";
+const PASSWORD = process.env.SEED_PASSWORD || "voxi1234";
+const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
+let pass = 0;
+let fail = 0;
+const failures = [];
+function check(name, ok, detail = "") {
+  if (ok) {
+    pass++;
+    console.log(`PASS  ${name}`);
+  } else {
+    fail++;
+    failures.push(name);
+    console.log(`FAIL  ${name}${detail ? `  — ${String(detail).slice(0, 200)}` : ""}`);
+  }
+}
+
+async function call(method, path, { cookie, body, raw } = {}) {
+  const res = await fetch(BASE + path, {
+    method,
+    redirect: "manual",
+    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(cookie ? { Cookie: cookie } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (raw) return res;
+  const text = await res.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {}
+  return { status: res.status, json, text, headers: res.headers };
+}
+
+async function login(email) {
+  const res = await fetch(BASE + "/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password: PASSWORD }),
+  });
+  const json = await res.json().catch(() => ({}));
+  const cookie = (res.headers.get("set-cookie") || "").split(";")[0];
+  return { ok: res.ok, json, cookie };
+}
+
+async function step(name, fn) {
+  try {
+    await fn();
+  } catch (e) {
+    check(name, false, e?.message || e);
+  }
+}
+
+console.log(`VOXI end-to-end checks → ${BASE}\n`);
+
+await step("health", async () => {
+  const h = await call("GET", "/api/health");
+  check("health: database connected", h.json?.database === "connected", h.text);
+  check("landing page 200", (await call("GET", "/")).status === 200);
+});
+
+// ── Owner of gym 1 ─────────────────────────────────────────────────────────
+const owner = await login("owner@voxi.qa");
+check("login owner → home /dashboard", owner.ok && owner.json?.home === "/dashboard", JSON.stringify(owner.json));
+const O = { cookie: owner.cookie };
+let voxiMemberId = null;
+let qrToken = null;
+
+await step("core", async () => {
+  const me = await call("GET", "/api/auth/me", O);
+  check("me: gym attached (multi-gym)", me.json?.gym?.name === "VOXI Fitness Club", me.text);
+  const m = await call("GET", "/api/members", O);
+  check("members list (>0)", (m.json?.counts?.ALL ?? 0) > 0, m.text);
+  check("members carry photoUrl field", m.json?.members?.length > 0 && "photoUrl" in m.json.members[0]);
+  voxiMemberId = m.json?.members?.[0]?.id;
+  const d = await call("GET", "/api/dashboard", O);
+  check("dashboard aggregates", d.status === 200 && d.json?.kpis?.activeMembers > 0, d.text);
+});
+
+await step("reminders & celebrations", async () => {
+  const r = await call("GET", "/api/reminders", O);
+  check("renewal reminders", r.status === 200 && Array.isArray(r.json?.expiring) && Array.isArray(r.json?.expired), r.text);
+  const c = await call("GET", "/api/celebrations", O);
+  check("birthdays this week (seeded)", c.status === 200 && c.json?.birthdays?.length > 0, c.text);
+});
+
+await step("payments", async () => {
+  const p = await call("POST", "/api/payments", { ...O, body: { amount: 1, method: "CASH", description: "E2E test payment" } });
+  check("record a payment (gym invoice counter)", !!p.json?.invoiceNo, p.text);
+  const r = await call("POST", `/api/payments/${p.json?.id}/refund`, O);
+  check("refund the test payment", r.text.includes("REFUNDED"), r.text);
+});
+
+await step("photo", async () => {
+  const u = await call("PUT", `/api/members/${voxiMemberId}`, { ...O, body: { photo: PNG } });
+  check("upload member photo", u.status === 200, u.text);
+  const detail = await call("GET", `/api/members/${voxiMemberId}`, O);
+  qrToken = detail.json?.qrToken;
+  const url = detail.json?.photoUrl;
+  const img = url ? await call("GET", url, { ...O, raw: true }) : null;
+  check("photo served as image", img?.status === 200 && (img.headers.get("content-type") || "").startsWith("image/"), url);
+  const del = await call("PUT", `/api/members/${voxiMemberId}`, { ...O, body: { photo: null } });
+  check("remove member photo", del.status === 200 && (await call("GET", `/api/members/${voxiMemberId}`, O)).json?.photoUrl === null);
+});
+
+await step("card", async () => {
+  check("member has a QR card token", typeof qrToken === "string" && qrToken.length >= 20);
+  const card = await call("GET", `/api/card/${qrToken}`); // no cookie: public
+  check("public card API (no login)", card.status === 200 && !!card.json?.name, card.text);
+  const page = await call("GET", `/c/${qrToken}`);
+  check("public card page (no login) 200", page.status === 200, page.status);
+  const a = await call("POST", "/api/attendance", { ...O, body: { code: `${BASE}/c/${qrToken}`, override: true } });
+  check("check-in by scanning QR card link", a.json?.allowed === true && a.json?.member?.id === voxiMemberId, a.text);
+  const bad = await call("GET", "/api/card/not-a-real-token-123456789");
+  check("unknown card token → 404", bad.status === 404);
+});
+
+await step("check-in", async () => {
+  const a = await call("POST", "/api/attendance", { ...O, body: { code: "M-1001", override: true } });
+  check("front-desk check-in by code", a.json?.allowed === true, a.text);
+});
+
+await step("whatsapp", async () => {
+  const cfg = await call("GET", "/api/whatsapp/config", O);
+  check("WhatsApp config (link mode until keys added)", cfg.json?.mode === "link" && cfg.json?.webhookPath?.includes("voxi-fitness"), cfg.text);
+  const s = await call("POST", "/api/whatsapp/send", { ...O, body: { memberId: voxiMemberId, type: "RENEWAL_REMINDER" } });
+  check("send reminder → wa.me link", s.json?.mode === "link" && String(s.json?.url).startsWith("https://wa.me/"), s.text);
+  const log = await call("GET", `/api/whatsapp/messages?memberId=${voxiMemberId}`, O);
+  check("message saved in WhatsApp log", log.json?.messages?.some((m) => m.id === s.json?.messageId), log.text);
+  const wh = await call("GET", "/api/whatsapp/webhook/voxi-fitness?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=1");
+  check("webhook rejects a wrong verify token", wh.status === 403, wh.status);
+});
+
+await step("activity", async () => {
+  const act = await call("GET", "/api/activity", O);
+  const actions = (act.json?.activity ?? []).map((a) => a.action);
+  check("activity log records refund & WhatsApp", actions.includes("payment.refund") && actions.includes("whatsapp.send"), actions.slice(0, 8).join(","));
+});
+
+await step("settings", async () => {
+  const s = await call("GET", "/api/settings", O);
+  check("gym profile (settings)", s.json?.name === "VOXI Fitness Club" && "logo" in (s.json ?? {}), s.text);
+});
+
+// ── Gym 2: must never see gym 1's data ─────────────────────────────────────
+await step("tenant isolation", async () => {
+  const pulse = await login("pulse@voxi.qa");
+  check("login second gym (Pulse)", pulse.ok, JSON.stringify(pulse.json));
+  const P = { cookie: pulse.cookie };
+  const m = await call("GET", "/api/members", P);
+  check("Pulse sees only its own 12 members", m.json?.counts?.ALL === 12, m.json?.counts?.ALL);
+  const other = await call("GET", `/api/members/${voxiMemberId}`, P);
+  check("Pulse can't open a VOXI member (404)", other.status === 404, other.status);
+  const card = await call("POST", "/api/attendance", { ...P, body: { code: `/c/${qrToken}`, override: true } });
+  check("Pulse can't check in a VOXI card", card.status === 404, card.text);
+  const pay = await call("GET", "/api/payments", P);
+  check("Pulse payments are its own", (pay.json?.payments ?? []).every((p) => p.invoiceNo.startsWith("PLS-")), pay.json?.payments?.[0]?.invoiceNo);
+  const d = await call("GET", "/api/dashboard", P);
+  check("Pulse dashboard", d.status === 200 && d.json?.kpis?.totalMembers === 12, d.json?.kpis?.totalMembers);
+});
+
+// ── Housekeeping role ──────────────────────────────────────────────────────
+await step("housekeeping", async () => {
+  const hk = await login("housekeeping@voxi.qa");
+  check("login housekeeping → home /housekeeping", hk.json?.home === "/housekeeping", JSON.stringify(hk.json));
+  const H = { cookie: hk.cookie };
+  const t = await call("GET", "/api/housekeeping/today", H);
+  check("today's cleaning checklist", t.json?.items?.length > 0, t.text);
+  const pending = t.json?.items?.find((i) => i.status === "PENDING") ?? t.json?.items?.[0];
+  const done = await call("POST", "/api/housekeeping/logs", { ...H, body: { taskId: pending?.id, status: "DONE" } });
+  check("tick a task done", done.status === 200 && !!done.json?.id, done.text);
+  if (pending?.status === "PENDING") {
+    const undo = await call("DELETE", `/api/housekeeping/logs/${done.json?.id}`, H);
+    check("undo the tick", undo.status === 200, undo.text);
+  }
+  const blocked = await call("GET", "/api/members", H);
+  check("housekeeping can't open members (403)", blocked.status === 403, blocked.status);
+});
+
+// ── VOXI platform admin ────────────────────────────────────────────────────
+await step("admin", async () => {
+  const ad = await login("admin@voxi.qa");
+  check("login VOXI admin → home /admin", ad.json?.home === "/admin", JSON.stringify(ad.json));
+  const A = { cookie: ad.cookie };
+  const g = await call("GET", "/api/admin/gyms", A);
+  check("admin sees all gyms (≥2)", g.json?.stats?.total >= 2, g.text);
+  const m = await call("GET", "/api/members", A);
+  check("admin can't read gym members (403)", m.status === 403, m.status);
+  const own = await call("GET", "/api/admin/gyms", O);
+  check("gym owner can't open admin (403)", own.status === 403, own.status);
+});
+
+console.log(`\nE2E_RESULT: ${pass} passed, ${fail} failed`);
+if (failures.length) console.log("Failed: " + failures.join(" | "));
+process.exit(fail ? 1 : 0);

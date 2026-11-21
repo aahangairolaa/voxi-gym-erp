@@ -44,7 +44,15 @@ const phone = z
   .regex(/^[+\d\s-]+$/, "Phone can only contain digits, spaces, + and -");
 
 export const paymentMethod = z.enum(["CASH", "CARD", "BANK_TRANSFER", "FAWRAN", "ONLINE"]);
-export const role = z.enum(["OWNER", "MANAGER", "RECEPTION", "TRAINER"]);
+/** Roles a gym can give its staff (SUPER_ADMIN is created only by the VOXI team). */
+export const role = z.enum(["OWNER", "MANAGER", "RECEPTION", "TRAINER", "HOUSEKEEPING"]);
+
+/** A small image sent from the browser as a data: URL (photos are resized before upload). */
+const imageDataUrl = (maxKb: number) =>
+  z
+    .string()
+    .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, "Upload a JPG, PNG or WebP image")
+    .max(maxKb * 1370, `Image is too large (max ${maxKb} KB)`);
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const loginSchema = z.object({
@@ -73,6 +81,8 @@ export const memberSchema = z.object({
   emergencyPhone: optStr(20),
   notes: optStr(1000),
   branchId: optId,
+  /** undefined = keep the current photo, null = remove it */
+  photo: imageDataUrl(400).nullable().optional(),
 });
 
 /** Creating a member can optionally sell a plan at the same time. */
@@ -149,7 +159,7 @@ export const expenseSchema = z.object({
 // ── Attendance ───────────────────────────────────────────────────────────────
 export const checkInSchema = z.object({
   memberId: optId,
-  code: optStr(30), // member code like M-1001, or a phone number
+  code: optStr(300), // member code (M-1001), phone number, or a scanned QR card link
   branchId: optId,
   override: z.boolean().default(false), // let staff admit someone without an active plan
 });
@@ -270,13 +280,18 @@ export const staffSchema = z.object({
 
 // ── Settings ─────────────────────────────────────────────────────────────────
 export const settingsSchema = z.object({
-  gymName: str(100).min(1),
+  name: str(100).min(1, "Gym name is required"),
   legalName: optStr(150),
   crNumber: optStr(40),
   phone: optStr(30),
   email: optStr(120),
   address: optStr(300),
   website: optStr(120),
+  instagram: optStr(80),
+  openingHours: optStr(200),
+  /** undefined = keep, null = remove */
+  logo: imageDataUrl(300).nullable().optional(),
+  brandColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Pick a colour").default("#7C5CFF"),
   invoicePrefix: str(10).min(1).default("INV"),
   invoiceFooter: optStr(500),
   expiryWarnDays: z.coerce.number().int().min(1).max(60).default(7),
@@ -292,4 +307,89 @@ export const branchSchema = z.object({
 export const passwordChangeSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(8, "New password must be at least 8 characters"),
+});
+
+// ── WhatsApp ─────────────────────────────────────────────────────────────────
+const messageType = z.enum(["RENEWAL_REMINDER", "EXPIRED", "WELCOME", "PAYMENT_RECEIPT", "BIRTHDAY", "MILESTONE", "CARD", "CUSTOM"]);
+
+export const whatsappSendSchema = z.object({
+  memberId: id,
+  type: messageType,
+  text: optStr(2000),
+  extra: z.record(z.string().max(300)).optional(),
+});
+
+export const whatsappBulkSchema = z.object({
+  memberIds: z.array(id).min(1).max(200),
+  type: messageType,
+});
+
+export const whatsappTestSchema = z.object({ phone });
+
+const templateConfig = z.object({
+  text: str(1000).min(1),
+  templateName: optStr(120),
+  language: optStr(10),
+  params: optStr(300),
+});
+
+export const whatsappConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  phoneNumberId: optStr(40),
+  businessAccountId: optStr(40),
+  /** "" or omitted = keep the saved token, null = remove it */
+  accessToken: z.string().trim().max(1000).nullable().optional(),
+  appSecret: z.string().trim().max(200).nullable().optional(),
+  templates: z.record(messageType, templateConfig).optional(),
+});
+
+// ── Housekeeping ─────────────────────────────────────────────────────────────
+export const housekeepingTaskSchema = z.object({
+  area: str(60).min(1, "Choose an area"),
+  title: str(120).min(1, "Describe the task"),
+  frequency: z.enum(["DAILY", "WEEKLY"]).default("DAILY"),
+  weekday: z.coerce.number().int().min(0).max(6).optional().nullable(),
+  shift: z.enum(["MORNING", "AFTERNOON", "EVENING", "ANYTIME"]).default("ANYTIME"),
+  branchId: optId,
+  assignedToId: optId,
+  isActive: z.boolean().default(true),
+});
+
+export const housekeepingLogSchema = z.object({
+  taskId: optId,
+  status: z.enum(["DONE", "ISSUE"]),
+  note: optStr(500),
+  area: optStr(60),
+});
+
+// ── VOXI admin (gyms) ────────────────────────────────────────────────────────
+const subscription = z.enum(["ESSENTIAL", "PROFESSIONAL", "ELITE"]);
+const gymStatus = z.enum(["TRIAL", "ACTIVE", "SUSPENDED"]);
+
+export const createGymSchema = z.object({
+  name: str(100).min(2, "Gym name is required"),
+  slug: optStr(40),
+  phone: optStr(30),
+  email: z.string().trim().toLowerCase().email().optional().nullable().or(z.literal("").transform(() => null)),
+  address: optStr(200),
+  branchName: optStr(80),
+  plan: subscription.default("PROFESSIONAL"),
+  status: gymStatus.default("TRIAL"),
+  trialDays: z.coerce.number().int().min(1).max(90).default(14),
+  ownerName: str(100).min(1, "Owner name is required"),
+  ownerEmail: z.string().trim().toLowerCase().email("Enter the owner's email"),
+  ownerPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+/** Only the fields that are sent are changed (no defaults here on purpose). */
+export const updateGymSchema = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
+  plan: subscription.optional(),
+  status: gymStatus.optional(),
+  trialEndsAt: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v ? (/^\d{4}-\d{2}-\d{2}$/.test(v) ? fromDateInput(v) : new Date(v)) : null)),
+  platformNotes: z.string().trim().max(1000).nullable().optional(),
 });

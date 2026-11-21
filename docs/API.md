@@ -3,18 +3,24 @@
 All endpoints live under `/api`, return JSON and require a signed-in staff session (cookie set by
 `/api/auth/login`) unless marked **public** or **device**. Errors look like `{ "error": "message" }`
 with a matching HTTP status (400 validation, 401 not signed in, 403 not allowed, 404, 409 conflict).
+Every gym endpoint only ever reads and writes the signed-in person's gym (multi-gym).
 Money is whole **QAR**. Dates are ISO strings (UTC); date filters accept `YYYY-MM-DD` (Qatar day).
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| POST | `/api/auth/login` **public** | `{ email, password }` → sets session cookie |
+| POST | `/api/auth/login` **public** | `{ email, password }` → sets session cookie; returns `home` (page to open) |
 | POST | `/api/auth/logout` | Clear session |
-| GET | `/api/auth/me` | Current staff member |
+| GET | `/api/auth/me` | `{ user, gym }` — current staff member and their gym's branding |
 | POST | `/api/auth/password` | `{ currentPassword, newPassword }` |
 | GET | `/api/dashboard` | KPIs, charts, expiring list, today's classes |
 | GET | `/api/search?q=` | Quick member search |
 | GET / POST | `/api/members` | List (`search`, `status`, `branchId`) / create (+ optional plan sale) |
-| GET / PUT / DELETE | `/api/members/:id` | Profile with history / update / delete |
+| GET / PUT / DELETE | `/api/members/:id` | Profile with history / update (`photo`: data URL, `null` removes) / delete |
+| GET | `/api/members/:id/photo` | The member's photo (image) |
+| POST | `/api/members/:id/card` | Issue a new card / QR link (old one stops working) |
+| GET | `/api/card/:token` **public** · `/api/card/:token/photo` **public** | Digital member card data |
+| GET | `/api/reminders` | Renewal reminders: ending soon & recently expired, with last-reminded date |
+| GET | `/api/celebrations` | Birthdays this week & visit milestones |
 | GET / POST | `/api/plans` | List (`active=1`) / create |
 | PUT / DELETE | `/api/plans/:id` | Update / delete (archives if ever sold) |
 | GET / POST | `/api/memberships` | List (`status`, `search`) / sell or renew `{ memberId, planId, discount, amountPaid, paymentMethod }` |
@@ -52,8 +58,15 @@ Money is whole **QAR**. Dates are ISO strings (UTC); date filters accept `YYYY-M
 | POST | `/api/leads/:id/convert` | Create member from lead |
 | GET / POST | `/api/staff` | List / create |
 | PUT | `/api/staff/:id` | Update (empty password = unchanged) |
-| GET | `/api/staff/trainers` | Trainer dropdown |
-| GET / PUT | `/api/settings` | Gym profile |
+| GET | `/api/staff/trainers` | Trainer dropdown (`?role=HOUSEKEEPING` → other staff) |
+| GET | `/api/housekeeping/today?mine=1` | Today's checklist, progress, open problems, 7-day chart |
+| GET / POST | `/api/housekeeping/tasks` · PUT / DELETE `/api/housekeeping/tasks/:id` | Cleaning tasks (owner/manager edit) |
+| POST | `/api/housekeeping/logs` | `{ taskId?, status: "DONE" \| "ISSUE", note?, area? }` |
+| DELETE / POST | `/api/housekeeping/logs/:id` | Undo a tick / mark a problem fixed |
+| GET | `/api/activity?staffId=&area=` | Activity log (owner/manager) |
+| * | `/api/whatsapp/*` | See [WHATSAPP.md](WHATSAPP.md) |
+| GET / POST | `/api/admin/gyms` · PUT `/api/admin/gyms/:id` | VOXI admin: list / create gym + owner / change plan, status, trial |
+| GET / PUT | `/api/settings` | Gym profile (logo, brand colour, hours, invoice settings) |
 | GET / POST | `/api/branches` · PUT `/api/branches/:id` | Branches |
 | GET | `/api/health` **public** | App + database status |
 

@@ -7,9 +7,29 @@ import { PrismaClient, type Prisma } from "@prisma/client";
  */
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+/**
+ * Neon databases can be far from the server (and pause when idle), so the first
+ * connection may take a few seconds. Give connections more time than Prisma's
+ * 5-second defaults, unless the URL already sets its own values.
+ */
+function withTimeouts(url: string | undefined) {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url);
+    if (!u.searchParams.has("connect_timeout")) u.searchParams.set("connect_timeout", "15"); // seconds to open a connection
+    if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20"); // seconds to wait for a free connection
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
+    datasourceUrl: withTimeouts(process.env.DATABASE_URL),
+    // Transactions (selling a membership, recording a payment) get 20s instead of 5s.
+    transactionOptions: { maxWait: 10_000, timeout: 20_000 },
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 

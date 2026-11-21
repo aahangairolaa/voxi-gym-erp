@@ -2,7 +2,7 @@
   "name": "voxi-gym-erp",
   "version": "1.0.0",
   "private": true,
-  "description": "VOXI — premium gym management ERP for Qatar",
+  "description": "VOXI \u2014 premium gym management ERP for Qatar",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -14,17 +14,21 @@
     "db:reset": "prisma db push --force-reset && prisma db seed",
     "db:studio": "prisma studio",
     "biometric:simulate": "tsx scripts/biometric-simulator.ts",
-    "create-owner": "tsx scripts/create-owner.ts"
+    "create-owner": "tsx scripts/create-owner.ts",
+    "test:e2e": "node scripts/e2e-check.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@neon/config": "^1.14.3",
+    "@neon/env": "^2.1.6",
     "@prisma/client": "^6.16.0",
     "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
     "jose": "^5.9.6",
     "next": "^15.5.9",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
@@ -34,6 +38,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
     "@types/node": "^22.0.0",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "prisma": "^6.16.0",

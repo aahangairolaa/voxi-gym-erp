@@ -1,18 +1,20 @@
 import { route, readBody, searchParams } from "@/server/http";
-import { requireSession } from "@/server/auth";
+import { requireGym } from "@/server/auth";
 import { createMemberSchema } from "@/server/validators";
 import { createMember, listMembers } from "@/server/services/members.service";
+import { audit } from "@/server/services/audit.service";
 
 /** GET /api/members?search=&status=ACTIVE|EXPIRING|FROZEN|EXPIRED|NONE&branchId= */
 export const GET = route(async (req) => {
-  await requireSession("members");
+  const s = await requireGym("members");
   const q = searchParams(req);
-  return listMembers({ search: q.get("search"), status: q.get("status"), branchId: q.get("branchId") });
+  return listMembers(s.gymId, { search: q.get("search"), status: q.get("status"), branchId: q.get("branchId") });
 });
 
-/** POST /api/members → create a member (optionally sell a plan at the same time) */
+/** POST /api/members → create a member (optionally with a photo and a plan sale) */
 export const POST = route(async (req) => {
-  const session = await requireSession("memberships");
-  const input = await readBody(req, createMemberSchema);
-  return createMember(input, session);
+  const s = await requireGym("memberships");
+  const m = await createMember(await readBody(req, createMemberSchema), s);
+  await audit(s, "member.create", "Member", m.id, `Added member ${m.firstName} ${m.lastName} (${m.code})`);
+  return m;
 });

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { LuX } from "react-icons/lu";
 import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui";
-import { can, ROLE_LABEL } from "@/lib/permissions";
+import { can, homeFor, ROLE_LABEL } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { NAV } from "./nav";
 import { useUser } from "./session-context";
@@ -16,13 +16,35 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center px-6">
-        <Link href="/dashboard" onClick={onNavigate}>
+        <Link href={homeFor(user.role)} onClick={onNavigate}>
           <Logo />
         </Link>
         <span className="ml-2.5 rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
-          ERP
+          {user.role === "SUPER_ADMIN" ? "ADMIN" : "ERP"}
         </span>
       </div>
+
+      {user.gym && (
+        <div className="mx-3 mb-1 flex items-center gap-3 rounded-2xl border border-line bg-surface-2/60 p-2.5">
+          {user.gym.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={user.gym.logo} alt="" className="h-9 w-9 shrink-0 rounded-xl object-cover" />
+          ) : (
+            <span
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-bold text-white"
+              style={{ background: user.gym.brandColor ?? "#6a44f2" }}
+            >
+              {user.gym.name.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-semibold text-ink">{user.gym.name}</p>
+            <p className="truncate text-[11px] text-muted">
+              {user.gym.status === "TRIAL" ? "Free trial" : user.gym.status === "SUSPENDED" ? "Suspended" : `${user.gym.plan[0]}${user.gym.plan.slice(1).toLowerCase()} plan`}
+            </p>
+          </div>
+        </div>
+      )}
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 pt-3 pb-6 scrollbar-thin">
         {NAV.map((section) => {

@@ -9,6 +9,7 @@ import { NATIONALITIES } from "@/lib/constants";
 import { formatQAR } from "@/lib/format";
 import type { MemberDetail } from "@/types/api";
 import { PaymentMethodPicker } from "./payment-fields";
+import { PhotoInput } from "./photo-input";
 import { PlanChooser } from "./plan-chooser";
 
 const empty = {
@@ -36,12 +37,17 @@ export function MemberFormModal({
   const [method, setMethod] = useState("CARD");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // photo: shown value (URL or new data URL); photoChange: what to send (undefined = keep)
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoChange, setPhotoChange] = useState<string | null | undefined>(undefined);
   const editing = !!member;
 
   useEffect(() => {
     if (!open) return;
     setError(null);
     setPlanId("");
+    setPhoto(member?.photoUrl ?? null);
+    setPhotoChange(undefined);
     if (member) {
       form.reset({
         firstName: member.firstName, lastName: member.lastName, phone: member.phone, email: member.email ?? "",
@@ -65,6 +71,7 @@ export function MemberFormModal({
       gender: v.gender || null,
       dateOfBirth: v.dateOfBirth || null,
       branchId: v.branchId || null,
+      ...(photoChange !== undefined ? { photo: photoChange } : {}),
     };
     try {
       if (editing) {
@@ -111,10 +118,20 @@ export function MemberFormModal({
     >
       <form onSubmit={submit} className="space-y-6">
         <section>
+          <PhotoInput
+            name={`${form.values.firstName} ${form.values.lastName}`.trim()}
+            value={photo}
+            onChange={(v) => {
+              setPhoto(v);
+              setPhotoChange(v);
+            }}
+          />
+        </section>
+        <section>
           <p className="mb-3 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Personal</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="First name" required>
-              <Input {...form.bind("firstName")} autoFocus />
+              <Input {...form.bind("firstName")} autoFocus={!editing} />
             </Field>
             <Field label="Last name" required>
               <Input {...form.bind("lastName")} />

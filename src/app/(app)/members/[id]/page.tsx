@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   LuArrowLeft, LuBanknote, LuDoorOpen, LuDumbbell, LuFingerprint, LuIdCard, LuMail, LuMapPin, LuPencil, LuPhone,
-  LuPrinter, LuSnowflake, LuTrash2, LuCircleX, LuPlay,
+  LuPrinter, LuSnowflake, LuTrash2, LuCircleX, LuPlay, LuQrCode, LuMessageCircle,
 } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
+import { MemberCardModal } from "@/components/members/member-card-modal";
 import { MemberFormModal } from "@/components/members/member-form-modal";
+import { WhatsAppMenu } from "@/components/whatsapp/whatsapp-menu";
 import { RecordPaymentModal } from "@/components/members/record-payment-modal";
 import { SellMembershipModal } from "@/components/members/sell-membership-modal";
 import {
@@ -19,6 +21,7 @@ import { api } from "@/lib/api-client";
 import { daysBetween } from "@/lib/dates";
 import { formatDate, formatDateTime, formatQAR, formatTime, humanize, timeAgo } from "@/lib/format";
 import { can } from "@/lib/permissions";
+import { MESSAGE_TYPES } from "@/lib/whatsapp-templates";
 import type { AccessResult, MemberDetail, SearchResult } from "@/types/api";
 
 type Tab = "memberships" | "payments" | "visits" | "training";
@@ -32,6 +35,7 @@ export default function MemberProfilePage() {
   const { data: m, error, reload } = useApi<MemberDetail>(`/api/members/${id}`);
   const [tab, setTab] = useState<Tab>("memberships");
   const [editing, setEditing] = useState(false);
+  const [showCard, setShowCard] = useState(false);
   const [selling, setSelling] = useState(false);
   const [paying, setPaying] = useState<{ open: boolean; membershipId?: string; amount?: number; description?: string }>({ open: false });
   const [bioId, setBioId] = useState<string | null>(null);
@@ -49,12 +53,13 @@ export default function MemberProfilePage() {
       </div>
     );
 
-  const asResult: SearchResult = { id: m.id, code: m.code, name: m.name, phone: m.phone, status: m.status, plan: m.currentMembership?.plan.name ?? null };
+  const asResult: SearchResult = { id: m.id, code: m.code, name: m.name, phone: m.phone, status: m.status, plan: m.currentMembership?.plan.name ?? null, photoUrl: m.photoUrl };
   const cur = m.currentMembership;
   const totalDays = cur ? Math.max(1, daysBetween(new Date(cur.startDate), new Date(cur.endDate)) + 1) : 1;
   const usedDays = cur ? Math.min(totalDays, Math.max(0, daysBetween(new Date(cur.startDate), new Date()))) : 0;
   const canSell = can(user.role, "memberships");
   const canPay = can(user.role, "payments");
+  const canMessage = can(user.role, "messages");
 
   const checkIn = async () => {
     setBusy("checkin");
@@ -124,7 +129,9 @@ export default function MemberProfilePage() {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-brand-100 via-brand-50 to-transparent dark:from-brand-500/20 dark:via-brand-500/5" />
         <div className="relative flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center">
           <div className="flex min-w-0 flex-1 items-center gap-4">
-            <Avatar name={m.name} size={72} className="ring-4 ring-surface" />
+            <button onClick={() => canSell && setEditing(true)} className="shrink-0 rounded-full" aria-label="Change photo">
+              <Avatar name={m.name} src={m.photoUrl} size={80} className="ring-4 ring-surface" />
+            </button>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="truncate text-xl font-semibold sm:text-2xl">{m.name}</h1>
@@ -162,6 +169,10 @@ export default function MemberProfilePage() {
                 <LuBanknote className="h-4 w-4" /> Payment
               </Button>
             )}
+            <Button variant="secondary" onClick={() => setShowCard(true)}>
+              <LuQrCode className="h-4 w-4" /> Card
+            </Button>
+            {canMessage && <WhatsAppMenu memberId={m.id} memberName={m.name} />}
             {canSell && (
               <Button variant="ghost" size="icon" onClick={() => setEditing(true)} aria-label="Edit">
                 <LuPencil className="h-4 w-4" />
@@ -463,9 +474,41 @@ export default function MemberProfilePage() {
               {m.biometricEnrolled && <p className="text-xs text-muted">Linked {formatDate(m.biometricEnrolled)}</p>}
             </div>
           </Card>
+
+          {canMessage && (
+            <Card>
+              <CardHeader
+                title="WhatsApp history"
+                subtitle="Last 10 messages"
+                icon={<LuMessageCircle className="h-[18px] w-[18px]" />}
+                action={
+                  <Link href={`/messages?member=${m.id}`} className="text-xs font-semibold text-brand-600 hover:underline">
+                    View all
+                  </Link>
+                }
+              />
+              <div className="px-5 pb-5">
+                {m.messages.length === 0 && <p className="text-sm text-muted">No messages sent yet.</p>}
+                <ul className="divide-y divide-line/70">
+                  {m.messages.map((msg) => (
+                    <li key={msg.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-ink">{MESSAGE_TYPES.find((t) => t.type === msg.type)?.label ?? humanize(msg.type)}</p>
+                        <p className="text-xs text-muted">{timeAgo(msg.createdAt)}</p>
+                      </div>
+                      <Badge tone={msg.status === "FAILED" ? "red" : msg.status === "READ" ? "brand" : msg.status === "DELIVERED" ? "green" : "gray"}>
+                        {msg.channel === "LINK" ? "Opened" : humanize(msg.status)}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
+      <MemberCardModal open={showCard} onClose={() => setShowCard(false)} member={m} onChanged={reload} />
       <MemberFormModal open={editing} onClose={() => setEditing(false)} member={m} onSaved={() => reload()} />
       <SellMembershipModal open={selling} onClose={() => setSelling(false)} member={asResult} onDone={reload} />
       <RecordPaymentModal

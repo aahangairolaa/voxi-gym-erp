@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { LuBuilding2, LuKey, LuPlus, LuStore } from "react-icons/lu";
+import { LuBuilding2, LuKey, LuPlus } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
-import { Button, Card, CardHeader, Field, Input, Modal, PageHeader, Skeleton, Textarea, Toggle, useToast } from "@/components/ui";
+import { GymProfileCard } from "@/components/settings/gym-profile-card";
+import { WhatsAppSettingsCard } from "@/components/settings/whatsapp-settings-card";
+import { Button, Card, CardHeader, Field, Input, Modal, PageHeader, Toggle, useToast } from "@/components/ui";
 import { invalidate, useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
 import { can } from "@/lib/permissions";
@@ -12,35 +14,18 @@ export default function SettingsPage() {
   const user = useUser();
   const toast = useToast();
   const isOwner = can(user.role, "settings");
-  const settings = useApi<Settings>("/api/settings");
-  const branches = useApi<{ branches: Branch[] }>("/api/branches");
-  const [form, setForm] = useState<Settings | null>(null);
-  const [saving, setSaving] = useState(false);
+  // VOXI admins and housekeeping staff only use this page to change their password
+  const gymStaff = !!user.gymId && user.role !== "HOUSEKEEPING";
+  const settings = useApi<Settings>(gymStaff ? "/api/settings" : null);
+  const branches = useApi<{ branches: Branch[] }>(gymStaff ? "/api/branches" : null);
   const [branchEdit, setBranchEdit] = useState<Branch | "new" | null>(null);
   const [branchForm, setBranchForm] = useState({ name: "", address: "", phone: "", isActive: true });
   const [pw, setPw] = useState({ currentPassword: "", newPassword: "" });
 
   useEffect(() => {
-    if (settings.data) setForm(settings.data);
-  }, [settings.data]);
-  useEffect(() => {
     if (branchEdit === "new") setBranchForm({ name: "", address: "", phone: "", isActive: true });
     else if (branchEdit) setBranchForm({ name: branchEdit.name, address: branchEdit.address ?? "", phone: branchEdit.phone ?? "", isActive: branchEdit.isActive });
   }, [branchEdit]);
-
-  const save = async () => {
-    if (!form) return;
-    setSaving(true);
-    try {
-      await api.put("/api/settings", form);
-      toast("success", "Settings saved");
-      settings.reload();
-    } catch (e) {
-      toast("error", e instanceof Error ? e.message : "Failed");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const saveBranch = async () => {
     try {
@@ -66,65 +51,19 @@ export default function SettingsPage() {
     }
   };
 
-  const f = (key: keyof Settings) => ({
-    value: (form?.[key] ?? "") as string | number,
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => form && setForm({ ...form, [key]: key === "expiryWarnDays" ? Number(e.target.value) : e.target.value }),
-    disabled: !isOwner,
-  });
-
   return (
     <>
-      <PageHeader title="Settings" subtitle="Gym profile, branches and your account" />
+      <PageHeader title="Settings" subtitle={gymStaff ? "Gym profile, WhatsApp, branches and your account" : "Your account"} />
       <div className="grid gap-5 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader title="Gym profile" subtitle="Appears on invoices and receipts" icon={<LuStore className="h-[18px] w-[18px]" />} />
-          {!form ? (
-            <Skeleton className="m-5 h-72" />
-          ) : (
-            <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
-              <Field label="Gym name" required>
-                <Input {...f("gymName")} />
-              </Field>
-              <Field label="Legal name">
-                <Input {...f("legalName")} placeholder="VOXI Fitness W.L.L." />
-              </Field>
-              <Field label="Commercial Registration (CR) no.">
-                <Input {...f("crNumber")} />
-              </Field>
-              <Field label="Phone">
-                <Input {...f("phone")} />
-              </Field>
-              <Field label="Email">
-                <Input {...f("email")} />
-              </Field>
-              <Field label="Website">
-                <Input {...f("website")} />
-              </Field>
-              <Field label="Address" className="sm:col-span-2">
-                <Input {...f("address")} />
-              </Field>
-              <Field label="Invoice prefix" hint="e.g. INV → INV-000123">
-                <Input {...f("invoicePrefix")} />
-              </Field>
-              <Field label="“Expiring soon” warning (days)">
-                <Input type="number" min={1} max={60} {...f("expiryWarnDays")} />
-              </Field>
-              <Field label="Invoice footer" className="sm:col-span-2">
-                <Textarea rows={2} {...f("invoiceFooter")} />
-              </Field>
-              <div className="flex items-center justify-between sm:col-span-2">
-                <p className="text-xs text-muted">Currency: Qatari Riyal (QAR) · Time zone: Asia/Qatar (UTC+3)</p>
-                {isOwner && (
-                  <Button onClick={save} loading={saving}>
-                    Save changes
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </Card>
+        {gymStaff && (
+          <div className="space-y-5 lg:col-span-2">
+            <GymProfileCard settings={settings.data} editable={isOwner} onSaved={settings.reload} />
+            {isOwner && <WhatsAppSettingsCard />}
+          </div>
+        )}
 
         <div className="space-y-5">
+          {gymStaff && (
           <Card>
             <CardHeader
               title="Branches"
@@ -152,6 +91,7 @@ export default function SettingsPage() {
               ))}
             </ul>
           </Card>
+          )}
 
           <Card id="password">
             <CardHeader title="Change my password" icon={<LuKey className="h-[18px] w-[18px]" />} />

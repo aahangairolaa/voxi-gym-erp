@@ -6,7 +6,7 @@ import { LuLogOut, LuMenu, LuSettings, LuChevronDown } from "react-icons/lu";
 import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui";
 import { api } from "@/lib/api-client";
-import { can, ROLE_LABEL } from "@/lib/permissions";
+import { can, homeFor, ROLE_LABEL } from "@/lib/permissions";
 import { CommandSearch } from "./command-search";
 import { useUser } from "./session-context";
 import { ThemeToggle } from "./theme-toggle";
@@ -34,12 +34,12 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         <button onClick={onMenu} className="-ml-1 rounded-xl p-2 text-ink-soft hover:bg-surface-2 lg:hidden" aria-label="Open menu">
           <LuMenu className="h-5 w-5" />
         </button>
-        <Link href="/dashboard" className="lg:hidden">
+        <Link href={homeFor(user.role)} className="lg:hidden">
           <Logo size="sm" />
         </Link>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-          <CommandSearch />
+          {can(user.role, "members") && <CommandSearch />}
           <span className="hidden rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink-soft sm:inline">
             {ROLE_LABEL[user.role]}
           </span>

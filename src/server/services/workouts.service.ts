@@ -2,7 +2,7 @@ import type { z } from "zod";
 import { db } from "../db";
 import { ApiError } from "../http";
 import type { exerciseSchema, workoutLogSchema, workoutPlanSchema } from "../validators";
-import { fullName } from "./_shared";
+import { fullName, ownedOr404 } from "./_shared";
 
 type PlanInput = z.infer<typeof workoutPlanSchema>;
 
@@ -17,40 +17,54 @@ function shape<T extends { member: { firstName: string; lastName: string; id: st
   return { ...p, member: p.member ? { id: p.member.id, code: p.member.code, name: fullName(p.member) } : null };
 }
 
-export async function listExercises() {
-  return db.exercise.findMany({ orderBy: [{ muscleGroup: "asc" }, { name: "asc" }] });
+export async function listExercises(gymId: string) {
+  return db.exercise.findMany({ where: { gymId }, orderBy: [{ muscleGroup: "asc" }, { name: "asc" }] });
 }
 
-export async function createExercise(input: z.infer<typeof exerciseSchema>) {
-  return db.exercise.create({ data: input });
+export async function createExercise(gymId: string, input: z.infer<typeof exerciseSchema>) {
+  return db.exercise.create({ data: { ...input, gymId } });
 }
 
-export async function listWorkoutPlans(opts: { memberId?: string | null }) {
+export async function listWorkoutPlans(gymId: string, opts: { memberId?: string | null }) {
   const plans = await db.workoutPlan.findMany({
-    where: opts.memberId ? { memberId: opts.memberId } : {},
+    where: { gymId, ...(opts.memberId ? { memberId: opts.memberId } : {}) },
     orderBy: { createdAt: "desc" },
     include: planInclude,
   });
   return plans.map(shape);
 }
 
-export async function getWorkoutPlan(id: string) {
-  const p = await db.workoutPlan.findUnique({ where: { id }, include: planInclude });
+export async function getWorkoutPlan(gymId: string, id: string) {
+  const p = await db.workoutPlan.findFirst({ where: { id, gymId }, include: planInclude });
   if (!p) throw new ApiError(404, "Workout plan not found.");
   return shape(p);
 }
 
-export async function createWorkoutPlan(input: PlanInput) {
+/** Trainer, member and every exercise must belong to this gym. */
+async function checkRefs(gymId: string, input: PlanInput) {
+  if (input.trainerId) ownedOr404(await db.staff.findFirst({ where: { id: input.trainerId, gymId }, select: { id: true } }), "Trainer");
+  if (input.memberId) ownedOr404(await db.member.findFirst({ where: { id: input.memberId, gymId }, select: { id: true } }), "Member");
+  const ids = [...new Set(input.items.map((i) => i.exerciseId))];
+  if (ids.length) {
+    const found = await db.exercise.count({ where: { gymId, id: { in: ids } } });
+    if (found !== ids.length) throw new ApiError(400, "One of the exercises doesn't exist in your library.");
+  }
+}
+
+export async function createWorkoutPlan(gymId: string, input: PlanInput) {
+  await checkRefs(gymId, input);
   const { items, ...data } = input;
   const p = await db.workoutPlan.create({
-    data: { ...data, items: { create: items.map((it, i) => ({ ...it, order: i })) } },
+    data: { ...data, gymId, items: { create: items.map((it, i) => ({ ...it, order: i })) } },
     include: planInclude,
   });
   return shape(p);
 }
 
 /** Replaces the plan's details and its full list of exercises. */
-export async function updateWorkoutPlan(id: string, input: PlanInput) {
+export async function updateWorkoutPlan(gymId: string, id: string, input: PlanInput) {
+  ownedOr404(await db.workoutPlan.findFirst({ where: { id, gymId }, select: { id: true } }), "Workout plan");
+  await checkRefs(gymId, input);
   const { items, ...data } = input;
   const p = await db.$transaction(async (tx) => {
     await tx.workoutItem.deleteMany({ where: { workoutPlanId: id } });
@@ -63,17 +77,19 @@ export async function updateWorkoutPlan(id: string, input: PlanInput) {
   return shape(p);
 }
 
-export async function deleteWorkoutPlan(id: string) {
+export async function deleteWorkoutPlan(gymId: string, id: string) {
+  ownedOr404(await db.workoutPlan.findFirst({ where: { id, gymId }, select: { id: true } }), "Workout plan");
   await db.workoutPlan.delete({ where: { id } });
   return { ok: true };
 }
 
 /** Copy a template to a member so the trainer can personalise it. */
-export async function assignWorkoutPlan(id: string, memberId: string) {
-  const tpl = await db.workoutPlan.findUnique({ where: { id }, include: { items: true } });
-  if (!tpl) throw new ApiError(404, "Workout plan not found.");
+export async function assignWorkoutPlan(gymId: string, id: string, memberId: string) {
+  const tpl = ownedOr404(await db.workoutPlan.findFirst({ where: { id, gymId }, include: { items: true } }), "Workout plan");
+  ownedOr404(await db.member.findFirst({ where: { id: memberId, gymId }, select: { id: true } }), "Member");
   const p = await db.workoutPlan.create({
     data: {
+      gymId,
       name: tpl.name,
       goal: tpl.goal,
       level: tpl.level,
@@ -97,12 +113,15 @@ export async function assignWorkoutPlan(id: string, memberId: string) {
   return shape(p);
 }
 
-export async function logWorkout(input: z.infer<typeof workoutLogSchema>) {
-  return db.workoutLog.create({ data: input });
+export async function logWorkout(gymId: string, input: z.infer<typeof workoutLogSchema>) {
+  ownedOr404(await db.member.findFirst({ where: { id: input.memberId, gymId }, select: { id: true } }), "Member");
+  if (input.workoutPlanId) ownedOr404(await db.workoutPlan.findFirst({ where: { id: input.workoutPlanId, gymId }, select: { id: true } }), "Workout plan");
+  return db.workoutLog.create({ data: { ...input, gymId } });
 }
 
-export async function listWorkoutLogs(limit = 50) {
+export async function listWorkoutLogs(gymId: string, limit = 50) {
   const logs = await db.workoutLog.findMany({
+    where: { gymId },
     orderBy: { loggedAt: "desc" },
     take: limit,
     include: {

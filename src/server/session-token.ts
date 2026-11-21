@@ -14,6 +14,8 @@ export type Session = {
   name: string;
   email: string;
   role: Role;
+  /** The gym this person works at. null only for the VOXI platform team (SUPER_ADMIN). */
+  gymId: string | null;
   branchId: string | null;
 };
 
@@ -45,6 +47,7 @@ export async function verifySession(token: string | undefined | null): Promise<S
       name: String(payload.name),
       email: String(payload.email),
       role: payload.role as Role,
+      gymId: (payload.gymId as string | null) ?? null,
       branchId: (payload.branchId as string | null) ?? null,
     };
   } catch {

@@ -9,3 +9,4 @@ export * from "./confirm";
 export * from "./misc";
 export * from "./spinner";
 export * from "./status-badge";
+export * from "./qr-code";

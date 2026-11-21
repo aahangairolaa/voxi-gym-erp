@@ -7,7 +7,7 @@ import type { Role } from "@/lib/permissions";
 
 type ISODate = string;
 
-export type SearchResult = { id: string; code: string; name: string; phone: string; status: MemberStatus; plan: string | null };
+export type SearchResult = { id: string; code: string; name: string; phone: string; status: MemberStatus; plan: string | null; photoUrl?: string | null };
 
 export type Branch = { id: string; name: string; address: string | null; phone: string | null; isActive: boolean; _count?: { members: number; staff: number } };
 
@@ -35,6 +35,7 @@ export type MemberRow = {
   gender: "MALE" | "FEMALE" | null;
   branch: { id: string; name: string } | null;
   biometricId: string | null;
+  photoUrl: string | null;
   createdAt: ISODate;
   status: MemberStatus;
   plan: { id: string; name: string; color: string } | null;
@@ -78,6 +79,8 @@ export type MemberDetail = {
   branch: { id: string; name: string } | null;
   biometricId: string | null;
   biometricEnrolled: ISODate | null;
+  photoUrl: string | null;
+  qrToken: string;
   createdAt: ISODate;
   status: MemberStatus;
   currentMembership: MembershipDetail | null;
@@ -87,6 +90,7 @@ export type MemberDetail = {
   workoutPlans: { id: string; name: string; goal: string | null; level: string | null; trainer: { name: string } | null; _count: { items: number } }[];
   workoutLogs: { id: string; durationMin: number; calories: number | null; loggedAt: ISODate }[];
   bookings: { id: string; status: string; gymClass: { name: string; startsAt: ISODate } }[];
+  messages: { id: string; type: MessageType; channel: "API" | "LINK"; status: MessageStatus; createdAt: ISODate }[];
   stats: { totalVisits: number; visitsThisMonth: number; totalPaid: number; outstanding: number; lastVisit: ISODate | null };
 };
 
@@ -146,7 +150,7 @@ export type DashboardData = {
   planMix: { name: string; color: string; value: number }[];
   expiring: { memberId: string; name: string; code: string; phone: string; plan: string; endDate: ISODate; daysLeft: number }[];
   recentPayments: { id: string; invoiceNo: string; amount: number; method: string; status: string; paidAt: ISODate; member: { id: string; name: string } | null; description: string | null }[];
-  recentVisits: { id: string; checkInAt: ISODate; checkOutAt: ISODate | null; source: string; member: { id: string; code: string; name: string } }[];
+  recentVisits: { id: string; checkInAt: ISODate; checkOutAt: ISODate | null; source: string; member: { id: string; code: string; name: string; photoUrl?: string | null } }[];
   classesToday: { id: string; name: string; startsAt: ISODate; durationMin: number; trainer: string | null; booked: number; capacity: number; room: string | null }[];
 };
 
@@ -154,12 +158,12 @@ export type AccessResult = {
   allowed: boolean;
   action: "IN" | "OUT" | "DENIED";
   reason: string | null;
-  member: { id: string; code: string; name: string; status: string; plan: string | null; endDate: ISODate | null };
+  member: { id: string; code: string; name: string; status: string; plan: string | null; endDate: ISODate | null; photoUrl: string | null };
   attendanceId: string | null;
 };
 
 export type AttendanceResponse = {
-  visits: { id: string; member: { id: string; code: string; name: string }; branch: string | null; checkInAt: ISODate; checkOutAt: ISODate | null; source: string; device: string | null }[];
+  visits: { id: string; member: { id: string; code: string; name: string; photoUrl: string | null }; branch: string | null; checkInAt: ISODate; checkOutAt: ISODate | null; source: string; device: string | null }[];
   stats: { total: number; inside: number; avgMinutes: number; biometric: number };
   byHour: number[];
 };
@@ -224,7 +228,7 @@ export type GymClass = {
 export type LeaderboardResponse = {
   period: "week" | "month" | "all";
   points: { visit: number; workout: number; per10Min: number };
-  entries: { rank: number; memberId: string; member: { id: string; code: string; name: string; gender: string | null }; visits: number; workouts: number; minutes: number; points: number }[];
+  entries: { rank: number; memberId: string; member: { id: string; code: string; name: string; gender: string | null; photoUrl: string | null }; visits: number; workouts: number; minutes: number; points: number }[];
 };
 
 export type CashSession = {
@@ -298,15 +302,167 @@ export type StaffMember = {
 };
 
 export type Settings = {
-  gymName: string;
+  id: string;
+  name: string;
+  slug: string;
   legalName: string | null;
   crNumber: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
   website: string | null;
+  instagram: string | null;
+  openingHours: string | null;
+  logo: string | null;
+  brandColor: string | null;
   currency: string;
+  timezone: string;
   invoicePrefix: string;
   invoiceFooter: string | null;
   expiryWarnDays: number;
+  plan: SubscriptionPlan;
+  status: GymStatus;
+  trialEndsAt: ISODate | null;
+};
+
+// ── Multi-gym ───────────────────────────────────────────────────────────────
+export type SubscriptionPlan = "ESSENTIAL" | "PROFESSIONAL" | "ELITE";
+export type GymStatus = "TRIAL" | "ACTIVE" | "SUSPENDED";
+
+export type AdminGym = {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string | null;
+  brandColor: string | null;
+  phone: string | null;
+  email: string | null;
+  plan: SubscriptionPlan;
+  status: GymStatus;
+  trialEndsAt: ISODate | null;
+  platformNotes: string | null;
+  createdAt: ISODate;
+  owner: { name: string; email: string; lastLoginAt: ISODate | null } | null;
+  members: number;
+  staffCount: number;
+  branches: number;
+  activeMemberships: number;
+  revenue30d: number;
+  lastActiveAt: ISODate | null;
+};
+export type AdminGymsResponse = {
+  gyms: AdminGym[];
+  stats: { total: number; active: number; trial: number; suspended: number; members: number; mrr: number };
+};
+
+// ── Engagement (dashboard) ──────────────────────────────────────────────────
+export type ReminderItem = {
+  memberId: string;
+  code: string;
+  name: string;
+  phone: string;
+  photoUrl: string | null;
+  plan: string;
+  endDate: ISODate;
+  daysLeft: number;
+  lastRemindedAt: ISODate | null;
+};
+export type RemindersResponse = {
+  warnDays: number;
+  expiredLookbackDays: number;
+  expiring: ReminderItem[];
+  expired: ReminderItem[];
+  summary: { expiring: number; expired: number; remindedThisWeek: number; notReminded: number };
+};
+export type CelebrationsResponse = {
+  birthdays: { memberId: string; code: string; name: string; phone: string; photoUrl: string | null; daysAway: number; turning: number; greetedAt: ISODate | null }[];
+  milestones: { memberId: string; code: string; name: string; phone: string; photoUrl: string | null; milestone: number; visits: number; greetedAt: ISODate | null }[];
+};
+
+// ── WhatsApp ────────────────────────────────────────────────────────────────
+export type MessageType = "RENEWAL_REMINDER" | "EXPIRED" | "WELCOME" | "PAYMENT_RECEIPT" | "BIRTHDAY" | "MILESTONE" | "CARD" | "CUSTOM";
+export type MessageStatus = "SENT" | "DELIVERED" | "READ" | "FAILED" | "OPENED";
+export type SendResult = { mode: "api" | "link"; status: "SENT" | "OPENED" | "FAILED"; url: string | null; messageId: string; error: string | null; to: string };
+export type TemplateConfig = { text: string; templateName?: string | null; language?: string | null; params?: string | null };
+export type WhatsAppConfig = {
+  enabled: boolean;
+  phoneNumberId: string | null;
+  businessAccountId: string | null;
+  hasToken: boolean;
+  hasAppSecret: boolean;
+  verifyToken: string;
+  webhookPath: string;
+  templates: Record<MessageType, TemplateConfig>;
+  mode: "api" | "link";
+};
+export type WhatsAppMessage = {
+  id: string;
+  type: MessageType;
+  channel: "API" | "LINK";
+  status: MessageStatus;
+  body: string;
+  error: string | null;
+  toPhone: string;
+  createdAt: ISODate;
+  member: { id: string; code: string; name: string } | null;
+  sentBy: string | null;
+};
+export type MessagesResponse = { messages: WhatsAppMessage[]; last30Days: Partial<Record<MessageStatus, number>> };
+
+// ── Housekeeping ────────────────────────────────────────────────────────────
+export type Shift = "MORNING" | "AFTERNOON" | "EVENING" | "ANYTIME";
+export type HousekeepingTask = {
+  id: string;
+  area: string;
+  title: string;
+  frequency: "DAILY" | "WEEKLY";
+  weekday: number | null;
+  shift: Shift;
+  isActive: boolean;
+  branchId: string | null;
+  assignedToId: string | null;
+  branch: { id: string; name: string } | null;
+  assignedTo: { id: string; name: string } | null;
+};
+export type HousekeepingToday = {
+  date: ISODate;
+  items: {
+    id: string;
+    area: string;
+    title: string;
+    shift: Shift;
+    frequency: "DAILY" | "WEEKLY";
+    branch: { id: string; name: string } | null;
+    assignedTo: { id: string; name: string } | null;
+    status: "PENDING" | "DONE" | "ISSUE";
+    logId: string | null;
+    note: string | null;
+    doneBy: string | null;
+    doneAt: ISODate | null;
+  }[];
+  progress: { total: number; done: number; issues: number; pending: number };
+  openIssues: { id: string; area: string; title: string | null; note: string | null; reportedBy: string | null; reportedAt: ISODate }[];
+  week: { date: ISODate; done: number }[];
+};
+
+// ── Activity log ────────────────────────────────────────────────────────────
+export type ActivityEntry = {
+  id: string;
+  action: string;
+  entity: string | null;
+  entityId: string | null;
+  summary: string;
+  createdAt: ISODate;
+  staff: { id: string; name: string; role: Role } | null;
+};
+
+// ── Digital member card (public) ────────────────────────────────────────────
+export type MemberCard = {
+  name: string;
+  firstName: string;
+  code: string;
+  token: string;
+  photoUrl: string | null;
+  gym: { name: string; logo: string | null; brandColor: string | null; phone: string | null };
+  membership: { plan: string; color: string; endDate: ISODate; status: MemberStatus } | null;
 };

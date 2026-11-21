@@ -43,7 +43,7 @@ export default function LeaderboardPage() {
                 <div key={e.memberId} className="flex animate-fade-up flex-col items-center" style={{ animationDelay: `${i * 120}ms` }}>
                   {place === 1 && <LuCrown className="mb-1 h-7 w-7 animate-float text-amber-300 drop-shadow-[0_0_12px_rgba(252,211,77,0.7)]" />}
                   <div className={cn("rounded-full bg-gradient-to-br p-[3px]", MEDAL[place - 1])}>
-                    <Avatar name={e.member.name} size={place === 1 ? 76 : 60} className="ring-2 ring-[#110b2e]" />
+                    <Avatar name={e.member.name} src={e.member.photoUrl} size={place === 1 ? 76 : 60} className="ring-2 ring-[#110b2e]" />
                   </div>
                   <Link href={`/members/${e.member.id}`} className="mt-2 max-w-full truncate text-center text-sm font-semibold hover:underline">
                     {e.member.name}
@@ -85,7 +85,7 @@ export default function LeaderboardPage() {
                     <td className="font-display font-semibold text-muted tabular-nums">{e.rank}</td>
                     <td>
                       <Link href={`/members/${e.member.id}`} className="flex items-center gap-3 font-semibold hover:text-brand-600">
-                        <Avatar name={e.member.name} size={30} /> {e.member.name}
+                        <Avatar name={e.member.name} src={e.member.photoUrl} size={30} /> {e.member.name}
                       </Link>
                     </td>
                     <td className="text-right tabular-nums">{e.visits}</td>

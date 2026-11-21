@@ -3,9 +3,9 @@ import type { z } from "zod";
 import { addDays, daysBetween, endOfDay, startOfDay } from "@/lib/dates";
 import { db, type Tx } from "../db";
 import { ApiError } from "../http";
-import type { Session } from "../session-token";
+import type { GymSession } from "../auth";
 import type { sellMembershipSchema } from "../validators";
-import { daysLeft, effectiveStatus, fullName, getWarnDays } from "./_shared";
+import { daysLeft, effectiveStatus, fullName, getWarnDays, ownedOr404 } from "./_shared";
 import { createPaymentTx } from "./payments.service";
 
 type SellInput = z.infer<typeof sellMembershipSchema>;
@@ -15,14 +15,14 @@ type SellInput = z.infer<typeof sellMembershipSchema>;
  * Renewals are chained: if the member still has days left, the new
  * membership starts the day after the current one ends.
  */
-export async function sellMembershipTx(tx: Tx, input: SellInput, session: Session) {
-  const plan = await tx.plan.findUnique({ where: { id: input.planId } });
+export async function sellMembershipTx(tx: Tx, input: SellInput, session: GymSession) {
+  const plan = await tx.plan.findFirst({ where: { id: input.planId, gymId: session.gymId } });
   if (!plan || !plan.isActive) throw new ApiError(400, "That plan is not available.");
 
   let start = input.startDate ? startOfDay(input.startDate) : startOfDay();
   if (!input.startDate) {
     const running = await tx.membership.findFirst({
-      where: { memberId: input.memberId, status: { in: ["ACTIVE", "FROZEN"] }, endDate: { gte: start } },
+      where: { gymId: session.gymId, memberId: input.memberId, status: { in: ["ACTIVE", "FROZEN"] }, endDate: { gte: start } },
       orderBy: { endDate: "desc" },
     });
     if (running) start = startOfDay(addDays(running.endDate, 1));
@@ -35,6 +35,7 @@ export async function sellMembershipTx(tx: Tx, input: SellInput, session: Sessio
 
   const membership = await tx.membership.create({
     data: {
+      gymId: session.gymId,
       memberId: input.memberId,
       planId: plan.id,
       startDate: start,
@@ -64,16 +65,20 @@ export async function sellMembershipTx(tx: Tx, input: SellInput, session: Sessio
   return { membership, payment };
 }
 
-export async function sellMembership(input: SellInput, session: Session) {
-  const member = await db.member.findUnique({ where: { id: input.memberId }, select: { id: true } });
-  if (!member) throw new ApiError(404, "Member not found.");
-  return db.$transaction((tx) => sellMembershipTx(tx, input, session));
+export async function sellMembership(input: SellInput, session: GymSession) {
+  const member = ownedOr404(
+    await db.member.findFirst({ where: { id: input.memberId, gymId: session.gymId }, select: { id: true, firstName: true, lastName: true } }),
+    "Member",
+  );
+  const result = await db.$transaction((tx) => sellMembershipTx(tx, input, session));
+  return { ...result, memberName: fullName(member) };
 }
 
-export async function listMemberships(opts: { status?: string | null; search?: string | null }) {
-  const warnDays = await getWarnDays();
+export async function listMemberships(gymId: string, opts: { status?: string | null; search?: string | null }) {
+  const warnDays = await getWarnDays(gymId);
   const where: Prisma.MembershipWhereInput = opts.search
     ? {
+        gymId,
         member: {
           OR: [
             { firstName: { contains: opts.search, mode: "insensitive" } },
@@ -82,7 +87,7 @@ export async function listMemberships(opts: { status?: string | null; search?: s
           ],
         },
       }
-    : {};
+    : { gymId };
 
   const rows = await db.membership.findMany({
     where,
@@ -126,25 +131,30 @@ export async function listMemberships(opts: { status?: string | null; search?: s
   return { memberships: filtered, summary };
 }
 
-export async function membershipAction(id: string, action: "freeze" | "unfreeze" | "cancel") {
-  const m = await db.membership.findUnique({ where: { id }, include: { plan: true } });
-  if (!m) throw new ApiError(404, "Membership not found.");
+export async function membershipAction(gymId: string, id: string, action: "freeze" | "unfreeze" | "cancel") {
+  const m = ownedOr404(
+    await db.membership.findFirst({ where: { id, gymId }, include: { plan: true, member: { select: { firstName: true, lastName: true } } } }),
+    "Membership",
+  );
+  const label = `${m.plan.name} for ${fullName(m.member)}`;
 
   if (action === "cancel") {
-    return db.membership.update({ where: { id }, data: { status: "CANCELLED", frozenAt: null } });
+    await db.membership.update({ where: { id }, data: { status: "CANCELLED", frozenAt: null } });
+    return { label };
   }
 
   if (action === "freeze") {
     if (m.status !== "ACTIVE" || m.endDate < new Date()) throw new ApiError(400, "Only an active membership can be frozen.");
     const remaining = m.plan.freezeDays - m.freezeDaysUsed;
     if (remaining <= 0) throw new ApiError(400, `This plan allows ${m.plan.freezeDays} freeze days and they are used up.`);
-    return db.membership.update({ where: { id }, data: { status: "FROZEN", frozenAt: new Date() } });
+    await db.membership.update({ where: { id }, data: { status: "FROZEN", frozenAt: new Date() } });
+    return { label };
   }
 
   // unfreeze → push the end date forward by the number of days it was frozen
   if (m.status !== "FROZEN" || !m.frozenAt) throw new ApiError(400, "This membership is not frozen.");
   const frozenDays = Math.max(0, daysBetween(m.frozenAt, new Date()));
-  return db.membership.update({
+  await db.membership.update({
     where: { id },
     data: {
       status: "ACTIVE",
@@ -153,4 +163,5 @@ export async function membershipAction(id: string, action: "freeze" | "unfreeze"
       endDate: addDays(m.endDate, frozenDays),
     },
   });
+  return { label, frozenDays };
 }

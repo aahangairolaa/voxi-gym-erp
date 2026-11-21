@@ -44,7 +44,7 @@ export function MemberPicker({
   if (value) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/50 px-3 py-2 dark:border-brand-800 dark:bg-brand-500/10">
-        <Avatar name={value.name} size={32} />
+        <Avatar name={value.name} src={value.photoUrl} size={32} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{value.name}</p>
           <p className="truncate text-xs text-muted">
@@ -88,7 +88,7 @@ export function MemberPicker({
                   setOpen(false);
                 }}
               >
-                <Avatar name={r.name} size={30} />
+                <Avatar name={r.name} src={r.photoUrl} size={30} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink">{r.name}</p>
                   <p className="truncate text-xs text-muted">

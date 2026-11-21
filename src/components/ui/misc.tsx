@@ -3,9 +3,25 @@ import { useEffect, useRef, useState } from "react";
 import { LuInbox } from "react-icons/lu";
 import { cn, hueFromString, initials } from "@/lib/utils";
 
-/** Round initials avatar with a stable colour per person. */
-export function Avatar({ name, size = 36, className }: { name: string; size?: number; className?: string }) {
+/** Round avatar: the member's photo when there is one, otherwise initials with a stable colour per person. */
+export function Avatar({ name, size = 36, className, src }: { name: string; size?: number; className?: string; src?: string | null }) {
+  const [broken, setBroken] = useState(false);
   const hue = hueFromString(name);
+  if (src && !broken) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={name}
+        width={size}
+        height={size}
+        loading="lazy"
+        onError={() => setBroken(true)}
+        className={cn("inline-block shrink-0 rounded-full object-cover ring-2 ring-surface select-none", className)}
+        style={{ width: size, height: size, boxShadow: "0 4px 12px -4px rgba(76,48,190,0.45)" }}
+      />
+    );
+  }
   return (
     <span
       className={cn("inline-grid shrink-0 place-items-center rounded-full font-semibold text-white select-none", className)}

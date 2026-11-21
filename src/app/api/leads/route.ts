@@ -1,14 +1,14 @@
 import { route, readBody } from "@/server/http";
-import { requireSession } from "@/server/auth";
+import { requireGym } from "@/server/auth";
 import { leadSchema } from "@/server/validators";
 import { createLead, listLeads } from "@/server/services/leads.service";
 
 export const GET = route(async () => {
-  await requireSession("leads");
-  return { leads: await listLeads() };
+  const s = await requireGym("leads");
+  return { leads: await listLeads(s.gymId) };
 });
 
 export const POST = route(async (req) => {
-  await requireSession("leads");
-  return createLead(await readBody(req, leadSchema));
+  const s = await requireGym("leads");
+  return createLead(s.gymId, await readBody(req, leadSchema));
 });

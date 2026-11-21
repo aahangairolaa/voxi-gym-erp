@@ -45,8 +45,13 @@ export default function InvoicePage() {
         )}
         <div className="flex flex-col justify-between gap-6 sm:flex-row">
           <div>
-            <Logo className="!text-[#15122b]" />
-            <p className="mt-3 text-sm font-semibold">{s?.legalName ?? s?.gymName}</p>
+            {s?.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.logo} alt={s.name} className="h-14 max-w-[200px] object-contain" />
+            ) : (
+              <Logo className="!text-[#15122b]" />
+            )}
+            <p className="mt-3 text-sm font-semibold">{s?.legalName ?? s?.name}</p>
             <p className="max-w-xs text-xs text-[#6e6a88]">{s?.address}</p>
             <p className="text-xs text-[#6e6a88]">
               {s?.phone} {s?.email && `· ${s.email}`}

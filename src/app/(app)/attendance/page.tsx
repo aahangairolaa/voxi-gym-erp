@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { LuCircleCheck, LuCircleX, LuDoorOpen, LuFingerprint, LuLogOut, LuScanFace, LuTimer, LuUsers } from "react-icons/lu";
+import { LuCircleCheck, LuCircleX, LuDoorOpen, LuFingerprint, LuLogOut, LuQrCode, LuScanFace, LuTimer, LuUsers } from "react-icons/lu";
+import { QrScanner } from "@/components/attendance/qr-scanner";
 import { BarChart } from "@/components/charts";
 import { useUser } from "@/components/layout/session-context";
 import { MemberPicker } from "@/components/members/member-picker";
@@ -22,19 +23,24 @@ export default function AttendancePage() {
   const [code, setCode] = useState("");
   const [result, setResult] = useState<AccessResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const isToday = date === toDateInput();
   const { data, loading, reload } = useApi<AttendanceResponse>(withQuery("/api/attendance", { date }), { refreshMs: isToday ? 15_000 : undefined });
 
-  /** Check a member in (or out). `forceId` + override = staff lets a member in without a valid plan. */
   const page = useLimit(data?.visits);
 
-  /** */
-  const submit = async (override = false, forceId?: string) => {
-    const memberId = forceId ?? member?.id ?? null;
-    if (!memberId && !code.trim()) return;
+  /**
+   * Check a member in (or out).
+   * `forceId` + override = staff lets a member in without a valid plan.
+   * `scanned` = text read from a QR card (camera or USB scanner).
+   */
+  const submit = async (override = false, forceId?: string, scanned?: string) => {
+    const memberId = forceId ?? (scanned ? null : member?.id) ?? null;
+    const text = (scanned ?? code).trim();
+    if (!memberId && !text) return;
     setBusy(true);
     try {
-      const r = await api.post<AccessResult>("/api/attendance", { memberId, code: memberId ? null : code.trim(), override });
+      const r = await api.post<AccessResult>("/api/attendance", { memberId, code: memberId ? null : text, override });
       setResult(r);
       if (r.allowed) {
         setMember(null);
@@ -68,7 +74,16 @@ export default function AttendancePage() {
         {/* Check-in desk */}
         <Card className="relative overflow-hidden xl:col-span-2">
           <div className="pointer-events-none absolute -top-24 -right-20 h-64 w-64 rounded-full bg-brand-400/20 blur-3xl" />
-          <CardHeader title="Front desk check-in" subtitle="Scan, type a member code or search by name" icon={<LuScanFace className="h-[18px] w-[18px]" />} />
+          <CardHeader
+            title="Front desk check-in"
+            subtitle="Scan a QR card, type a member code or search by name"
+            icon={<LuScanFace className="h-[18px] w-[18px]" />}
+            action={
+              <Button size="sm" variant="soft" onClick={() => setScanning(true)}>
+                <LuQrCode className="h-4 w-4" /> Scan QR
+              </Button>
+            }
+          />
           <div className="relative space-y-3 px-5 pb-5">
             <MemberPicker value={member} onChange={setMember} />
             {!member && (
@@ -79,7 +94,13 @@ export default function AttendancePage() {
                 }}
                 className="flex gap-2"
               >
-                <Input placeholder="…or member code / phone (e.g. 1001)" value={code} onChange={(e) => setCode(e.target.value)} className="font-mono" />
+                <Input
+                  placeholder="…or member code / phone / USB QR scan"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="font-mono"
+                  aria-label="Member code, phone or scanned QR"
+                />
               </form>
             )}
             <Button size="lg" className="w-full" onClick={() => submit()} loading={busy} disabled={!member && !code.trim()}>
@@ -97,7 +118,7 @@ export default function AttendancePage() {
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <Avatar name={result.member.name} size={48} />
+                  <Avatar name={result.member.name} src={result.member.photoUrl} size={64} />
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase">
                       {result.allowed ? (
@@ -192,7 +213,7 @@ export default function AttendancePage() {
                   <tr key={v.id}>
                     <td>
                       <Link href={`/members/${v.member.id}`} className="flex items-center gap-3">
-                        <Avatar name={v.member.name} size={30} />
+                        <Avatar name={v.member.name} src={v.member.photoUrl} size={30} />
                         <span className="font-semibold text-ink hover:text-brand-600">{v.member.name}</span>
                         <span className="font-mono text-[11px] text-muted">{v.member.code}</span>
                       </Link>
@@ -212,7 +233,9 @@ export default function AttendancePage() {
                     </td>
                     <td className="text-ink-soft">{v.branch ?? "—"}</td>
                     <td>
-                      <Badge tone={v.source === "BIOMETRIC" ? "brand" : "gray"}>{v.source === "BIOMETRIC" ? v.device ?? "Biometric" : "Front desk"}</Badge>
+                      <Badge tone={v.source === "BIOMETRIC" ? "brand" : v.source === "QR" ? "blue" : "gray"}>
+                        {v.source === "BIOMETRIC" ? v.device ?? "Biometric" : v.source === "QR" ? "QR card" : "Front desk"}
+                      </Badge>
                     </td>
                     <td className="text-right">
                       {!v.checkOutAt && (
@@ -229,6 +252,16 @@ export default function AttendancePage() {
           </div>
         )}
       </Card>
+
+      {scanning && (
+        <QrScanner
+          onClose={() => setScanning(false)}
+          onScan={(text) => {
+            setScanning(false);
+            submit(false, undefined, text);
+          }}
+        />
+      )}
     </>
   );
 }

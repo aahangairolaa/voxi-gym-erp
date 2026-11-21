@@ -5,13 +5,15 @@ import {
   LuArrowUpRight, LuBanknote, LuCalendarDays, LuDoorOpen, LuIdCard, LuScanFace, LuTimer, LuUserPlus, LuUsers,
 } from "react-icons/lu";
 import { AreaChart, BarChart, Donut } from "@/components/charts";
+import { Celebrations } from "@/components/dashboard/celebrations";
+import { RenewalReminders } from "@/components/dashboard/renewal-reminders";
 import { useUser } from "@/components/layout/session-context";
 import { MemberFormModal } from "@/components/members/member-form-modal";
 import { SellMembershipModal } from "@/components/members/sell-membership-modal";
 import { Avatar, Badge, Button, Card, CardHeader, CountUp, EmptyState, ErrorState, Skeleton, StatCard } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
 import { qatarParts } from "@/lib/dates";
-import { formatDate, formatQAR, formatTime, humanize, timeAgo } from "@/lib/format";
+import { formatQAR, formatTime, humanize, timeAgo } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import type { DashboardData, SearchResult } from "@/types/api";
 
@@ -201,45 +203,15 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader
-            title="Expiring soon"
-            subtitle="Call them before their plan ends"
-            icon={<LuTimer className="h-[18px] w-[18px]" />}
-            action={
-              <Link href="/memberships?status=EXPIRING" className="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-300">
-                View all
-              </Link>
-            }
-          />
-          <ul className="divide-y divide-line/70 px-2 pb-2">
-            {data?.expiring.length === 0 && <EmptyState title="Nobody is expiring this week" message="Great retention!" />}
-            {data?.expiring.map((m) => (
-              <li key={m.memberId} className="flex items-center gap-3 px-3 py-3">
-                <Avatar name={m.name} size={36} />
-                <Link href={`/members/${m.memberId}`} className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink hover:text-brand-600">{m.name}</p>
-                  <p className="truncate text-xs text-muted">
-                    {m.plan} · ends {formatDate(m.endDate)}
-                  </p>
-                </Link>
-                <Badge tone={m.daysLeft <= 2 ? "red" : "amber"}>{m.daysLeft <= 0 ? "Today" : `${m.daysLeft}d left`}</Badge>
-                {canSell && (
-                  <Button
-                    size="sm"
-                    variant="soft"
-                    onClick={() => setSell({ open: true, member: { id: m.memberId, code: m.code, name: m.name, phone: m.phone, status: "EXPIRING", plan: m.plan } })}
-                  >
-                    Renew
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Card>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RenewalReminders onRenew={(member) => setSell({ open: true, member })} />
+        </div>
+        <Celebrations />
+      </div>
 
-        {canMoney ? (
+      <div className="grid gap-4 lg:grid-cols-2">
+        {canMoney && (
           <Card>
             <CardHeader
               title="Latest payments"
@@ -251,6 +223,7 @@ export default function DashboardPage() {
               }
             />
             <ul className="divide-y divide-line/70 px-2 pb-2">
+              {data?.recentPayments.length === 0 && <EmptyState title="No payments yet" />}
               {data?.recentPayments.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 px-3 py-3">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10">
@@ -269,20 +242,31 @@ export default function DashboardPage() {
               ))}
             </ul>
           </Card>
-        ) : (
-          <Card>
-            <CardHeader title="Latest check-ins" icon={<LuDoorOpen className="h-[18px] w-[18px]" />} />
-            <ul className="divide-y divide-line/70 px-2 pb-2">
-              {data?.recentVisits.map((v) => (
-                <li key={v.id} className="flex items-center gap-3 px-3 py-3">
-                  <Avatar name={v.member.name} size={34} />
-                  <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{v.member.name}</p>
-                  <span className="text-xs text-muted">{formatTime(v.checkInAt)}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
         )}
+        <Card className={canMoney ? "" : "lg:col-span-2"}>
+          <CardHeader
+            title="Latest check-ins"
+            icon={<LuDoorOpen className="h-[18px] w-[18px]" />}
+            action={
+              <Link href="/attendance" className="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-300">
+                Attendance
+              </Link>
+            }
+          />
+          <ul className="divide-y divide-line/70 px-2 pb-2">
+            {data?.recentVisits.length === 0 && <EmptyState title="No check-ins yet today" />}
+            {data?.recentVisits.map((v) => (
+              <li key={v.id} className="flex items-center gap-3 px-3 py-3">
+                <Avatar name={v.member.name} src={v.member.photoUrl} size={34} />
+                <Link href={`/members/${v.member.id}`} className="min-w-0 flex-1 truncate text-sm font-semibold text-ink hover:text-brand-600">
+                  {v.member.name}
+                </Link>
+                <Badge tone={v.source === "BIOMETRIC" ? "brand" : v.source === "QR" ? "blue" : "gray"}>{humanize(v.source)}</Badge>
+                <span className="w-16 text-right text-xs text-muted tabular-nums">{formatTime(v.checkInAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </div>
 
       <MemberFormModal open={newMember} onClose={() => setNewMember(false)} onSaved={() => reload()} />

@@ -1,6 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  VOXI database schema (PostgreSQL + Prisma)
 //
+//  Multi-gym: every gym you sell VOXI to is a row in `Gym`. Everything a gym
+//  owns (members, payments, staff …) carries a `gymId`, and every query in
+//  src/server/services is filtered by the signed-in user's gym.
+//
 //  Money:  every amount is stored as a whole number of Qatari Riyal (QAR).
 //  Times:  stored in UTC. The app displays them in Qatar time (Asia/Qatar).
 //
@@ -11,18 +15,36 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Neon: the app uses the POOLED connection (DATABASE_URL, host contains "-pooler"),
+// which suits serverless/Vercel. Schema commands (db push, migrate) use the DIRECT
+// connection (DATABASE_URL_UNPOOLED). `neon deploy` writes both into .env.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
 enum Role {
+  SUPER_ADMIN // VOXI platform team — manages gyms, sees no gym data
   OWNER
   MANAGER
   RECEPTION
   TRAINER
+  HOUSEKEEPING
+}
+
+enum GymStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum SubscriptionPlan {
+  ESSENTIAL
+  PROFESSIONAL
+  ELITE
 }
 
 enum Gender {
@@ -100,54 +122,147 @@ enum BookingStatus {
   NO_SHOW
 }
 
-// ── Gym setup ────────────────────────────────────────────────────────────────
+enum MessageType {
+  RENEWAL_REMINDER
+  EXPIRED
+  WELCOME
+  PAYMENT_RECEIPT
+  BIRTHDAY
+  MILESTONE
+  CARD
+  CUSTOM
+}
 
-/// Single row holding the gym's profile & preferences.
-model GymSettings {
-  id             String   @id @default("default")
-  gymName        String   @default("VOXI Fitness")
+enum MessageChannel {
+  API // sent by the WhatsApp Business (Meta Cloud) API
+  LINK // opened in WhatsApp on the staff's device (wa.me link)
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  OPENED // LINK: WhatsApp was opened with the message ready
+}
+
+enum TaskFrequency {
+  DAILY
+  WEEKLY
+}
+
+enum Shift {
+  MORNING
+  AFTERNOON
+  EVENING
+  ANYTIME
+}
+
+enum TaskLogStatus {
+  DONE
+  ISSUE
+}
+
+// ── Gyms (tenants) ───────────────────────────────────────────────────────────
+
+/// One customer gym. Holds its profile, branding, preferences and subscription.
+model Gym {
+  id             String           @id @default(cuid())
+  name           String
+  slug           String           @unique // short id used in URLs (e.g. WhatsApp webhook)
   legalName      String?
   crNumber       String? // Qatar Commercial Registration number
   phone          String?
   email          String?
   address        String?
   website        String?
-  currency       String   @default("QAR")
-  timezone       String   @default("Asia/Qatar")
-  invoicePrefix  String   @default("INV")
+  instagram      String?
+  openingHours   String?
+  logo           String? // small image as a data: URL
+  brandColor     String           @default("#7C5CFF")
+  currency       String           @default("QAR")
+  timezone       String           @default("Asia/Qatar")
+  invoicePrefix  String           @default("INV")
   invoiceFooter  String?
-  expiryWarnDays Int      @default(7) // "Expiring soon" window
-  updatedAt      DateTime @updatedAt
+  expiryWarnDays Int              @default(7)
+  // VOXI subscription (managed by the VOXI team on /admin)
+  plan           SubscriptionPlan @default(PROFESSIONAL)
+  status         GymStatus        @default(TRIAL)
+  trialEndsAt    DateTime?
+  platformNotes  String?
+  // WhatsApp Business (Meta Cloud API). Secrets are stored encrypted.
+  whatsappEnabled           Boolean @default(false)
+  whatsappPhoneNumberId     String?
+  whatsappBusinessAccountId String?
+  whatsappTokenEnc          String?
+  whatsappAppSecretEnc      String?
+  whatsappVerifyToken       String?
+  whatsappTemplates         Json? // per message type: { text, templateName, language }
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  branches         Branch[]
+  counters         Counter[]
+  staff            Staff[]
+  members          Member[]
+  plans            Plan[]
+  memberships      Membership[]
+  payments         Payment[]
+  cashSessions     CashSession[]
+  expenses         Expense[]
+  attendance       Attendance[]
+  devices          BiometricDevice[]
+  biometricEvents  BiometricEvent[]
+  exercises        Exercise[]
+  workoutPlans     WorkoutPlan[]
+  workoutLogs      WorkoutLog[]
+  classes          GymClass[]
+  leads            Lead[]
+  messages         WhatsAppMessage[]
+  housekeepingTasks HousekeepingTask[]
+  housekeepingLogs HousekeepingLog[]
+  auditLogs        AuditLog[]
 }
 
 model Branch {
   id        String   @id @default(cuid())
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
   name      String
   address   String?
   phone     String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  staff        Staff[]
-  members      Member[]
-  attendance   Attendance[]
-  cashSessions CashSession[]
-  devices      BiometricDevice[]
-  classes      GymClass[]
-  expenses     Expense[]
+  staff             Staff[]
+  members           Member[]
+  attendance        Attendance[]
+  cashSessions      CashSession[]
+  devices           BiometricDevice[]
+  classes           GymClass[]
+  expenses          Expense[]
+  housekeepingTasks HousekeepingTask[]
+
+  @@index([gymId])
 }
 
-/// Atomic counters used for human-friendly numbers (M-1001, INV-000123 …)
+/// Atomic per-gym counters for human-friendly numbers (M-1001, INV-000123 …)
 model Counter {
-  key   String @id
+  gymId String
+  gym   Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  key   String
   value Int
+
+  @@id([gymId, key])
 }
 
 // ── People ───────────────────────────────────────────────────────────────────
 
-/// Staff = anyone who logs into VOXI (owner, managers, reception, trainers).
+/// Staff = anyone who logs into VOXI. SUPER_ADMIN accounts have no gym.
 model Staff {
   id           String    @id @default(cuid())
+  gymId        String?
+  gym          Gym?      @relation(fields: [gymId], references: [id], onDelete: Cascade)
   name         String
   email        String    @unique
   phone        String?
@@ -161,18 +276,26 @@ model Staff {
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
 
-  paymentsReceived Payment[]      @relation("ReceivedBy")
-  sessionsOpened   CashSession[]  @relation("OpenedBy")
-  sessionsClosed   CashSession[]  @relation("ClosedBy")
-  workoutPlans     WorkoutPlan[]
-  classes          GymClass[]
-  leads            Lead[]
-  expenses         Expense[]
+  paymentsReceived  Payment[]         @relation("ReceivedBy")
+  sessionsOpened    CashSession[]     @relation("OpenedBy")
+  sessionsClosed    CashSession[]     @relation("ClosedBy")
+  workoutPlans      WorkoutPlan[]
+  classes           GymClass[]
+  leads             Lead[]
+  expenses          Expense[]
+  messagesSent      WhatsAppMessage[]
+  housekeepingTasks HousekeepingTask[]
+  housekeepingLogs  HousekeepingLog[]
+  auditLogs         AuditLog[]
+
+  @@index([gymId])
 }
 
 model Member {
   id                String    @id @default(cuid())
-  code              String    @unique // human-friendly id, e.g. M-1001
+  gymId             String
+  gym               Gym       @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  code              String // human-friendly id, e.g. M-1001 (unique per gym)
   firstName         String
   lastName          String
   phone             String
@@ -184,10 +307,14 @@ model Member {
   emergencyName     String?
   emergencyPhone    String?
   notes             String?
+  photo             String? // small JPEG as a data: URL (served by /api/members/:id/photo)
+  photoUpdatedAt    DateTime?
+  /// Secret token printed as the QR code on the member's digital card.
+  qrToken           String    @unique
   branchId          String?
   branch            Branch?   @relation(fields: [branchId], references: [id])
   /// The user id the member is enrolled under on the biometric device(s).
-  biometricId       String?   @unique
+  biometricId       String?
   biometricEnrolled DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -199,33 +326,42 @@ model Member {
   workoutLogs     WorkoutLog[]
   bookings        ClassBooking[]
   biometricEvents BiometricEvent[]
+  messages        WhatsAppMessage[]
   convertedLead   Lead?
 
-  @@index([lastName, firstName])
-  @@index([phone])
+  @@unique([gymId, code])
+  @@unique([gymId, biometricId])
+  @@index([gymId, lastName, firstName])
+  @@index([gymId, phone])
 }
 
 // ── Plans & memberships ──────────────────────────────────────────────────────
 
 model Plan {
-  id            String   @id @default(cuid())
-  name          String
-  description   String?
-  durationDays  Int // 30 = monthly, 90 = quarterly …
-  price         Int // QAR
-  sessions      Int? // e.g. personal-training packs; null = unlimited gym access
-  freezeDays    Int      @default(0) // how many days a member may freeze
-  features      String[]
-  color         String   @default("#7C5CFF")
-  isActive      Boolean  @default(true)
-  sortOrder     Int      @default(0)
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  gymId        String
+  gym          Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  durationDays Int // 30 = monthly, 90 = quarterly …
+  price        Int // QAR
+  sessions     Int? // e.g. personal-training packs; null = unlimited gym access
+  freezeDays   Int      @default(0) // how many days a member may freeze
+  features     String[]
+  color        String   @default("#7C5CFF")
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
 
   memberships Membership[]
+
+  @@index([gymId])
 }
 
 model Membership {
   id             String           @id @default(cuid())
+  gymId          String
+  gym            Gym              @relation(fields: [gymId], references: [id], onDelete: Cascade)
   memberId       String
   member         Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
   planId         String
@@ -243,15 +379,17 @@ model Membership {
 
   payments Payment[]
 
-  @@index([memberId, endDate])
-  @@index([status, endDate])
+  @@index([gymId, memberId, endDate])
+  @@index([gymId, status, endDate])
 }
 
 // ── Money ────────────────────────────────────────────────────────────────────
 
 model Payment {
   id            String        @id @default(cuid())
-  invoiceNo     String        @unique
+  gymId         String
+  gym           Gym           @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  invoiceNo     String // unique per gym
   memberId      String?
   member        Member?       @relation(fields: [memberId], references: [id], onDelete: SetNull)
   membershipId  String?
@@ -268,12 +406,15 @@ model Payment {
   cashSession   CashSession?  @relation(fields: [cashSessionId], references: [id])
   createdAt     DateTime      @default(now())
 
-  @@index([paidAt])
+  @@unique([gymId, invoiceNo])
+  @@index([gymId, paidAt])
 }
 
 /// A cash drawer "shift": opened with a float, closed with a physical count.
 model CashSession {
   id           String            @id @default(cuid())
+  gymId        String
+  gym          Gym               @relation(fields: [gymId], references: [id], onDelete: Cascade)
   branchId     String
   branch       Branch            @relation(fields: [branchId], references: [id])
   status       CashSessionStatus @default(OPEN)
@@ -291,10 +432,14 @@ model CashSession {
 
   payments Payment[]
   expenses Expense[]
+
+  @@index([gymId])
 }
 
 model Expense {
   id            String        @id @default(cuid())
+  gymId         String
+  gym           Gym           @relation(fields: [gymId], references: [id], onDelete: Cascade)
   category      String // Rent, Salaries, Utilities, Equipment, Marketing …
   description   String?
   amount        Int // QAR
@@ -308,13 +453,15 @@ model Expense {
   cashSession   CashSession?  @relation(fields: [cashSessionId], references: [id])
   createdAt     DateTime      @default(now())
 
-  @@index([spentAt])
+  @@index([gymId, spentAt])
 }
 
 // ── Attendance & biometric ───────────────────────────────────────────────────
 
 model Attendance {
   id         String           @id @default(cuid())
+  gymId      String
+  gym        Gym              @relation(fields: [gymId], references: [id], onDelete: Cascade)
   memberId   String
   member     Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
   branchId   String?
@@ -325,16 +472,18 @@ model Attendance {
   deviceId   String?
   device     BiometricDevice? @relation(fields: [deviceId], references: [id])
 
-  @@index([checkInAt])
+  @@index([gymId, checkInAt])
   @@index([memberId, checkInAt])
 }
 
 model BiometricDevice {
   id           String        @id @default(cuid())
+  gymId        String
+  gym          Gym           @relation(fields: [gymId], references: [id], onDelete: Cascade)
   name         String // "Main entrance turnstile"
   type         BiometricType @default(FINGERPRINT)
   vendor       String? // ZKTeco, Suprema, Hikvision …
-  serialNumber String        @unique
+  serialNumber String        @unique // also tells VOXI which gym a device belongs to
   apiKeyHash   String // sha256 of the device API key (key itself is shown once)
   apiKeyHint   String // last 4 chars, for display
   branchId     String?
@@ -345,11 +494,16 @@ model BiometricDevice {
 
   events     BiometricEvent[]
   attendance Attendance[]
+
+  @@index([gymId])
+  @@index([apiKeyHash])
 }
 
 /// Every scan a device reports — useful for auditing & troubleshooting.
 model BiometricEvent {
   id              String          @id @default(cuid())
+  gymId           String
+  gym             Gym             @relation(fields: [gymId], references: [id], onDelete: Cascade)
   deviceId        String
   device          BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   biometricUserId String
@@ -361,23 +515,29 @@ model BiometricEvent {
   raw             Json?
   createdAt       DateTime        @default(now())
 
-  @@index([createdAt])
+  @@index([gymId, createdAt])
 }
 
 // ── Training ─────────────────────────────────────────────────────────────────
 
 model Exercise {
   id          String  @id @default(cuid())
-  name        String  @unique
+  gymId       String
+  gym         Gym     @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  name        String
   muscleGroup String // Chest, Back, Legs …
   equipment   String? // Barbell, Dumbbell, Machine, Bodyweight …
 
   items WorkoutItem[]
+
+  @@unique([gymId, name])
 }
 
 /// A workout programme. memberId = null means it's a reusable template.
 model WorkoutPlan {
   id          String   @id @default(cuid())
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
   name        String
   goal        String? // Fat loss, Hypertrophy, Strength …
   level       String? // Beginner / Intermediate / Advanced
@@ -391,6 +551,8 @@ model WorkoutPlan {
 
   items WorkoutItem[]
   logs  WorkoutLog[]
+
+  @@index([gymId])
 }
 
 model WorkoutItem {
@@ -409,6 +571,8 @@ model WorkoutItem {
 /// A completed workout — feeds the leaderboard.
 model WorkoutLog {
   id            String       @id @default(cuid())
+  gymId         String
+  gym           Gym          @relation(fields: [gymId], references: [id], onDelete: Cascade)
   memberId      String
   member        Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
   workoutPlanId String?
@@ -418,13 +582,15 @@ model WorkoutLog {
   notes         String?
   loggedAt      DateTime     @default(now())
 
-  @@index([loggedAt])
+  @@index([gymId, loggedAt])
 }
 
 // ── Classes ──────────────────────────────────────────────────────────────────
 
 model GymClass {
   id          String   @id @default(cuid())
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
   name        String // "HIIT Burn", "Ladies Yoga" …
   description String?
   trainerId   String?
@@ -439,7 +605,7 @@ model GymClass {
 
   bookings ClassBooking[]
 
-  @@index([startsAt])
+  @@index([gymId, startsAt])
 }
 
 model ClassBooking {
@@ -458,6 +624,8 @@ model ClassBooking {
 
 model Lead {
   id                String     @id @default(cuid())
+  gymId             String
+  gym               Gym        @relation(fields: [gymId], references: [id], onDelete: Cascade)
   name              String
   phone             String
   email             String?
@@ -472,4 +640,93 @@ model Lead {
   convertedMember   Member?    @relation(fields: [convertedMemberId], references: [id], onDelete: SetNull)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
+
+  @@index([gymId])
+}
+
+// ── WhatsApp ─────────────────────────────────────────────────────────────────
+
+/// Every WhatsApp message VOXI sent or opened for a member.
+model WhatsAppMessage {
+  id          String         @id @default(cuid())
+  gymId       String
+  gym         Gym            @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberId    String?
+  member      Member?        @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  toPhone     String
+  type        MessageType
+  channel     MessageChannel
+  status      MessageStatus
+  body        String
+  providerId  String? // Meta message id (wamid…), for delivery/read updates
+  error       String?
+  sentById    String?
+  sentBy      Staff?         @relation(fields: [sentById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([gymId, createdAt])
+  @@index([gymId, memberId, type])
+  @@index([providerId])
+}
+
+// ── Housekeeping ─────────────────────────────────────────────────────────────
+
+/// A recurring cleaning / upkeep task, e.g. "Sanitise cardio machines".
+model HousekeepingTask {
+  id           String        @id @default(cuid())
+  gymId        String
+  gym          Gym           @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  branchId     String?
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  area         String // Gym floor, Ladies locker room …
+  title        String
+  frequency    TaskFrequency @default(DAILY)
+  weekday      Int? // for WEEKLY tasks: 0 = Sunday … 6 = Saturday
+  shift        Shift         @default(ANYTIME)
+  assignedToId String?
+  assignedTo   Staff?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+
+  logs HousekeepingLog[]
+
+  @@index([gymId])
+}
+
+/// A task being done (or a problem reported) on a given day.
+model HousekeepingLog {
+  id            String           @id @default(cuid())
+  gymId         String
+  gym           Gym              @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  taskId        String?
+  task          HousekeepingTask? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  day           DateTime // start of the Qatar day it counts for
+  status        TaskLogStatus
+  note          String?
+  area          String? // for issues reported without a task
+  completedById String?
+  completedBy   Staff?           @relation(fields: [completedById], references: [id], onDelete: SetNull)
+  resolvedAt    DateTime? // for issues
+  createdAt     DateTime         @default(now())
+
+  @@index([gymId, day])
+}
+
+// ── Activity log ─────────────────────────────────────────────────────────────
+
+/// Who did what, for the owner to review (sales, refunds, deletes, edits …).
+model AuditLog {
+  id        String   @id @default(cuid())
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  staffId   String?
+  staff     Staff?   @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  action    String // e.g. "payment.refund", "member.delete"
+  entity    String? // "Member", "Payment" …
+  entityId  String?
+  summary   String
+  createdAt DateTime @default(now())
+
+  @@index([gymId, createdAt])
 }

@@ -98,7 +98,7 @@ export function CommandSearch() {
                       onMouseEnter={() => setActive(i)}
                       className={cn("flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left", i === active && "bg-surface-2")}
                     >
-                      <Avatar name={r.name} size={34} />
+                      <Avatar name={r.name} src={r.photoUrl} size={34} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold text-ink">{r.name}</p>
                         <p className="truncate text-xs text-muted">

@@ -3,8 +3,12 @@
  * Pure data only (no database calls) — prisma/seed.ts writes it to the database.
  * Everything is relative to "now", so the demo always looks current.
  */
-import { createHash } from "node:crypto";
-import { addDays, endOfDay, startOfDay } from "../src/lib/dates";
+import { createHash, randomBytes } from "node:crypto";
+import { addDays, endOfDay, qatarParts, startOfDay } from "../src/lib/dates";
+import { HOUSEKEEPING_TASKS } from "../src/server/gym-defaults";
+
+export const DEMO_GYM_ID = "gym_voxi";
+const qrToken = () => randomBytes(18).toString("base64url");
 
 // ── Tiny deterministic random generator (same data every time) ───────────────
 let seed = 20261112;
@@ -41,10 +45,17 @@ export function generateSeedData(passwordHash: string) {
   const today = startOfDay(now);
   const nowHour = (now.getUTCHours() + 3) % 24;
 
-  // ── Settings & branches ────────────────────────────────────────────────────
-  const settings = {
-    id: "default",
-    gymName: "VOXI Fitness Club",
+  // ── The gym & branches ─────────────────────────────────────────────────────
+  const gym = {
+    id: DEMO_GYM_ID,
+    name: "VOXI Fitness Club",
+    slug: "voxi-fitness",
+    instagram: "@voxi.qa",
+    openingHours: "Sat–Thu 5am–12am · Fri 1pm–11pm",
+    brandColor: "#6A44F2",
+    plan: "ELITE" as const,
+    status: "ACTIVE" as const,
+    whatsappVerifyToken: randomBytes(12).toString("base64url"),
     legalName: "VOXI Fitness W.L.L.",
     crNumber: "154872",
     phone: "+974 4000 1234",
@@ -70,7 +81,9 @@ export function generateSeedData(passwordHash: string) {
     { id: "st_tr2", name: "Coach Elena Petrova", email: "elena@voxi.qa", role: "TRAINER", branchId: "br_pearl", salary: 11500, specialty: "Pilates & Mobility", phone: "+974 5500 0006" },
     { id: "st_tr3", name: "Coach Marcus Reid", email: "marcus@voxi.qa", role: "TRAINER", branchId: "br_lusail", salary: 11000, specialty: "Boxing & HIIT", phone: "+974 5500 0007" },
     { id: "st_tr4", name: "Coach Hessa Al-Sada", email: "hessa@voxi.qa", role: "TRAINER", branchId: "br_lusail", salary: 11000, specialty: "Ladies Fitness", phone: "+974 5500 0008" },
-  ].map((s) => ({ ...s, passwordHash, isActive: true, role: s.role as "OWNER" | "MANAGER" | "RECEPTION" | "TRAINER" }));
+    { id: "st_hk1", name: "Maricel Dela Cruz", email: "housekeeping@voxi.qa", role: "HOUSEKEEPING", branchId: "br_pearl", salary: 2800, specialty: null, phone: "+974 5500 0009" },
+    { id: "st_hk2", name: "Suresh Bhandari", email: "suresh@voxi.qa", role: "HOUSEKEEPING", branchId: "br_lusail", salary: 2600, specialty: null, phone: "+974 5500 0010" },
+  ].map((s) => ({ ...s, passwordHash, isActive: true, role: s.role as "OWNER" | "MANAGER" | "RECEPTION" | "TRAINER" | "HOUSEKEEPING" }));
   const trainers = staff.filter((s) => s.role === "TRAINER");
 
   // ── Plans (QAR) ────────────────────────────────────────────────────────────
@@ -144,6 +157,7 @@ export function generateSeedData(passwordHash: string) {
       notes: chance(0.08) ? pick(["Knee injury — avoid heavy squats", "Prefers morning sessions", "Referred by a friend", "Corporate deal — Ooredoo"]) : null,
       branchId,
       biometricId: enrolled ? String(1001 + i) : null,
+      qrToken: qrToken(),
       biometricEnrolled: enrolled ? addDays(createdAt, 0) : null,
       createdAt,
       updatedAt: createdAt,
@@ -394,15 +408,93 @@ export function generateSeedData(passwordHash: string) {
     }
   }
 
+  // ── Birthdays this week (so the dashboard "Celebrations" card has something) ─
+  const todayParts = qatarParts(now);
+  [0, 0, 2, 5].forEach((daysAhead, k) => {
+    const m = members[10 + k * 17]!;
+    const p = qatarParts(addDays(today, daysAhead));
+    m.dateOfBirth = new Date(Date.UTC(todayParts.year - int(22, 45), p.month, p.day));
+  });
+
+  // ── Housekeeping: tasks, this week's ticks, two open problems ─────────────
+  const housekeepingTasks = branches.flatMap((b) =>
+    HOUSEKEEPING_TASKS.map((t) => ({
+      id: id("hkt"),
+      branchId: b.id,
+      area: t.area,
+      title: t.title,
+      shift: t.shift,
+      frequency: t.frequency,
+      weekday: t.weekday ?? null,
+      assignedToId: t.shift === "EVENING" ? null : b.id === "br_pearl" ? "st_hk1" : "st_hk2",
+      isActive: true,
+    })),
+  );
+  const housekeepingLogs: Record<string, unknown>[] = [];
+  for (let d = 6; d >= 0; d--) {
+    const day = addDays(today, -d);
+    const weekday = qatarParts(day).weekday;
+    for (const t of housekeepingTasks) {
+      if (t.frequency === "WEEKLY" && t.weekday !== weekday) continue;
+      const hour = t.shift === "MORNING" ? 7 : t.shift === "AFTERNOON" ? 14 : t.shift === "EVENING" ? 21 : 11;
+      if (d === 0 && hour > nowHour) continue; // not yet today
+      if (!chance(d === 0 ? 0.8 : 0.93)) continue;
+      const at_ = at(day, hour, int(0, 50));
+      housekeepingLogs.push({
+        id: id("hkl"), taskId: t.id, day, status: "DONE", note: null, area: t.area,
+        completedById: t.branchId === "br_pearl" ? "st_hk1" : "st_hk2", createdAt: at_,
+      });
+    }
+  }
+  housekeepingLogs.push(
+    { id: id("hkl"), taskId: null, day: today, status: "ISSUE", note: "Treadmill 3 belt is slipping", area: "Gym floor", completedById: "st_hk1", createdAt: at(today, Math.max(6, nowHour - 2), 10) },
+    { id: id("hkl"), taskId: null, day: addDays(today, -1), status: "ISSUE", note: "Ladies' shower 2 drain is blocked", area: "Ladies' locker room", completedById: "st_hk2", createdAt: at(addDays(today, -1), 9, 40) },
+  );
+
+  // ── WhatsApp log & activity log (recent examples) ─────────────────────────
+  const whatsappMessages: Record<string, unknown>[] = [];
+  const auditLogs: Record<string, unknown>[] = [];
+  const expiringSoon = memberships
+    .filter((ms) => ms.status === "ACTIVE" && (ms.endDate as Date) >= today && (ms.endDate as Date) < addDays(today, 7))
+    .slice(0, 4);
+  expiringSoon.forEach((ms, k) => {
+    const m = members.find((x) => x.id === ms.memberId)!;
+    const t = at(addDays(today, -1), 10 + k, 15);
+    whatsappMessages.push({
+      id: id("wa"), memberId: m.id, toPhone: `974${String(m.phone).replace(/\D/g, "").slice(-8)}`, type: "RENEWAL_REMINDER", channel: "LINK", status: "OPENED",
+      body: `Hi ${m.firstName}, your membership at VOXI Fitness Club ends soon. Renew at reception or reply here so your training continues without a break. 💜`,
+      sentById: "st_rec1", createdAt: t, updatedAt: t,
+    });
+  });
+  members.slice(-5).forEach((m, k) => {
+    const t = at(addDays(today, -int(1, 20)), 12, 5 * k);
+    whatsappMessages.push({
+      id: id("wa"), memberId: m.id, toPhone: `974${String(m.phone).replace(/\D/g, "").slice(-8)}`, type: "WELCOME", channel: "LINK", status: "OPENED",
+      body: `Welcome to VOXI Fitness Club, ${m.firstName}! 🎉 Your member number is ${m.code}.`, sentById: "st_rec1", createdAt: t, updatedAt: t,
+    });
+  });
+  const recentPays = payments.filter((p) => p.paidAt >= addDays(today, -2)).slice(-8);
+  for (const p of recentPays) {
+    auditLogs.push({
+      id: id("aud"), staffId: p.receivedById, action: "payment.create", entity: "Payment", entityId: p.id,
+      summary: `Received ${p.invoiceNo} — QAR ${p.amount} (${String(p.method).toLowerCase().replace("_", " ")})`, createdAt: p.paidAt,
+    });
+  }
+  auditLogs.push(
+    { id: id("aud"), staffId: "st_manager", action: "plan.update", entity: "Plan", entityId: "pl_quarterly", summary: "Updated plan Quarterly", createdAt: at(addDays(today, -3), 11, 20) },
+    { id: id("aud"), staffId: "st_rec1", action: "attendance.override", entity: "Member", entityId: members[3]!.id, summary: `Let ${members[3]!.firstName} ${members[3]!.lastName} in without a valid plan`, createdAt: at(addDays(today, -1), 18, 42) },
+    { id: id("aud"), staffId: "st_owner", action: "settings.update", entity: "Gym", entityId: DEMO_GYM_ID, summary: "Updated the gym profile", createdAt: at(addDays(today, -5), 9, 5) },
+  );
+
   const counters = [
     { key: "member", value: 1000 + MEMBER_COUNT },
     { key: "invoice", value: invoice },
   ];
 
   return {
-    settings, branches, staff, plans, members, memberships,
+    gym, branches, staff, plans, members, memberships,
     payments: payments.map(({ branchId: _b, ...p }) => ({ cashSessionId: null, ...p })),
     devices, attendance, events, cashSessions, exercises, workoutPlans, workoutItems, workoutLogs,
-    classes, bookings, leads, expenses, counters,
+    classes, bookings, leads, expenses, counters, housekeepingTasks, housekeepingLogs, whatsappMessages, auditLogs,
   };
 }

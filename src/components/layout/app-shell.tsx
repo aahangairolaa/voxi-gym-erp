@@ -1,30 +1,44 @@
 "use client";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { VoxiOrb } from "@/components/brand/logo";
 import { ConfirmProvider, ToastProvider } from "@/components/ui";
 import { api } from "@/lib/api-client";
+import { can, homeFor, moduleForPath } from "@/lib/permissions";
 import { BottomNav } from "./bottom-nav";
-import { SessionContext, type CurrentUser } from "./session-context";
+import { SessionContext, type CurrentGym, type CurrentUser, type SessionValue } from "./session-context";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
 /** Frame around every logged-in page: sidebar, top bar, mobile tab bar. */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [user, setUser] = useState<SessionValue | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     api
-      .get<{ user: CurrentUser }>("/api/auth/me")
-      .then((r) => setUser(r.user))
+      .get<{ user: CurrentUser; gym: CurrentGym }>("/api/auth/me")
+      .then((r) => setUser({ ...r.user, gym: r.gym }))
       .catch(() => (window.location.href = "/login"));
   }, []);
 
   useEffect(() => setMenuOpen(false), [pathname]);
 
-  if (!user) {
+  // Send people away from pages their role can't use (e.g. housekeeping opening /payments)
+  const mod = moduleForPath(pathname);
+  // (/settings is open to everyone for "change my password"; only owners can edit the gym there)
+  const blocked =
+    !!user && (mod ? !can(user.role, mod) : pathname !== "/settings" && (user.role === "SUPER_ADMIN" || user.role === "HOUSEKEEPING"));
+  useEffect(() => {
+    if (user && blocked) router.replace(homeFor(user.role));
+  }, [user, blocked, router]);
+
+  // Each gym's own brand colour tints the accent glow
+  const glow = user?.gym?.brandColor ? ({ "--glow": `${user.gym.brandColor}33` } as React.CSSProperties) : undefined;
+
+  if (!user || blocked) {
     return (
       <div className="grid min-h-dvh place-items-center">
         <div className="flex flex-col items-center gap-4">
@@ -40,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <ToastProvider>
         <ConfirmProvider>
           {/* soft violet glow at the top of every page */}
-          <div className="pointer-events-none fixed inset-x-0 top-0 -z-0 h-[420px] bg-[radial-gradient(60%_60%_at_70%_0%,var(--glow),transparent_70%)]" />
+          <div style={glow} className="pointer-events-none fixed inset-x-0 top-0 -z-0 h-[420px] bg-[radial-gradient(60%_60%_at_70%_0%,var(--glow),transparent_70%)]" />
           <Sidebar mobileOpen={menuOpen} onClose={() => setMenuOpen(false)} />
           <div className="relative lg:pl-[264px]">
             <Topbar onMenu={() => setMenuOpen(true)} />

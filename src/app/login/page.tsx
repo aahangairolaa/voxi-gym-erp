@@ -20,9 +20,10 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      await api.post("/api/auth/login", { email, password });
+      const r = await api.post<{ home: string }>("/api/auth/login", { email, password });
       const next = new URLSearchParams(window.location.search).get("next");
-      router.replace(next && next.startsWith("/") ? next : "/dashboard");
+      // Only follow ?next= for normal gym roles (admins & housekeeping have their own home page)
+      router.replace(next && next.startsWith("/") && !next.startsWith("//") && r.home === "/dashboard" ? next : r.home);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed");
       setLoading(false);
@@ -92,7 +93,7 @@ export default function LoginPage() {
               <VoxiOrb size={14} /> Demo accounts (password <code className="font-mono">voxi1234</code>)
             </p>
             <div className="mt-2 grid grid-cols-2 gap-1.5">
-              {["owner", "manager", "reception", "trainer"].map((r) => (
+              {["owner", "manager", "reception", "trainer", "housekeeping", "pulse", "admin"].map((r) => (
                 <button key={r} type="button" onClick={() => { setEmail(`${r}@voxi.qa`); setPassword("voxi1234"); }} className="rounded-lg bg-surface-2 px-2 py-1.5 text-left font-mono hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-500/15">
                   {r}@voxi.qa
                 </button>

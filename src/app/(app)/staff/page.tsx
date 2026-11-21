@@ -10,12 +10,14 @@ import { formatQAR, timeAgo } from "@/lib/format";
 import { ROLE_LABEL, ROLES, type Role } from "@/lib/permissions";
 import type { StaffMember } from "@/types/api";
 
-const ROLE_TONE: Record<Role, "brand" | "blue" | "green" | "amber"> = { OWNER: "brand", MANAGER: "blue", RECEPTION: "green", TRAINER: "amber" };
+const ROLE_TONE: Record<Role, "brand" | "blue" | "green" | "amber" | "gray"> = { SUPER_ADMIN: "brand", OWNER: "brand", MANAGER: "blue", RECEPTION: "green", TRAINER: "amber", HOUSEKEEPING: "gray" };
 const ROLE_HELP: Record<Role, string> = {
   OWNER: "Everything, including settings and salaries",
   MANAGER: "All operations, reports, staff (except owners/managers)",
   RECEPTION: "Members, sales, payments, cash drawer, check-in",
   TRAINER: "Members (view), check-in, workouts, classes",
+  HOUSEKEEPING: "Cleaning checklist & reporting problems only (phone-friendly)",
+  SUPER_ADMIN: "VOXI platform team",
 };
 const blank = { name: "", email: "", phone: "", role: "RECEPTION" as Role, branchId: "", salary: "" as number | "", specialty: "", isActive: true, password: "" };
 
@@ -28,7 +30,7 @@ export default function StaffPage() {
   const [form, setForm] = useState(blank);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const allowedRoles = me.role === "OWNER" ? ROLES : (["RECEPTION", "TRAINER"] as Role[]);
+  const allowedRoles = me.role === "OWNER" ? ROLES : (["RECEPTION", "TRAINER", "HOUSEKEEPING"] as Role[]);
 
   useEffect(() => {
     setError(null);
@@ -87,7 +89,7 @@ export default function StaffPage() {
                   {!s.isActive && <Badge tone="red">Inactive</Badge>}
                 </div>
               </div>
-              {(me.role === "OWNER" || s.role === "RECEPTION" || s.role === "TRAINER") && (
+              {(me.role === "OWNER" || s.role === "RECEPTION" || s.role === "TRAINER" || s.role === "HOUSEKEEPING") && (
                 <Button size="icon" variant="ghost" onClick={() => setEditing(s)} aria-label="Edit">
                   <LuPencil className="h-4 w-4" />
                 </Button>

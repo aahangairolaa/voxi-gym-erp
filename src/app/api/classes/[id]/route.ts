@@ -1,16 +1,19 @@
 import { route, readBody } from "@/server/http";
-import { requireRole } from "@/server/auth";
+import { requireGymRole } from "@/server/auth";
 import { classSchema } from "@/server/validators";
 import { deleteClass, updateClass } from "@/server/services/classes.service";
+import { audit } from "@/server/services/audit.service";
 
 type Params = { id: string };
 
 export const PUT = route<Params>(async (req, { id }) => {
-  await requireRole("OWNER", "MANAGER", "TRAINER");
-  return updateClass(id, await readBody(req, classSchema));
+  const s = await requireGymRole("OWNER", "MANAGER", "TRAINER");
+  return updateClass(s.gymId, id, await readBody(req, classSchema));
 });
 
 export const DELETE = route<Params>(async (_req, { id }) => {
-  await requireRole("OWNER", "MANAGER");
-  return deleteClass(id);
+  const s = await requireGymRole("OWNER", "MANAGER");
+  const c = await deleteClass(s.gymId, id);
+  await audit(s, "class.delete", "GymClass", id, `Deleted class ${c.name}`);
+  return { ok: true };
 });

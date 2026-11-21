@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { ApiError } from "../http";
-import type { Session } from "../session-token";
+import type { GymSession } from "../auth";
+import { ownedOr404 } from "./_shared";
 
 /** Cash in the drawer = opening float + cash payments − cash expenses (paid out). */
 async function totalsFor(sessionId: string, openingFloat: number) {
@@ -20,8 +21,9 @@ async function totalsFor(sessionId: string, openingFloat: number) {
   };
 }
 
-export async function listCashSessions() {
+export async function listCashSessions(gymId: string) {
   const sessions = await db.cashSession.findMany({
+    where: { gymId },
     orderBy: { openedAt: "desc" },
     take: 60,
     include: {
@@ -40,9 +42,9 @@ export async function listCashSessions() {
   );
 }
 
-export async function getCashSession(id: string) {
-  const s = await db.cashSession.findUnique({
-    where: { id },
+export async function getCashSession(gymId: string, id: string) {
+  const s = await db.cashSession.findFirst({
+    where: { id, gymId },
     include: {
       branch: { select: { name: true } },
       openedBy: { select: { name: true } },
@@ -58,14 +60,15 @@ export async function getCashSession(id: string) {
   return { ...s, totals: await totalsFor(s.id, s.openingFloat) };
 }
 
-export async function openCashSession(input: { branchId: string; openingFloat: number; notes: string | null }, session: Session) {
+export async function openCashSession(input: { branchId: string; openingFloat: number; notes: string | null }, session: GymSession) {
+  ownedOr404(await db.branch.findFirst({ where: { id: input.branchId, gymId: session.gymId }, select: { id: true } }), "Branch");
   const existing = await db.cashSession.findFirst({ where: { branchId: input.branchId, status: "OPEN" } });
   if (existing) throw new ApiError(400, "There is already an open cash session for this branch. Close it first.");
-  return db.cashSession.create({ data: { ...input, openedById: session.staffId } });
+  return db.cashSession.create({ data: { ...input, gymId: session.gymId, openedById: session.staffId } });
 }
 
-export async function closeCashSession(id: string, input: { countedCash: number; notes: string | null }, session: Session) {
-  const s = await db.cashSession.findUnique({ where: { id } });
+export async function closeCashSession(id: string, input: { countedCash: number; notes: string | null }, session: GymSession) {
+  const s = await db.cashSession.findFirst({ where: { id, gymId: session.gymId } });
   if (!s) throw new ApiError(404, "Cash session not found.");
   if (s.status === "CLOSED") throw new ApiError(400, "This session is already closed.");
   const totals = await totalsFor(id, s.openingFloat);

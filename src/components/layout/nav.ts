@@ -6,6 +6,7 @@ import type { IconType } from "react-icons";
 import {
   LuLayoutDashboard, LuUsers, LuIdCard, LuClipboardList, LuUserPlus, LuScanFace, LuFingerprint, LuDumbbell,
   LuCalendarDays, LuTrophy, LuReceipt, LuBanknote, LuWallet, LuChartColumn, LuUserCog, LuSettings,
+  LuMessageCircle, LuSparkles, LuHistory, LuBuilding2,
 } from "react-icons/lu";
 import type { Module } from "@/lib/permissions";
 
@@ -13,6 +14,10 @@ export type NavItem = { href: string; label: string; icon: IconType; module: Mod
 export type NavSection = { title: string; items: NavItem[] };
 
 export const NAV: NavSection[] = [
+  {
+    title: "VOXI Platform",
+    items: [{ href: "/admin", label: "Gyms", icon: LuBuilding2, module: "admin" }],
+  },
   {
     title: "Overview",
     items: [{ href: "/dashboard", label: "Dashboard", icon: LuLayoutDashboard, module: "dashboard" }],
@@ -24,6 +29,7 @@ export const NAV: NavSection[] = [
       { href: "/memberships", label: "Memberships", icon: LuIdCard, module: "memberships" },
       { href: "/plans", label: "Plans", icon: LuClipboardList, module: "plans" },
       { href: "/leads", label: "Leads", icon: LuUserPlus, module: "leads" },
+      { href: "/messages", label: "WhatsApp", icon: LuMessageCircle, module: "messages" },
     ],
   },
   {
@@ -48,7 +54,9 @@ export const NAV: NavSection[] = [
   {
     title: "Management",
     items: [
+      { href: "/housekeeping", label: "Housekeeping", icon: LuSparkles, module: "housekeeping" },
       { href: "/staff", label: "Staff", icon: LuUserCog, module: "staff" },
+      { href: "/activity", label: "Activity Log", icon: LuHistory, module: "activity" },
       { href: "/settings", label: "Settings", icon: LuSettings, module: "settings" },
     ],
   },

@@ -5,6 +5,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/server/session-token";
+import { homeFor } from "@/lib/permissions";
 
 const PUBLIC_PAGES = ["/", "/pricing", "/login"];
 
@@ -13,9 +14,10 @@ export async function middleware(req: NextRequest) {
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
 
   if (pathname === "/login" && session) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL(homeFor(session.role), req.url));
   }
-  if (PUBLIC_PAGES.includes(pathname)) return NextResponse.next();
+  // Public: marketing pages, login, and digital member cards (/c/<token>)
+  if (PUBLIC_PAGES.includes(pathname) || pathname.startsWith("/c/")) return NextResponse.next();
 
   if (!session) {
     const url = new URL("/login", req.url);

@@ -1,9 +1,11 @@
-import { route } from "@/server/http";
-import { requireSession } from "@/server/auth";
-import { listTrainers } from "@/server/services/staff.service";
+import { route, searchParams } from "@/server/http";
+import { requireGym } from "@/server/auth";
+import { listAssignable, listTrainers } from "@/server/services/staff.service";
 
-/** GET /api/staff/trainers → for dropdowns (any logged-in staff) */
-export const GET = route(async () => {
-  await requireSession();
-  return { trainers: await listTrainers() };
+/** GET /api/staff/trainers → trainers for dropdowns.  ?role=HOUSEKEEPING (or ?role=ALL) → other staff lists */
+export const GET = route(async (req) => {
+  const s = await requireGym();
+  const role = searchParams(req).get("role");
+  if (role) return { staff: await listAssignable(s.gymId, role === "ALL" ? null : role) };
+  return { trainers: await listTrainers(s.gymId) };
 });

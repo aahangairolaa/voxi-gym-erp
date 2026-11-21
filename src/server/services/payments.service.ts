@@ -2,9 +2,9 @@ import type { PaymentMethod, Prisma } from "@prisma/client";
 import type { z } from "zod";
 import { db, type Tx } from "../db";
 import { ApiError } from "../http";
-import type { Session } from "../session-token";
+import type { GymSession } from "../auth";
 import type { paymentSchema } from "../validators";
-import { fullName, nextNumber } from "./_shared";
+import { fullName, nextNumber, ownedOr404 } from "./_shared";
 
 type PaymentInput = z.infer<typeof paymentSchema>;
 
@@ -23,16 +23,16 @@ export async function createPaymentTx(
     reference: string | null;
     paidAt?: Date | null;
   },
-  session: Session,
+  session: GymSession,
 ) {
-  const settings = await tx.gymSettings.findUnique({ where: { id: "default" }, select: { invoicePrefix: true } });
-  const n = await nextNumber(tx, "invoice", 1);
-  const invoiceNo = `${settings?.invoicePrefix ?? "INV"}-${String(n).padStart(6, "0")}`;
+  const gym = await tx.gym.findUnique({ where: { id: session.gymId }, select: { invoicePrefix: true } });
+  const n = await nextNumber(tx, session.gymId, "invoice", 1);
+  const invoiceNo = `${gym?.invoicePrefix ?? "INV"}-${String(n).padStart(6, "0")}`;
 
   let cashSessionId: string | null = null;
   if (input.method === "CASH") {
     const open = await tx.cashSession.findFirst({
-      where: { status: "OPEN", ...(session.branchId ? { branchId: session.branchId } : {}) },
+      where: { gymId: session.gymId, status: "OPEN", ...(session.branchId ? { branchId: session.branchId } : {}) },
       orderBy: { openedAt: "desc" },
     });
     cashSessionId = open?.id ?? null;
@@ -40,6 +40,7 @@ export async function createPaymentTx(
 
   return tx.payment.create({
     data: {
+      gymId: session.gymId,
       invoiceNo,
       memberId: input.memberId,
       membershipId: input.membershipId,
@@ -54,16 +55,17 @@ export async function createPaymentTx(
   });
 }
 
-export async function createPayment(input: PaymentInput, session: Session) {
+export async function createPayment(input: PaymentInput, session: GymSession) {
   if (input.membershipId) {
-    const ms = await db.membership.findUnique({ where: { id: input.membershipId } });
-    if (!ms) throw new ApiError(404, "Membership not found.");
+    const ms = ownedOr404(await db.membership.findFirst({ where: { id: input.membershipId, gymId: session.gymId } }), "Membership");
     input.memberId = ms.memberId;
+  } else if (input.memberId) {
+    ownedOr404(await db.member.findFirst({ where: { id: input.memberId, gymId: session.gymId }, select: { id: true } }), "Member");
   }
   return db.$transaction((tx) => createPaymentTx(tx, input, session));
 }
 
-export async function listPayments(opts: {
+export async function listPayments(gymId: string, opts: {
   from?: Date | null;
   to?: Date | null;
   method?: string | null;
@@ -71,6 +73,7 @@ export async function listPayments(opts: {
   memberId?: string | null;
 }) {
   const where: Prisma.PaymentWhereInput = {
+    gymId,
     ...(opts.from || opts.to ? { paidAt: { ...(opts.from ? { gte: opts.from } : {}), ...(opts.to ? { lte: opts.to } : {}) } } : {}),
     ...(opts.method && opts.method !== "ALL" ? { method: opts.method as PaymentMethod } : {}),
     ...(opts.memberId ? { memberId: opts.memberId } : {}),
@@ -124,24 +127,27 @@ export async function listPayments(opts: {
 }
 
 /** Everything needed to print an invoice. */
-export async function getInvoice(id: string) {
-  const [payment, settings] = await Promise.all([
-    db.payment.findUnique({
-      where: { id },
+export async function getInvoice(gymId: string, id: string) {
+  const [payment, gym] = await Promise.all([
+    db.payment.findFirst({
+      where: { id, gymId },
       include: {
-        member: true,
+        member: { select: { code: true, firstName: true, lastName: true, phone: true, email: true, qid: true } },
         membership: { include: { plan: true } },
         receivedBy: { select: { name: true } },
       },
     }),
-    db.gymSettings.findUnique({ where: { id: "default" } }),
+    db.gym.findUnique({
+      where: { id: gymId },
+      select: { name: true, legalName: true, crNumber: true, phone: true, email: true, address: true, website: true, logo: true, brandColor: true, invoiceFooter: true },
+    }),
   ]);
   if (!payment) throw new ApiError(404, "Payment not found.");
-  return { payment, settings };
+  return { payment, settings: gym, gym };
 }
 
-export async function refundPayment(id: string) {
-  const p = await db.payment.findUnique({ where: { id } });
+export async function refundPayment(gymId: string, id: string) {
+  const p = await db.payment.findFirst({ where: { id, gymId } });
   if (!p) throw new ApiError(404, "Payment not found.");
   if (p.status === "REFUNDED") throw new ApiError(400, "This payment is already refunded.");
   return db.payment.update({ where: { id }, data: { status: "REFUNDED" } });

@@ -6,12 +6,13 @@ import type { MemberStatus } from "@/lib/constants";
 import { addDays, startOfDay } from "@/lib/dates";
 import type { Tx } from "../db";
 import { db } from "../db";
+import { ApiError } from "../http";
 
-/** Get the next number from a named counter (atomic, safe with many users). */
-export async function nextNumber(tx: Tx, key: string, start: number): Promise<number> {
+/** Get the next number from a gym's named counter (atomic, safe with many users). */
+export async function nextNumber(tx: Tx, gymId: string, key: string, start: number): Promise<number> {
   const counter = await tx.counter.upsert({
-    where: { key },
-    create: { key, value: start },
+    where: { gymId_key: { gymId, key } },
+    create: { gymId, key, value: start },
     update: { value: { increment: 1 } },
   });
   return counter.value;
@@ -36,13 +37,26 @@ export function daysLeft(endDate: Date) {
   return Math.ceil((endDate.getTime() - Date.now()) / 86_400_000);
 }
 
-let cachedWarnDays: { value: number; at: number } | null = null;
-/** The "expiring soon" window from settings (cached for a minute). */
-export async function getWarnDays(): Promise<number> {
-  if (cachedWarnDays && Date.now() - cachedWarnDays.at < 60_000) return cachedWarnDays.value;
-  const s = await db.gymSettings.findUnique({ where: { id: "default" }, select: { expiryWarnDays: true } });
-  cachedWarnDays = { value: s?.expiryWarnDays ?? 7, at: Date.now() };
-  return cachedWarnDays.value;
+const warnDaysCache = new Map<string, { value: number; at: number }>();
+/** A gym's "expiring soon" window from its settings (cached for a minute). */
+export async function getWarnDays(gymId: string): Promise<number> {
+  const hit = warnDaysCache.get(gymId);
+  if (hit && Date.now() - hit.at < 60_000) return hit.value;
+  const g = await db.gym.findUnique({ where: { id: gymId }, select: { expiryWarnDays: true } });
+  const value = g?.expiryWarnDays ?? 7;
+  warnDaysCache.set(gymId, { value, at: Date.now() });
+  return value;
+}
+
+/** Throw a 404 unless the record exists AND belongs to this gym. */
+export function ownedOr404<T>(record: T | null | undefined, what = "Record"): T {
+  if (!record) throw new ApiError(404, `${what} not found.`);
+  return record;
+}
+
+/** Photo URL for a member (served by /api/members/:id/photo), or null. */
+export function memberPhotoUrl(m: { id: string; photoUpdatedAt?: Date | null }) {
+  return m.photoUpdatedAt ? `/api/members/${m.id}/photo?v=${m.photoUpdatedAt.getTime()}` : null;
 }
 
 export function fullName(p: { firstName: string; lastName: string }) {
