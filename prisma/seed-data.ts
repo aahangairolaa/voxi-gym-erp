@@ -112,6 +112,21 @@ export function generateSeedData(passwordHash: string) {
     ["Sneha", "Iyer", "FEMALE", "Indian"], ["Hassan", "Darwish", "MALE", "Lebanese"], ["Rana", "Khoury", "FEMALE", "Lebanese"],
     ["Mostafa", "Elsayed", "MALE", "Egyptian"], ["Anjali", "Sharma", "FEMALE", "Indian"], ["Kiran", "Thapa", "MALE", "Nepali"],
   ];
+  // More variety: an expat's surname is picked from people of the same nationality
+  const moreExpats: [string, string, "MALE" | "FEMALE", string][] = [
+    ["Layla", "Hijazi", "FEMALE", "Lebanese"], ["Ziad", "Aoun", "MALE", "Lebanese"], ["Hala", "Mansour", "FEMALE", "Egyptian"], ["Amr", "Fathy", "MALE", "Egyptian"],
+    ["Rania", "Odeh", "FEMALE", "Jordanian"], ["Sami", "Haddadin", "MALE", "Jordanian"], ["Ayesha", "Siddiqui", "FEMALE", "Pakistani"], ["Usman", "Malik", "MALE", "Pakistani"],
+    ["Vikram", "Reddy", "MALE", "Indian"], ["Divya", "Menon", "FEMALE", "Indian"], ["Joel", "Thomas", "MALE", "Indian"], ["Angelica", "Cruz", "FEMALE", "Filipino"],
+    ["Mark", "Villanueva", "MALE", "Filipino"], ["Oliver", "Hughes", "MALE", "British"], ["Sophie", "Turner", "FEMALE", "British"], ["Nour", "Kassab", "FEMALE", "Syrian"],
+    ["Majd", "Haddad", "MALE", "Syrian"], ["Ryan", "Mitchell", "MALE", "American"], ["Sita", "Gurung", "FEMALE", "Nepali"], ["Bishal", "Rai", "MALE", "Nepali"],
+  ];
+  const expatPool = [...expats, ...moreExpats];
+  const surnamesBy = new Map<string, string[]>();
+  for (const [, last, , nat] of expatPool) surnamesBy.set(nat, [...(surnamesBy.get(nat) ?? []), last]);
+  const pickExpat = (): [string, string, "MALE" | "FEMALE", string] => {
+    const [first, , g, nat] = pick(expatPool);
+    return [first, pick(surnamesBy.get(nat)!), g, nat];
+  };
   const phone = () => `+974 ${pick(["3", "5", "6", "7"])}${int(0, 9)}${int(0, 9)}${int(0, 9)} ${int(1000, 9999)}`;
 
   // ── Members, memberships, payments ────────────────────────────────────────
@@ -132,7 +147,7 @@ export function generateSeedData(passwordHash: string) {
           const g = chance(0.6) ? "MALE" : "FEMALE";
           return [pick(g === "MALE" ? qMale : qFemale), pick(qLast), g, "Qatari"] as const;
         })()
-      : pick(expats);
+      : pickExpat();
     const code = `M-${1001 + i}`;
     const branchId = chance(0.58) ? "br_pearl" : "br_lusail";
     // Newer members are more common (growing gym)

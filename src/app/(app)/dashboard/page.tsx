@@ -6,6 +6,7 @@ import {
 } from "react-icons/lu";
 import { AreaChart, BarChart, Donut } from "@/components/charts";
 import { Celebrations } from "@/components/dashboard/celebrations";
+import { GetStarted } from "@/components/dashboard/get-started";
 import { RenewalReminders } from "@/components/dashboard/renewal-reminders";
 import { useUser } from "@/components/layout/session-context";
 import { MemberFormModal } from "@/components/members/member-form-modal";
@@ -64,6 +65,8 @@ export default function DashboardPage() {
       </div>
 
       {/* KPIs */}
+      <GetStarted />
+
       <div className="stagger grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {loading || !k ? (
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[132px] rounded-2xl" />)
@@ -109,6 +112,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RenewalReminders onRenew={(member) => setSell({ open: true, member })} />
+        </div>
+        <Celebrations />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-3">
         {canMoney && (
           <Card className="lg:col-span-2">
@@ -201,13 +211,6 @@ export default function DashboardPage() {
             {!data && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="mx-2 my-2 h-12" />)}
           </ul>
         </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <RenewalReminders onRenew={(member) => setSell({ open: true, member })} />
-        </div>
-        <Celebrations />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

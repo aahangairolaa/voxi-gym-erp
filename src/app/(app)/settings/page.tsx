@@ -4,7 +4,7 @@ import { LuBuilding2, LuKey, LuPlus } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
 import { GymProfileCard } from "@/components/settings/gym-profile-card";
 import { WhatsAppSettingsCard } from "@/components/settings/whatsapp-settings-card";
-import { Button, Card, CardHeader, Field, Input, Modal, PageHeader, Toggle, useToast } from "@/components/ui";
+import { Button, Card, CardHeader, Field, Input, Modal, PageHeader, Toggle, useConfirm, useToast } from "@/components/ui";
 import { invalidate, useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
 import { can } from "@/lib/permissions";
@@ -12,6 +12,7 @@ import type { Branch, Settings } from "@/types/api";
 
 export default function SettingsPage() {
   const user = useUser();
+  const confirm = useConfirm();
   const toast = useToast();
   const isOwner = can(user.role, "settings");
   // VOXI admins and housekeeping staff only use this page to change their password
@@ -44,8 +45,23 @@ export default function SettingsPage() {
   const changePassword = async () => {
     try {
       await api.post("/api/auth/password", pw);
-      toast("success", "Password changed");
+      toast("success", user.hasPassword ? "Password changed" : "Password set — you can now also sign in with email");
       setPw({ currentPassword: "", newPassword: "" });
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const signOutOthers = async () => {
+    const ok = await confirm({
+      title: "Sign out on all other devices?",
+      message: "Any phone, tablet or computer signed in to your account (except this one) will need to sign in again.",
+      confirmLabel: "Sign out others",
+    });
+    if (!ok) return;
+    try {
+      await api.post("/api/auth/sessions");
+      toast("success", "Signed out on all other devices");
     } catch (e) {
       toast("error", e instanceof Error ? e.message : "Failed");
     }
@@ -94,17 +110,26 @@ export default function SettingsPage() {
           )}
 
           <Card id="password">
-            <CardHeader title="Change my password" icon={<LuKey className="h-[18px] w-[18px]" />} />
+            <CardHeader
+              title={user.hasPassword ? "Change my password" : "Set a password"}
+              subtitle={user.hasGoogle ? "Your account is linked to Google" : undefined}
+              icon={<LuKey className="h-[18px] w-[18px]" />}
+            />
             <div className="space-y-3 px-5 pb-5">
-              <Field label="Current password">
-                <Input type="password" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} autoComplete="current-password" />
-              </Field>
+              {user.hasPassword && (
+                <Field label="Current password">
+                  <Input type="password" value={pw.currentPassword} onChange={(e) => setPw({ ...pw, currentPassword: e.target.value })} autoComplete="current-password" />
+                </Field>
+              )}
               <Field label="New password" hint="At least 8 characters">
                 <Input type="password" value={pw.newPassword} onChange={(e) => setPw({ ...pw, newPassword: e.target.value })} autoComplete="new-password" />
               </Field>
-              <Button onClick={changePassword} disabled={!pw.currentPassword || pw.newPassword.length < 8} className="w-full">
-                Update password
+              <Button onClick={changePassword} disabled={(user.hasPassword && !pw.currentPassword) || pw.newPassword.length < 8} className="w-full">
+                {user.hasPassword ? "Update password" : "Set password"}
               </Button>
+              <button onClick={signOutOthers} className="w-full pt-1 text-center text-xs font-medium text-muted hover:text-rose-600">
+                Sign out on all other devices
+              </button>
             </div>
           </Card>
         </div>

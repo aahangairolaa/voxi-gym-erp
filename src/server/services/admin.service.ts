@@ -84,13 +84,17 @@ export async function listGyms() {
 }
 
 /** Create a gym with its owner account, a first branch and starter data. */
-export async function createGym(input: z.infer<typeof createGymSchema>) {
+type CreateGymInput = Omit<z.infer<typeof createGymSchema>, "ownerPassword"> &
+  ({ ownerPassword: string } | { ownerPasswordHash: string; ownerGoogleId?: string | null });
+
+export async function createGym(input: CreateGymInput) {
   const email = input.ownerEmail.toLowerCase();
   if (await db.staff.findUnique({ where: { email }, select: { id: true } })) {
-    throw new ApiError(409, "That email already has a VOXI account. Use a different owner email.");
+    throw new ApiError(409, "That email already has a VOXI account. Sign in instead, or use a different email.");
   }
   const slug = await uniqueSlug(slugify(input.slug || input.name));
-  const passwordHash = await bcrypt.hash(input.ownerPassword, 10);
+  const passwordHash = "ownerPassword" in input ? await bcrypt.hash(input.ownerPassword, 10) : input.ownerPasswordHash;
+  const googleId = "ownerGoogleId" in input ? input.ownerGoogleId ?? null : null;
 
   return db.$transaction(async (tx) => {
     const gym = await tx.gym.create({
@@ -108,7 +112,7 @@ export async function createGym(input: z.infer<typeof createGymSchema>) {
     });
     const branch = await tx.branch.create({ data: { gymId: gym.id, name: input.branchName || "Main branch", address: input.address, phone: input.phone } });
     await tx.staff.create({
-      data: { gymId: gym.id, name: input.ownerName, email, passwordHash, role: "OWNER", branchId: null, phone: input.phone },
+      data: { gymId: gym.id, name: input.ownerName, email, passwordHash, googleId, role: "OWNER", branchId: null, phone: input.phone },
     });
     await tx.plan.createMany({ data: STARTER_PLANS.map((p) => ({ ...p, gymId: gym.id })) });
     await tx.exercise.createMany({ data: EXERCISE_LIBRARY.map(([name, muscleGroup, equipment]) => ({ gymId: gym.id, name, muscleGroup, equipment })) });

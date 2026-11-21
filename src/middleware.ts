@@ -7,13 +7,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/server/session-token";
 import { homeFor } from "@/lib/permissions";
 
-const PUBLIC_PAGES = ["/", "/pricing", "/login"];
+const PUBLIC_PAGES = ["/", "/pricing", "/login", "/register", "/forgot-password", "/reset-password", "/privacy", "/terms"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
 
-  if (pathname === "/login" && session) {
+  if ((pathname === "/login" || pathname === "/register") && session) {
     return NextResponse.redirect(new URL(homeFor(session.role), req.url));
   }
   // Public: marketing pages, login, and digital member cards (/c/<token>)

@@ -60,6 +60,10 @@ export function errorResponse(err: unknown) {
       return NextResponse.json({ error: "This record is linked to other data and can't be removed." }, { status: 409 });
     }
   }
+  if (err instanceof Prisma.PrismaClientInitializationError || (err instanceof Error && /DATABASE_URL|Can't reach database/.test(err.message))) {
+    console.error("[VOXI database unavailable]", err.message);
+    return NextResponse.json({ error: process.env.DATABASE_URL ? "VOXI can't reach its database right now. Please try again in a minute." : "VOXI is launching soon — sign-in isn't open yet." }, { status: 503 });
+  }
   console.error("[VOXI API error]", err);
   return NextResponse.json({ error: "Something went wrong on the server." }, { status: 500 });
 }

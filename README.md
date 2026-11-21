@@ -188,6 +188,13 @@ Short version (full guide in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)):
 - **Housekeeping**: daily/weekly cleaning tasks by area & shift, phone-friendly checklist, problem reports,
   manager view with progress and a 7-day chart
 - **Activity log**: who sold, refunded, deleted, overrode or changed settings, and when
+- **Accounts**: self-service sign-up (14-day free trial with starter data), “Continue with Google”
+  (when Google keys are set), forgot-password emails (when Resend is set), lockout after 5 wrong
+  passwords, “sign out on all other devices”, instant sign-out when staff are deactivated
+- **Onboarding**: “Get started” checklist for new gyms, trial banner, **member import from Excel/CSV**
+  (column matching, duplicate check, current plans carried over)
+- Privacy policy & terms pages (templates for Qatar — have a lawyer review), SEO, installable app
+  (Add to Home Screen), security headers; the public site works even before a database is connected
 - Members with QID, nationality, emergency contacts, notes, branch, biometric ID
 - Plans (QAR prices, duration, PT session packs, freeze allowance)
 - Selling & renewing memberships (auto-chained renewals), discounts, partial payments & balances,

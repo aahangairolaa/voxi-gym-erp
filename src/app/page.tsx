@@ -6,6 +6,7 @@ import {
 import { VoxiOrb } from "@/components/brand/logo";
 import { PricingTable } from "@/components/marketing/pricing-table";
 import { SiteFooter, SiteNav } from "@/components/marketing/site-nav";
+import { CONTACT } from "@/lib/contact";
 
 const FEATURES = [
   { icon: LuUsers, title: "Members", text: "Profiles with QID, emergency contacts, history and status at a glance." },
@@ -59,8 +60,8 @@ export default function LandingPage() {
             <Link href="/pricing" className="inline-flex h-12 items-center gap-2 rounded-xl px-6 text-sm font-semibold text-white brand-gradient shadow-[0_10px_40px_-10px_rgba(124,92,255,0.9)] transition hover:brightness-110">
               See pricing <LuArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/login" className="inline-flex h-12 items-center rounded-xl border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/10">
-              Try the live demo
+            <Link href="/register" className="inline-flex h-12 items-center rounded-xl border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/10">
+              Start 14-day free trial
             </Link>
           </div>
 
@@ -197,17 +198,22 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section className="px-5 pb-24">
+      <section id="contact" className="px-5 pb-24">
         <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[32px] p-10 text-center text-white brand-gradient sm:p-16">
           <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[70%] -translate-x-1/2 rounded-full bg-white/20 blur-3xl" />
           <h2 className="relative text-3xl font-semibold tracking-tight sm:text-4xl">Ready to run a smarter gym?</h2>
           <p className="relative mx-auto mt-3 max-w-xl text-white/80">See VOXI with your own data in a 20-minute demo — at your gym or online.</p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3">
-            <a href="mailto:hello@voxi.qa?subject=VOXI%20demo" className="inline-flex h-12 items-center rounded-xl bg-white px-6 text-sm font-semibold text-brand-800 transition hover:bg-brand-50">
+            <a
+              href={CONTACT.whatsapp ? `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent("Hi VOXI, I'd like a demo for my gym.")}` : `mailto:${CONTACT.email}?subject=VOXI%20demo`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-12 items-center rounded-xl bg-white px-6 text-sm font-semibold text-brand-800 transition hover:bg-brand-50"
+            >
               Book a demo
             </a>
-            <Link href="/login" className="inline-flex h-12 items-center rounded-xl border border-white/30 px-6 text-sm font-semibold transition hover:bg-white/10">
-              Open the demo app
+            <Link href="/register" className="inline-flex h-12 items-center rounded-xl border border-white/30 px-6 text-sm font-semibold transition hover:bg-white/10">
+              Start free trial
             </Link>
           </div>
         </div>

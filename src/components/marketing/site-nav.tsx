@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CONTACT } from "@/lib/contact";
 import { LuArrowRight } from "react-icons/lu";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
@@ -30,8 +31,8 @@ export function SiteNav({ dark = false }: { dark?: boolean }) {
           <Link href="/login" className={cn("rounded-xl px-3 py-2 text-sm font-semibold transition", onDark ? "text-white hover:bg-white/10" : "text-ink hover:bg-surface-2")}>
             Sign in
           </Link>
-          <Link href="/pricing" className="hidden items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white brand-gradient shadow-[0_6px_20px_-6px_rgba(106,68,242,0.7)] transition hover:brightness-110 sm:inline-flex">
-            Get VOXI <LuArrowRight className="h-4 w-4" />
+          <Link href="/register" className="hidden items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white brand-gradient shadow-[0_6px_20px_-6px_rgba(106,68,242,0.7)] transition hover:brightness-110 sm:inline-flex">
+            Start free trial <LuArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>
@@ -50,7 +51,10 @@ export function SiteFooter() {
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
           <Link href="/pricing" className="hover:text-ink">Pricing</Link>
           <Link href="/login" className="hover:text-ink">Sign in</Link>
-          <a href="mailto:hello@voxi.qa" className="hover:text-ink">hello@voxi.qa</a>
+          <Link href="/register" className="hover:text-ink">Free trial</Link>
+          <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+          <Link href="/terms" className="hover:text-ink">Terms</Link>
+          <a href={`mailto:${CONTACT.email}`} className="hover:text-ink">{CONTACT.email}</a>
           <span>Doha, Qatar</span>
         </div>
       </div>

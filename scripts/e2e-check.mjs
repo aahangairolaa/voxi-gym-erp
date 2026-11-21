@@ -38,6 +38,12 @@ async function call(method, path, { cookie, body, raw } = {}) {
   return { status: res.status, json, text, headers: res.headers };
 }
 
+/** The voxi_session cookie from a response (ignores any other cookies it sets). */
+function sessionCookie(res) {
+  const all = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [res.headers.get("set-cookie") || ""];
+  return (all.find((c) => c.startsWith("voxi_session=")) || "").split(";")[0];
+}
+
 async function login(email) {
   const res = await fetch(BASE + "/api/auth/login", {
     method: "POST",
@@ -45,8 +51,7 @@ async function login(email) {
     body: JSON.stringify({ email, password: PASSWORD }),
   });
   const json = await res.json().catch(() => ({}));
-  const cookie = (res.headers.get("set-cookie") || "").split(";")[0];
-  return { ok: res.ok, json, cookie };
+  return { ok: res.ok, json, cookie: sessionCookie(res) };
 }
 
 async function step(name, fn) {
@@ -98,14 +103,16 @@ await step("payments", async () => {
 });
 
 await step("photo", async () => {
-  const u = await call("PUT", `/api/members/${voxiMemberId}`, { ...O, body: { photo: PNG } });
+  const cur = (await call("GET", `/api/members/${voxiMemberId}`, O)).json;
+  const base = { firstName: cur.firstName, lastName: cur.lastName, phone: cur.phone, email: cur.email, gender: cur.gender, branchId: cur.branch?.id ?? null };
+  const u = await call("PUT", `/api/members/${voxiMemberId}`, { ...O, body: { ...base, photo: PNG } });
   check("upload member photo", u.status === 200, u.text);
   const detail = await call("GET", `/api/members/${voxiMemberId}`, O);
   qrToken = detail.json?.qrToken;
   const url = detail.json?.photoUrl;
   const img = url ? await call("GET", url, { ...O, raw: true }) : null;
   check("photo served as image", img?.status === 200 && (img.headers.get("content-type") || "").startsWith("image/"), url);
-  const del = await call("PUT", `/api/members/${voxiMemberId}`, { ...O, body: { photo: null } });
+  const del = await call("PUT", `/api/members/${voxiMemberId}`, { ...O, body: { ...base, photo: null } });
   check("remove member photo", del.status === 200 && (await call("GET", `/api/members/${voxiMemberId}`, O)).json?.photoUrl === null);
 });
 
@@ -194,6 +201,75 @@ await step("admin", async () => {
   check("admin can't read gym members (403)", m.status === 403, m.status);
   const own = await call("GET", "/api/admin/gyms", O);
   check("gym owner can't open admin (403)", own.status === 403, own.status);
+});
+
+// ── Accounts: sign-up, lockout, password reset, sign out everywhere ─────────
+await step("accounts", async () => {
+  const cfg = await call("GET", "/api/auth/config");
+  check("auth config (public)", cfg.status === 200 && cfg.json?.signup === true, cfg.text);
+  const email = `e2e-${Date.now()}@example.com`;
+  const bad = await call("POST", "/api/auth/register", { body: { gymName: "E2E Gym", ownerName: "Test Owner", email, password: "longpassword1", acceptTerms: false } });
+  check("sign-up requires accepting terms", bad.status === 400, bad.text);
+  const reg = await fetch(BASE + "/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ gymName: "E2E Gym", ownerName: "Test Owner", email, phone: "5555 1234", password: "longpassword1", acceptTerms: true }),
+  });
+  const regJson = await reg.json().catch(() => ({}));
+  const R = { cookie: sessionCookie(reg) };
+  check("self sign-up creates a gym on a trial", reg.ok && regJson.home?.startsWith("/dashboard"), JSON.stringify(regJson));
+  const me = await call("GET", "/api/auth/me", R);
+  check("new gym is on TRIAL with trial end date", me.json?.gym?.status === "TRIAL" && !!me.json?.gym?.trialEndsAt, me.text);
+  const plans = await call("GET", "/api/plans", R);
+  check("new gym gets starter plans", (plans.json?.plans?.length ?? 0) >= 3, plans.json?.plans?.length);
+  const ob = await call("GET", "/api/onboarding", R);
+  check("get-started checklist", ob.json?.total === 6 && ob.json?.done < 6, ob.text);
+  const mem = await call("GET", "/api/members", R);
+  check("new gym starts with no members (isolated)", mem.json?.counts?.ALL === 0, mem.json?.counts?.ALL);
+  const dup = await call("POST", "/api/auth/register", { body: { gymName: "Again", ownerName: "Someone Else", email, password: "longpassword1", acceptTerms: true } });
+  check("same email can't sign up twice", dup.status === 409, dup.text);
+
+  // Import members
+  const rows = [
+    { fullName: "Aisha Al-Khater", phone: "+974 5512 3456", gender: "Female", plan: "Monthly", endDate: "30/12/2030" },
+    { firstName: "Rahul", lastName: "Menon", phone: "6612 7788", email: "rahul@example.com" },
+    { firstName: "No", lastName: "Phone", phone: "" },
+    { firstName: "Dup", lastName: "Phone", phone: "55123456" },
+    { firstName: "Bad", lastName: "Plan", phone: "3311 2233", plan: "Platinum", endDate: "2030-01-01" },
+  ];
+  const dry = await call("POST", "/api/members/import", { ...R, body: { rows, dryRun: true } });
+  check("import check: 2 ready, 3 skipped with reasons", dry.json?.ready === 2 && dry.json?.skipped?.length === 3, dry.text);
+  const imp = await call("POST", "/api/members/import", { ...R, body: { rows } });
+  check("import creates members", imp.json?.created === 2, imp.text);
+  const after = await call("GET", "/api/members?status=ACTIVE", R);
+  check("imported plan becomes an active membership", after.json?.members?.some((m) => m.name === "Aisha Al-Khater"), after.text);
+
+  // Sign out everywhere: old cookie stops working, new one works
+  const old = R.cookie;
+  const rev = await fetch(BASE + "/api/auth/sessions", { method: "POST", headers: { Cookie: old } });
+  const fresh = sessionCookie(rev);
+  check("sign out everywhere: this device stays in", rev.ok && (await call("GET", "/api/auth/me", { cookie: fresh })).status === 200);
+  check("sign out everywhere: old sessions rejected", (await call("GET", "/api/auth/me", { cookie: old })).status === 401);
+
+  // Forgot password (email not configured here → tells the user to ask the owner)
+  const fg = await call("POST", "/api/auth/forgot", { body: { email } });
+  check("forgot password answers safely", fg.status === 200 && typeof fg.json?.emailEnabled === "boolean", fg.text);
+  const rs = await call("POST", "/api/auth/reset", { body: { token: "x".repeat(40), password: "newpassword1" } });
+  check("reset with a fake token is refused", rs.status === 400, rs.text);
+
+  // Lockout after 5 wrong passwords
+  let last = null;
+  for (let i = 0; i < 5; i++) last = await call("POST", "/api/auth/login", { body: { email, password: "wrong-password" } });
+  check("5 wrong passwords lock the account", last?.status === 429, last?.text);
+  const locked = await call("POST", "/api/auth/login", { body: { email, password: "longpassword1" } });
+  check("locked account refuses even the right password", locked.status === 429, locked.text);
+});
+
+await step("public pages", async () => {
+  for (const p of ["/register", "/forgot-password", "/reset-password?token=abc", "/privacy", "/terms", "/robots.txt", "/sitemap.xml", "/manifest.webmanifest"]) {
+    const r = await call("GET", p);
+    check(`public page ${p}`, r.status === 200, r.status);
+  }
 });
 
 console.log(`\nE2E_RESULT: ${pass} passed, ${fail} failed`);

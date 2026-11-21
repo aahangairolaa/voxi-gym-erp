@@ -24,30 +24,47 @@ export async function requireSession(module?: Module): Promise<Session> {
   if (module && !can(session.role, module)) {
     throw new ApiError(403, "Your role doesn't have access to this area.");
   }
+  const access = await stillAllowed(session);
+  if (access !== "ok") {
+    throw new ApiError(
+      401,
+      access === "signed-out" ? "You were signed out. Please sign in again." : "Your access has been paused. Please contact your gym owner or VOXI.",
+    );
+  }
   return session;
 }
 
 /**
- * Is this account still allowed in? (staff not deactivated, gym not suspended)
- * Checked on every gym request, cached for 30 seconds so it costs almost nothing.
+ * Is this account still allowed in? (not deactivated, gym not suspended, and
+ * not signed out everywhere since this token was issued). Checked on every
+ * request, cached for 30 seconds per account so it costs almost nothing.
  */
-const accessCache = new Map<string, { ok: boolean; at: number }>();
-async function stillAllowed(staffId: string) {
-  const hit = accessCache.get(staffId);
-  if (hit && Date.now() - hit.at < 30_000) return hit.ok;
-  const row = await db.staff.findUnique({ where: { id: staffId }, select: { isActive: true, gym: { select: { status: true } } } });
-  const ok = !!row?.isActive && row.gym?.status !== "SUSPENDED";
-  accessCache.set(staffId, { ok, at: Date.now() });
-  return ok;
+const accessCache = new Map<string, { row: { isActive: boolean; sessionVersion: number; suspended: boolean } | null; at: number }>();
+async function stillAllowed(session: Session): Promise<"ok" | "paused" | "signed-out"> {
+  let hit = accessCache.get(session.staffId);
+  if (!hit || Date.now() - hit.at > 30_000) {
+    const r = await db.staff.findUnique({
+      where: { id: session.staffId },
+      select: { isActive: true, sessionVersion: true, gym: { select: { status: true } } },
+    });
+    hit = { row: r ? { isActive: r.isActive, sessionVersion: r.sessionVersion, suspended: r.gym?.status === "SUSPENDED" } : null, at: Date.now() };
+    accessCache.set(session.staffId, hit);
+  }
+  if (!hit.row) return "signed-out";
+  if ((session.v ?? 0) < hit.row.sessionVersion) return "signed-out";
+  if (!hit.row.isActive || hit.row.suspended) return "paused";
+  return "ok";
+}
+
+/** Forget the cached access check (after deactivating someone or "sign out everywhere"). */
+export function forgetAccess(staffId: string) {
+  accessCache.delete(staffId);
 }
 
 /** Signed in, allowed to use `module` (if given), and attached to a gym. */
 export async function requireGym(module?: Module): Promise<GymSession> {
   const session = await requireSession(module);
   if (!session.gymId) throw new ApiError(403, "This area belongs to a gym. VOXI admins manage gyms from the Admin page.");
-  if (!(await stillAllowed(session.staffId))) {
-    throw new ApiError(401, "Your access to this gym has been paused. Please contact your gym owner or VOXI.");
-  }
   return session as GymSession;
 }
 

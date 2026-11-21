@@ -305,8 +305,24 @@ export const branchSchema = z.object({
 });
 
 export const passwordChangeSchema = z.object({
-  currentPassword: z.string().min(1),
+  currentPassword: z.string().default(""), // empty for Google accounts setting their first password
   newPassword: z.string().min(8, "New password must be at least 8 characters"),
+});
+
+const email = z.string().trim().toLowerCase().email("Enter a valid email");
+export const registerSchema = z.object({
+  gymName: z.string().trim().min(2, "Enter your gym's name").max(100),
+  ownerName: z.string().trim().min(2, "Enter your name").max(100),
+  email,
+  phone: optStr(30),
+  password: z.string().min(8, "Password must be at least 8 characters").max(200).optional().nullable(),
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Please accept the terms and privacy policy" }) }),
+  website: z.string().max(0).optional(), // honeypot: real people leave this empty
+});
+export const forgotPasswordSchema = z.object({ email });
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: z.string().min(8, "Password must be at least 8 characters").max(200),
 });
 
 // ── WhatsApp ─────────────────────────────────────────────────────────────────

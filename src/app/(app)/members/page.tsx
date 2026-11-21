@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LuFingerprint, LuSearch, LuUserPlus, LuUsers } from "react-icons/lu";
+import { LuFileSpreadsheet, LuFingerprint, LuSearch, LuUserPlus, LuUsers } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
+import { ImportMembersModal } from "@/components/members/import-members-modal";
 import { MemberFormModal } from "@/components/members/member-form-modal";
 import { Avatar, Button, Card, EmptyState, ErrorState, PageHeader, Segmented, Select, ShowMore, Skeleton, StatusBadge } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
@@ -30,11 +31,17 @@ export default function MembersPage() {
   const [search, setSearch] = useState("");
   const [branchId, setBranchId] = useState("");
   const [creating, setCreating] = useState(false);
+  const openImport = useQueryParam("import");
+  const [importing, setImporting] = useState(false);
+  const canImport = user.role === "OWNER" || user.role === "MANAGER";
   const q = useDebounce(search, 250);
 
   useEffect(() => {
     if (initialStatus && STATUSES.includes(initialStatus as StatusFilter)) setStatus(initialStatus as StatusFilter);
   }, [initialStatus]);
+  useEffect(() => {
+    if (openImport && canImport) setImporting(true);
+  }, [openImport, canImport]);
 
   const { data, error, loading, reload } = useApi<MembersResponse>(withQuery("/api/members", { search: q, status, branchId }));
   const page = useLimit(data?.members);
@@ -46,9 +53,16 @@ export default function MembersPage() {
         subtitle={data ? `${data.counts.ALL} members${branchId ? "" : " across all branches"}` : "Everyone who trains with you"}
         actions={
           can(user.role, "memberships") && (
-            <Button onClick={() => setCreating(true)}>
-              <LuUserPlus className="h-4 w-4" /> New member
-            </Button>
+            <div className="flex gap-2">
+              {canImport && (
+                <Button variant="secondary" onClick={() => setImporting(true)}>
+                  <LuFileSpreadsheet className="h-4 w-4" /> Import
+                </Button>
+              )}
+              <Button onClick={() => setCreating(true)}>
+                <LuUserPlus className="h-4 w-4" /> New member
+              </Button>
+            </div>
           )
         }
       />
@@ -169,6 +183,13 @@ export default function MembersPage() {
         )}
       </Card>
 
+      <ImportMembersModal
+        open={importing}
+        onClose={() => {
+          setImporting(false);
+          reload();
+        }}
+      />
       <MemberFormModal open={creating} onClose={() => setCreating(false)} onSaved={(id) => router.push(`/members/${id}`)} />
     </>
   );

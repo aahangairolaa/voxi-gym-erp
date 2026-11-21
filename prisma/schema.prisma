@@ -185,6 +185,7 @@ model Gym {
   invoicePrefix  String           @default("INV")
   invoiceFooter  String?
   expiryWarnDays Int              @default(7)
+  onboardingDismissedAt DateTime? // owner hid the "Get started" checklist
   // VOXI subscription (managed by the VOXI team on /admin)
   plan           SubscriptionPlan @default(PROFESSIONAL)
   status         GymStatus        @default(TRIAL)
@@ -275,6 +276,13 @@ model Staff {
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
+
+  // Sign-in security
+  googleId       String?   @unique // set when the person links / signs up with Google
+  failedLogins   Int       @default(0) // wrong passwords in a row
+  lockedUntil    DateTime? // locked for 15 min after 5 wrong passwords
+  sessionVersion Int       @default(0) // bump to sign this person out on every device
+  passwordResets PasswordReset[]
 
   paymentsReceived  Payment[]         @relation("ReceivedBy")
   sessionsOpened    CashSession[]     @relation("OpenedBy")
@@ -729,4 +737,17 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([gymId, createdAt])
+}
+
+/// One-time "forgot password" links (only a hash of the token is stored).
+model PasswordReset {
+  id        String    @id @default(cuid())
+  staffId   String
+  staff     Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([staffId])
 }

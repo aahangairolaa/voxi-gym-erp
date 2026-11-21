@@ -1,4 +1,5 @@
 "use client";
+import { CONTACT } from "@/lib/contact";
 import { useState } from "react";
 import { LuCheck, LuSparkles } from "react-icons/lu";
 import { cn } from "@/lib/utils";
@@ -58,7 +59,7 @@ export function PricingTable() {
                   {annual ? `Billed yearly: QAR ${fmt(p.monthly * 10)}` : "Billed monthly · cancel anytime"}
                 </p>
                 <a
-                  href={`mailto:hello@voxi.qa?subject=${encodeURIComponent(`VOXI ${p.name} plan`)}`}
+                  href={`mailto:${CONTACT.email}?subject=${encodeURIComponent(`VOXI ${p.name} plan`)}`}
                   className={cn(
                     "mt-6 flex h-11 items-center justify-center rounded-xl text-sm font-semibold transition",
                     p.highlight ? "bg-white text-[#2d1a6e] hover:bg-brand-50" : "border border-line bg-surface hover:border-brand-300 hover:bg-surface-2",

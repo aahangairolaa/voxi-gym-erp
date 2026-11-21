@@ -71,14 +71,23 @@ export async function updateStaff(id: string, input: StaffInput, session: GymSes
   const { password, ...data } = input;
   return db.staff.update({
     where: { id },
-    data: { ...data, ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}) },
+    data: {
+      ...data,
+      ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+      // A new password or deactivation signs this person out on every device
+      ...(password || !input.isActive ? { sessionVersion: { increment: 1 } } : {}),
+    },
     select: safeSelect,
   });
 }
 
 export async function changeOwnPassword(session: Session, currentPassword: string, newPassword: string) {
   const me = await db.staff.findUnique({ where: { id: session.staffId } });
-  if (!me || !(await bcrypt.compare(currentPassword, me.passwordHash))) throw new ApiError(400, "Current password is incorrect.");
+  if (!me) throw new ApiError(404, "Account not found.");
+  // Accounts created with Google have no password yet: they can set one without the current password.
+  if (me.passwordHash !== "!no-password" && !(await bcrypt.compare(currentPassword, me.passwordHash))) {
+    throw new ApiError(400, "Current password is incorrect.");
+  }
   await db.staff.update({ where: { id: me.id }, data: { passwordHash: await bcrypt.hash(newPassword, 10) } });
   return { ok: true };
 }

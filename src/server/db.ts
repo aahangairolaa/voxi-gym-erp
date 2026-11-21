@@ -27,6 +27,9 @@ function withTimeouts(url: string | undefined) {
   }
 }
 
+// Prisma also reads DATABASE_URL_UNPOOLED (for schema changes); default it to the main URL.
+if (process.env.DATABASE_URL && !process.env.DATABASE_URL_UNPOOLED) process.env.DATABASE_URL_UNPOOLED = process.env.DATABASE_URL;
+
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({

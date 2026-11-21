@@ -42,8 +42,8 @@ export function Celebrations() {
           <li key={`b-${b.memberId}`} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2/60">
             <div className="relative">
               <Avatar name={b.name} src={b.photoUrl} size={38} />
-              <span className="absolute -right-1 -bottom-1 grid h-5 w-5 place-items-center rounded-full bg-pink-500 text-white ring-2 ring-surface">
-                <LuCake className="h-3 w-3" />
+              <span className="absolute -right-1.5 -bottom-1.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-pink-500 text-white ring-2 ring-surface">
+                <LuCake className="h-2.5 w-2.5" />
               </span>
             </div>
             <Link href={`/members/${b.memberId}`} className="min-w-0 flex-1">
@@ -65,8 +65,8 @@ export function Celebrations() {
           <li key={`m-${m.memberId}`} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2/60">
             <div className="relative">
               <Avatar name={m.name} src={m.photoUrl} size={38} />
-              <span className="absolute -right-1 -bottom-1 grid h-5 w-5 place-items-center rounded-full bg-amber-500 text-white ring-2 ring-surface">
-                <LuMedal className="h-3 w-3" />
+              <span className="absolute -right-1.5 -bottom-1.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-amber-500 text-white ring-2 ring-surface">
+                <LuMedal className="h-2.5 w-2.5" />
               </span>
             </div>
             <Link href={`/members/${m.memberId}`} className="min-w-0 flex-1">

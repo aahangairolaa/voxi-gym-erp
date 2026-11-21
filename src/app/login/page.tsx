@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LuArrowRight, LuEye, LuEyeOff, LuLock, LuMail } from "react-icons/lu";
-import { Logo, VoxiOrb } from "@/components/brand/logo";
+import { AUTH_ERRORS, AuthShell, Divider, GoogleButton, useAuthConfig } from "@/components/auth/auth-shell";
+import { VoxiOrb } from "@/components/brand/logo";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api-client";
 
@@ -16,6 +17,12 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cfg = useAuthConfig();
+
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code) setError(AUTH_ERRORS[code] ?? "Sign-in failed. Please try again.");
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,32 +40,32 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      {/* Brand panel */}
-      <div className="relative hidden overflow-hidden bg-[#0b0718] lg:block">
-        <img src="/brand/voxi-orb.webp" alt="" className="absolute inset-0 h-full w-full object-cover opacity-90" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0b0718] via-[#0b0718]/30 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-12 text-white">
-          <p className="font-display text-4xl leading-tight font-semibold">
-            Your gym.
-            <br />
-            <span className="bg-gradient-to-r from-[#c9b8ff] to-[#e5a3ff] bg-clip-text text-transparent">Your business.</span>
-          </p>
-          <p className="mt-3 max-w-md text-white/65">Members, memberships, biometric access and payments in QAR — one premium system built for gyms in Qatar.</p>
-        </div>
-      </div>
-
-      {/* Form */}
-      <div className="relative flex items-center justify-center px-6 py-12">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,var(--glow),transparent_70%)]" />
-        <div className="relative w-full max-w-sm animate-fade-up">
-          <Link href="/" className="mb-10 inline-flex">
-            <Logo size="md" />
-          </Link>
-          <h1 className="text-3xl font-semibold tracking-tight">Welcome back</h1>
-          <p className="mt-1.5 text-sm text-muted">Sign in to your gym’s VOXI workspace.</p>
-
-          <form onSubmit={submit} className="mt-8 space-y-4">
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to your gym’s VOXI workspace."
+      footer={
+        cfg?.signup !== false && (
+          <>
+            New to VOXI?{" "}
+            <Link href="/register" className="font-semibold text-brand-600 hover:underline dark:text-brand-300">
+              Start a 14-day free trial
+            </Link>
+          </>
+        )
+      }
+    >
+          {cfg?.database === false && (
+            <p className="mt-6 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+              VOXI is getting ready — sign-in opens very soon. Want a demo? <Link href="/#contact" className="font-semibold underline">Contact us</Link>.
+            </p>
+          )}
+          {cfg?.google && (
+            <div className="mt-8">
+              <GoogleButton intent="login" label="Continue with Google" />
+              <Divider text="or sign in with email" />
+            </div>
+          )}
+          <form onSubmit={submit} className={cfg?.google ? "space-y-4" : "mt-8 space-y-4"}>
             <label className="block">
               <span className="label">Email</span>
               <div className="relative">
@@ -67,7 +74,12 @@ export default function LoginPage() {
               </div>
             </label>
             <label className="block">
-              <span className="label">Password</span>
+              <span className="label flex items-center justify-between">
+                Password
+                <Link href="/forgot-password" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300">
+                  Forgot password?
+                </Link>
+              </span>
               <div className="relative">
                 <LuLock className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" />
                 <input
@@ -105,8 +117,6 @@ export default function LoginPage() {
             </div>
           </div>
           )}
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

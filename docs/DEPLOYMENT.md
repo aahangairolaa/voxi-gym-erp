@@ -97,6 +97,18 @@ Devices must reach your public URL over HTTPS. See [BIOMETRIC.md](BIOMETRIC.md).
 
    Deploy. The build (`npm run vercel-build`) creates/updates the tables, creates your VOXI admin
    once, then builds the app. Schema changes that would delete data stop the build instead.
+   **No database yet?** Deploy anyway: the website, pricing and legal pages work, and sign-in
+   shows “launching soon”. Add the database variables later and redeploy.
+
+   Optional variables:
+
+   | Name | What it does |
+   |------|--------------|
+   | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | “Continue with Google” on sign-in and sign-up. Google Cloud Console → APIs & Services → Credentials → OAuth client ID (Web). Authorized redirect URI: `https://voxiai.co/api/auth/google/callback` |
+   | `RESEND_API_KEY`, `EMAIL_FROM` | “Forgot password” emails (resend.com — verify the voxiai.co domain there) |
+   | `ALLOW_SIGNUP` | `false` turns off public sign-ups (VOXI admins create gyms on /admin) |
+   | `NEXT_PUBLIC_SITE_URL` | `https://voxiai.co` |
+   | `NEXT_PUBLIC_CONTACT_EMAIL`, `NEXT_PUBLIC_CONTACT_WHATSAPP` | Where “Book a demo” and the trial banner send gyms |
 3. Sign in with the admin account → `/admin` → **New gym** for each customer.
 4. **Domain**: Vercel → Project → Settings → Domains → add `voxiai.co` and `www.voxiai.co`, then
    add the DNS records Vercel shows at your registrar (GoDaddy → My Products → DNS).

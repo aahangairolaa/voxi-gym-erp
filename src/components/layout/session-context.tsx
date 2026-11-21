@@ -2,7 +2,16 @@
 import { createContext, useContext } from "react";
 import type { Role } from "@/lib/permissions";
 
-export type CurrentUser = { staffId: string; name: string; email: string; role: Role; branchId: string | null; gymId: string | null };
+export type CurrentUser = {
+  staffId: string;
+  name: string;
+  email: string;
+  role: Role;
+  branchId: string | null;
+  gymId: string | null;
+  hasGoogle: boolean;
+  hasPassword: boolean;
+};
 
 /** The gym the signed-in person works at (null for VOXI admins). */
 export type CurrentGym = {
@@ -13,6 +22,7 @@ export type CurrentGym = {
   status: "TRIAL" | "ACTIVE" | "SUSPENDED";
   plan: "ESSENTIAL" | "PROFESSIONAL" | "ELITE";
   whatsappEnabled: boolean;
+  trialEndsAt: string | null;
 } | null;
 
 export type SessionValue = CurrentUser & { gym: CurrentGym };

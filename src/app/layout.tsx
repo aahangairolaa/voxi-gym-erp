@@ -1,15 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Sora } from "next/font/google";
 import "./globals.css";
+import { CONTACT } from "@/lib/contact";
 
 // Fonts are downloaded at build time and served from your own domain (fast, no layout shift)
 const body = Manrope({ subsets: ["latin"], variable: "--font-body", display: "swap" });
 const heading = Sora({ subsets: ["latin"], variable: "--font-heading", display: "swap" });
 
+const description = "VOXI is the premium all-in-one ERP for gyms in Qatar: members, memberships, biometric access, payments in QAR, classes, trainers and reports.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(CONTACT.site),
   title: { default: "VOXI — Gym Management for Qatar", template: "%s · VOXI" },
-  description: "VOXI is the premium all-in-one ERP for gyms in Qatar: members, memberships, biometric access, payments in QAR, classes, trainers and reports.",
+  description,
   applicationName: "VOXI",
+  appleWebApp: { capable: true, title: "VOXI", statusBarStyle: "default" },
+  openGraph: { type: "website", siteName: "VOXI", title: "VOXI — Gym Management for Qatar", description, locale: "en_QA" },
+  twitter: { card: "summary_large_image", title: "VOXI — Gym Management for Qatar", description },
 };
 
 export const viewport: Viewport = {

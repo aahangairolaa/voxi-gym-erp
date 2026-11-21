@@ -17,6 +17,8 @@ export type Session = {
   /** The gym this person works at. null only for the VOXI platform team (SUPER_ADMIN). */
   gymId: string | null;
   branchId: string | null;
+  /** Staff.sessionVersion when this token was issued; bumping it signs the person out everywhere. */
+  v?: number;
 };
 
 function secretKey() {
@@ -49,6 +51,7 @@ export async function verifySession(token: string | undefined | null): Promise<S
       role: payload.role as Role,
       gymId: (payload.gymId as string | null) ?? null,
       branchId: (payload.branchId as string | null) ?? null,
+      v: typeof payload.v === "number" ? payload.v : 0,
     };
   } catch {
     return null;
