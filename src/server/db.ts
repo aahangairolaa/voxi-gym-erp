@@ -18,6 +18,9 @@ function withTimeouts(url: string | undefined) {
     const u = new URL(url);
     if (!u.searchParams.has("connect_timeout")) u.searchParams.set("connect_timeout", "15"); // seconds to open a connection
     if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20"); // seconds to wait for a free connection
+    // On Vercel every server instance opens its own pool; keep it small so a
+    // managed Postgres (Azure, Neon …) doesn't run out of connections.
+    if (process.env.VERCEL && !u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", "3");
     return u.toString();
   } catch {
     return url;

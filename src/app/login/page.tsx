@@ -7,6 +7,8 @@ import { Logo, VoxiOrb } from "@/components/brand/logo";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api-client";
 
+const SHOW_DEMO = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "true";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -88,6 +90,8 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          {/* Demo logins: shown on your computer, hidden on the live site unless NEXT_PUBLIC_SHOW_DEMO_LOGINS=true */}
+          {SHOW_DEMO && (
           <div className="mt-8 rounded-2xl border border-dashed border-line-strong p-4 text-xs text-muted">
             <p className="mb-1 flex items-center gap-1.5 font-semibold text-ink-soft">
               <VoxiOrb size={14} /> Demo accounts (password <code className="font-mono">voxi1234</code>)
@@ -100,6 +104,7 @@ export default function LoginPage() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

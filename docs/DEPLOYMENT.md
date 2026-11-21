@@ -75,3 +75,31 @@ run `npm run db:push` against the production database **before** pushing.
 ## 6. Biometric devices in production
 
 Devices must reach your public URL over HTTPS. See [BIOMETRIC.md](BIOMETRIC.md).
+
+---
+
+## Live site: Vercel + Azure Database for PostgreSQL
+
+1. **Azure** → *Azure Database for PostgreSQL – Flexible server* (region **Qatar Central** is closest).
+   - Networking: *Public access*, and add a firewall rule `0.0.0.0 – 255.255.255.255`
+     (Vercel's servers don't have fixed IP addresses). Use a long, random admin password.
+   - Create a database named `voxi`. Connection string:
+     `postgresql://<user>:<password>@<server>.postgres.database.azure.com:5432/voxi?sslmode=require`
+2. **Vercel** → Add New Project → import `voxi-gym-erp` from GitHub → Environment Variables:
+
+   | Name | Value |
+   |------|-------|
+   | `DATABASE_URL` | the Azure connection string |
+   | `DATABASE_URL_UNPOOLED` | the same connection string |
+   | `AUTH_SECRET` | a long random string (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
+   | `VOXI_ADMIN_EMAIL` | your VOXI admin login email |
+   | `VOXI_ADMIN_PASSWORD` | a strong password (10+ characters) — delete this variable after the first deploy |
+
+   Deploy. The build (`npm run vercel-build`) creates/updates the tables, creates your VOXI admin
+   once, then builds the app. Schema changes that would delete data stop the build instead.
+3. Sign in with the admin account → `/admin` → **New gym** for each customer.
+4. **Domain**: Vercel → Project → Settings → Domains → add `voxiai.co` and `www.voxiai.co`, then
+   add the DNS records Vercel shows at your registrar (GoDaddy → My Products → DNS).
+
+Demo logins are hidden on the live site. To show them on a demo deployment, set
+`NEXT_PUBLIC_SHOW_DEMO_LOGINS=true` and seed demo data.
