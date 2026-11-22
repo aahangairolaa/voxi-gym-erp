@@ -50,7 +50,7 @@ export default function PaymentsPage() {
     <>
       <PageHeader
         title="Payments"
-        subtitle="All income in QAR — memberships, PT, retail"
+        subtitle="All income in QAR: memberships, PT and retail"
         actions={
           <Button onClick={() => setRecording(true)}>
             <LuPlus className="h-4 w-4" /> Record payment
@@ -127,7 +127,7 @@ export default function PaymentsPage() {
                           <span className="text-muted">Walk-in</span>
                         )}
                       </td>
-                      <td className="max-w-[220px] truncate text-ink-soft">{p.description ?? "—"}</td>
+                      <td className="max-w-[220px] truncate text-ink-soft">{p.description ?? "–"}</td>
                       <td>
                         <span className="inline-flex items-center gap-1.5 text-ink-soft">
                           <Icon className="h-3.5 w-3.5 text-muted" /> {humanize(p.method)}

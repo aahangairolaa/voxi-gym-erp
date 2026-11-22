@@ -72,7 +72,7 @@ export default function ActivityPage() {
     <>
       <PageHeader
         title="Activity log"
-        subtitle="Every sale, refund, delete and override — who did it and when"
+        subtitle="Every sale, refund, delete and override, with who did it and when"
         actions={
           <Select value={staffId} onChange={(e) => setStaffId(e.target.value)} className="w-52">
             <option value="">All staff</option>

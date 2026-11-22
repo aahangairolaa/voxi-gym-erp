@@ -197,7 +197,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-ink">{c.name}</p>
-                    <p className="truncate text-xs text-muted">{c.trainer ?? "—"} · {c.room}</p>
+                    <p className="truncate text-xs text-muted">{c.trainer ?? "–"} · {c.room}</p>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
                       <div className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-600" style={{ width: `${pct}%` }} />
                     </div>

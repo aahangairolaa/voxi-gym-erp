@@ -54,7 +54,7 @@ export default function MembershipsPage() {
     <>
       <PageHeader
         title="Memberships"
-        subtitle="Every plan sold — renew, freeze or collect balances"
+        subtitle="Every plan sold. Renew, freeze or collect balances"
         actions={
           <Button onClick={() => setSell({ open: true, member: null })}>
             <LuIdCard className="h-4 w-4" /> Sell membership

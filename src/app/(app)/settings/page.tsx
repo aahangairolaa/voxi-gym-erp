@@ -45,7 +45,7 @@ export default function SettingsPage() {
   const changePassword = async () => {
     try {
       await api.post("/api/auth/password", pw);
-      toast("success", user.hasPassword ? "Password changed" : "Password set — you can now also sign in with email");
+      toast("success", user.hasPassword ? "Password changed" : "Password set. You can now also sign in with email");
       setPw({ currentPassword: "", newPassword: "" });
     } catch (e) {
       toast("error", e instanceof Error ? e.message : "Failed");
@@ -100,7 +100,7 @@ export default function SettingsPage() {
                       {b.name} {!b.isActive && <span className="text-xs font-normal text-muted">(inactive)</span>}
                     </p>
                     <p className="text-xs text-muted">
-                      {b.address ?? "—"} · {b._count?.members ?? 0} members · {b._count?.staff ?? 0} staff
+                      {b.address ?? "–"} · {b._count?.members ?? 0} members · {b._count?.staff ?? 0} staff
                     </p>
                   </button>
                 </li>

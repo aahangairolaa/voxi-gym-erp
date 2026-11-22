@@ -40,9 +40,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="min-w-0">
             <p className="truncate text-[13px] font-semibold text-ink">{user.gym.name}</p>
             <p className="truncate text-[11px] text-muted">
-              {user.gym.status === "TRIAL" ? "Free trial" : user.gym.status === "SUSPENDED" ? "Suspended" : `${user.gym.plan[0]}${user.gym.plan.slice(1).toLowerCase()} plan`}
+              {user.gym.status === "TRIAL" ? "Free trial" : user.gym.status === "SUSPENDED" ? "Suspended" : `VOXI · ${user.gym.billingMonths} month${user.gym.billingMonths === 1 ? "" : "s"}`}
             </p>
           </div>
+          {user.gym.status !== "ACTIVE" && can(user.role, "billing") && (
+            <Link
+              href="/billing"
+              onClick={onNavigate}
+              className="ml-auto shrink-0 rounded-lg bg-brand-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-brand-700"
+            >
+              {user.gym.planRequest ? "Pending" : "Choose plan"}
+            </Link>
+          )}
         </div>
       )}
 

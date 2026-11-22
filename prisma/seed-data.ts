@@ -54,6 +54,9 @@ export function generateSeedData(passwordHash: string) {
     brandColor: "#6A44F2",
     plan: "ELITE" as const,
     status: "ACTIVE" as const,
+    billingMonths: 12,
+    extraBranches: 1,
+    paidUntil: addDays(today, 240),
     whatsappVerifyToken: randomBytes(12).toString("base64url"),
     legalName: "VOXI Fitness W.L.L.",
     crNumber: "154872",
@@ -447,7 +450,7 @@ export function generateSeedData(passwordHash: string) {
     const t = at(addDays(today, -1), 10 + k, 15);
     whatsappMessages.push({
       id: id("wa"), memberId: m.id, toPhone: `974${String(m.phone).replace(/\D/g, "").slice(-8)}`, type: "RENEWAL_REMINDER", channel: "LINK", status: "OPENED",
-      body: `Hi ${m.firstName}, your membership at VOXI Fitness Club ends soon. Renew at reception or reply here so your training continues without a break. 💜`,
+      body: `Hi ${m.firstName}, your membership at VOXI Fitness Club ends soon. Renew at reception or reply here so your training continues without a break.`,
       sentById: "st_rec1", createdAt: t, updatedAt: t,
     });
   });
@@ -455,7 +458,7 @@ export function generateSeedData(passwordHash: string) {
     const t = at(addDays(today, -int(1, 20)), 12, 5 * k);
     whatsappMessages.push({
       id: id("wa"), memberId: m.id, toPhone: `974${String(m.phone).replace(/\D/g, "").slice(-8)}`, type: "WELCOME", channel: "LINK", status: "OPENED",
-      body: `Welcome to VOXI Fitness Club, ${m.firstName}! 🎉 Your member number is ${m.code}.`, sentById: "st_rec1", createdAt: t, updatedAt: t,
+      body: `Welcome to VOXI Fitness Club, ${m.firstName}. Your member number is ${m.code}.`, sentById: "st_rec1", createdAt: t, updatedAt: t,
     });
   });
   const recentPays = payments.filter((p) => p.paidAt >= addDays(today, -2)).slice(-8);

@@ -144,7 +144,7 @@ export function MemberFormModal({
             </Field>
             <Field label="Gender">
               <Select {...form.bind("gender")}>
-                <option value="">—</option>
+                <option value="">Not set</option>
                 <option value="MALE">Male</option>
                 <option value="FEMALE">Female</option>
               </Select>
@@ -152,12 +152,12 @@ export function MemberFormModal({
             <Field label="Date of birth">
               <Input type="date" {...form.bind("dateOfBirth")} />
             </Field>
-            <Field label="QID number" hint="Qatar ID — 11 digits">
+            <Field label="QID number" hint="Qatar ID, 11 digits">
               <Input {...form.bind("qid")} inputMode="numeric" maxLength={11} />
             </Field>
             <Field label="Nationality">
               <Select {...form.bind("nationality")}>
-                <option value="">—</option>
+                <option value="">Not set</option>
                 {NATIONALITIES.map((n) => (
                   <option key={n}>{n}</option>
                 ))}
@@ -165,7 +165,7 @@ export function MemberFormModal({
             </Field>
             <Field label="Home branch">
               <Select {...form.bind("branchId")}>
-                <option value="">—</option>
+                <option value="">Not set</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}

@@ -64,7 +64,7 @@ export function MemberCardVisual({
         <div className="text-right">
           <p className="text-[10px] tracking-wider text-white/60 uppercase">{membership ? "Valid until" : "Status"}</p>
           <p className={`font-semibold ${ok ? "text-emerald-300" : "text-amber-300"}`}>
-            {membership ? (ok ? formatDate(membership.endDate) : MEMBER_STATUS[membership.status].label) : "—"}
+            {membership ? (ok ? formatDate(membership.endDate) : MEMBER_STATUS[membership.status].label) : "–"}
           </p>
         </div>
       </div>

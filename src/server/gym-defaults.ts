@@ -21,5 +21,4 @@ export const EXERCISE_LIBRARY: [name: string, muscleGroup: string, equipment: st
   ["Rowing Machine", "Cardio", "Machine"], ["Assault Bike", "Cardio", "Machine"], ["Incline Treadmill Walk", "Cardio", "Machine"],
 ];
 
-/** Monthly VOXI subscription price per plan (QAR) — keep in sync with the pricing page. */
-export const SUBSCRIPTION_PRICE = { ESSENTIAL: 549, PROFESSIONAL: 1099, ELITE: 1999 } as const;
+

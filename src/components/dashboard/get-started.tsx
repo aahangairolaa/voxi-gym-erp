@@ -35,9 +35,9 @@ export function GetStarted() {
             <LuRocket className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold text-ink">{welcome ? `Welcome to VOXI, ${user.name.split(" ")[0]}! 🎉` : "Get your gym set up"}</p>
+            <p className="text-lg font-semibold text-ink">{welcome ? `Welcome to VOXI, ${user.name.split(" ")[0]}` : "Get your gym set up"}</p>
             <p className="text-sm text-muted">
-              {data.done} of {data.total} done — most gyms finish in about 15 minutes.
+              {data.done} of {data.total} done. Most gyms finish in about 15 minutes.
             </p>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2">
               <div className="h-full rounded-full brand-gradient transition-all duration-700" style={{ width: `${pct}%` }} />

@@ -82,7 +82,7 @@ export default function MemberProfilePage() {
     try {
       await api.post(`/api/memberships/${membershipId}`, { action: act });
       invalidate("/api/");
-      toast("success", act === "freeze" ? "Membership frozen" : act === "unfreeze" ? "Membership resumed — end date extended" : "Membership cancelled");
+      toast("success", act === "freeze" ? "Membership frozen" : act === "unfreeze" ? "Membership resumed and end date extended" : "Membership cancelled");
       reload();
     } catch (e) {
       toast("error", e instanceof Error ? e.message : "Failed");
@@ -302,7 +302,7 @@ export default function MemberProfilePage() {
                             {formatDate(ms.startDate)} – {formatDate(ms.endDate)}
                           </td>
                           <td className="text-right tabular-nums">{formatQAR(ms.price - ms.discount)}</td>
-                          <td className={`text-right tabular-nums ${ms.balance > 0 ? "font-semibold text-amber-600" : "text-muted"}`}>{ms.balance > 0 ? formatQAR(ms.balance) : "—"}</td>
+                          <td className={`text-right tabular-nums ${ms.balance > 0 ? "font-semibold text-amber-600" : "text-muted"}`}>{ms.balance > 0 ? formatQAR(ms.balance) : "–"}</td>
                           <td>
                             <StatusBadge status={ms.status === "CANCELLED" ? "CANCELLED" : ms.effectiveStatus} />
                           </td>
@@ -331,7 +331,7 @@ export default function MemberProfilePage() {
                         <tr key={p.id}>
                           <td className="font-mono text-xs">{p.invoiceNo}</td>
                           <td className="whitespace-nowrap text-ink-soft">{formatDate(p.paidAt)}</td>
-                          <td className="text-ink-soft">{p.description ?? "—"}</td>
+                          <td className="text-ink-soft">{p.description ?? "–"}</td>
                           <td>{humanize(p.method)}</td>
                           <td className="text-right font-semibold tabular-nums">
                             {formatQAR(p.amount)} {p.status !== "PAID" && <PaymentStatusBadge status={p.status} />}
@@ -366,7 +366,7 @@ export default function MemberProfilePage() {
                           <td className="whitespace-nowrap">{formatDate(a.checkInAt)}</td>
                           <td className="tabular-nums">{formatTime(a.checkInAt)}</td>
                           <td className="tabular-nums text-ink-soft">{a.checkOutAt ? formatTime(a.checkOutAt) : <Badge tone="green" dot>Inside</Badge>}</td>
-                          <td className="text-ink-soft">{a.branch?.name ?? "—"}</td>
+                          <td className="text-ink-soft">{a.branch?.name ?? "–"}</td>
                           <td>
                             <Badge tone={a.source === "BIOMETRIC" ? "brand" : "gray"}>{humanize(a.source)}</Badge>
                           </td>
@@ -430,7 +430,7 @@ export default function MemberProfilePage() {
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4">
                   <dt className="text-muted">{k}</dt>
-                  <dd className="text-right font-medium text-ink">{v || "—"}</dd>
+                  <dd className="text-right font-medium text-ink">{v || "–"}</dd>
                 </div>
               ))}
             </dl>

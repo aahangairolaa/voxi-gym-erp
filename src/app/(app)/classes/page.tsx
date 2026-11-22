@@ -167,7 +167,7 @@ export default function ClassesPage() {
                   <Avatar name={c.trainer?.name ?? "?"} size={16} /> {c.trainer?.name ?? "No trainer"}
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <LuMapPin className="h-3 w-3" /> {c.room ?? "—"} · {c.branch?.name ?? ""}
+                  <LuMapPin className="h-3 w-3" /> {c.room ?? "–"} · {c.branch?.name ?? ""}
                 </span>
               </div>
               <div className="mt-4">
@@ -267,7 +267,7 @@ export default function ClassesPage() {
           </Field>
           <Field label="Trainer">
             <Select value={form.trainerId} onChange={(e) => setForm({ ...form, trainerId: e.target.value })}>
-              <option value="">—</option>
+              <option value="">Not set</option>
               {trainers.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -277,7 +277,7 @@ export default function ClassesPage() {
           </Field>
           <Field label="Branch">
             <Select value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}>
-              <option value="">—</option>
+              <option value="">Not set</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}

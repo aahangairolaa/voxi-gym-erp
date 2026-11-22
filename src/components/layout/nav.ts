@@ -6,7 +6,7 @@ import type { IconType } from "react-icons";
 import {
   LuLayoutDashboard, LuUsers, LuIdCard, LuClipboardList, LuUserPlus, LuScanFace, LuFingerprint, LuDumbbell,
   LuCalendarDays, LuTrophy, LuReceipt, LuBanknote, LuWallet, LuChartColumn, LuUserCog, LuSettings,
-  LuMessageCircle, LuHistory, LuBuilding2,
+  LuMessageCircle, LuHistory, LuBuilding2, LuCreditCard,
 } from "react-icons/lu";
 import type { Module } from "@/lib/permissions";
 
@@ -56,6 +56,7 @@ export const NAV: NavSection[] = [
     items: [
       { href: "/staff", label: "Staff", icon: LuUserCog, module: "staff" },
       { href: "/activity", label: "Activity Log", icon: LuHistory, module: "activity" },
+      { href: "/billing", label: "Billing", icon: LuCreditCard, module: "billing" },
       { href: "/settings", label: "Settings", icon: LuSettings, module: "settings" },
     ],
   },

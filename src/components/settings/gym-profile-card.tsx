@@ -29,7 +29,7 @@ export function GymProfileCard({ settings, editable, onSaved }: { settings: Sett
     try {
       const { logo: _logo, ...rest } = form;
       await api.put("/api/settings", { ...rest, ...(logoChange !== undefined ? { logo: logoChange } : {}) });
-      toast("success", "Gym profile saved — reloading to apply your branding");
+      toast("success", "Gym profile saved. Reloading to apply your branding");
       onSaved();
       setTimeout(() => window.location.reload(), 700); // refresh sidebar logo & colours
     } catch (e) {

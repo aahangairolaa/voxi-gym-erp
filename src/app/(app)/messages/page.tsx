@@ -45,7 +45,7 @@ export default function MessagesPage() {
     <>
       <PageHeader
         title="WhatsApp"
-        subtitle={apiMode ? "Sent automatically through your WhatsApp Business number" : "Messages open in WhatsApp with the text ready — connect the Business API to send automatically"}
+        subtitle={apiMode ? "Sent automatically through your WhatsApp Business number" : "Messages open in WhatsApp with the text ready. Connect the Business API to send automatically"}
         actions={
           can(user.role, "settings") && (
             <Link href="/settings#whatsapp">
@@ -101,7 +101,7 @@ export default function MessagesPage() {
                   </div>
                   <p className="min-w-0 flex-1 rounded-2xl rounded-tl-sm bg-emerald-50 px-3.5 py-2.5 text-sm whitespace-pre-line text-ink dark:bg-emerald-500/10">
                     {m.body}
-                    {m.error && <span className="mt-1 block text-xs text-rose-600">⚠ {m.error}</span>}
+                    {m.error && <span className="mt-1 block text-xs text-rose-600">{m.error}</span>}
                   </p>
                   <div className="flex items-center gap-2 sm:w-44 sm:justify-end">
                     <Badge tone={STATUS_TONE[m.status]} dot>

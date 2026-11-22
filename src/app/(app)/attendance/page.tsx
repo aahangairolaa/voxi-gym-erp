@@ -66,7 +66,7 @@ export default function AttendancePage() {
     <>
       <PageHeader
         title="Attendance"
-        subtitle={isToday ? "Live — refreshes every 15 seconds" : formatDate(date)}
+        subtitle={isToday ? "Live, refreshes every 15 seconds" : formatDate(date)}
         actions={<Input type="date" value={date} max={toDateInput()} onChange={(e) => setDate(e.target.value)} className="w-44" />}
       />
 
@@ -124,7 +124,7 @@ export default function AttendancePage() {
                       {result.allowed ? (
                         <>
                           <LuCircleCheck className="h-4 w-4 text-emerald-600" />
-                          <span className="text-emerald-700 dark:text-emerald-300">{result.action === "IN" ? "Welcome in" : "Checked out — see you soon"}</span>
+                          <span className="text-emerald-700 dark:text-emerald-300">{result.action === "IN" ? "Welcome in" : "Checked out. See you soon"}</span>
                         </>
                       ) : (
                         <>
@@ -231,7 +231,7 @@ export default function AttendancePage() {
                         </Badge>
                       )}
                     </td>
-                    <td className="text-ink-soft">{v.branch ?? "—"}</td>
+                    <td className="text-ink-soft">{v.branch ?? "–"}</td>
                     <td>
                       <Badge tone={v.source === "BIOMETRIC" ? "brand" : v.source === "QR" ? "blue" : "gray"}>
                         {v.source === "BIOMETRIC" ? v.device ?? "Biometric" : v.source === "QR" ? "QR card" : "Front desk"}

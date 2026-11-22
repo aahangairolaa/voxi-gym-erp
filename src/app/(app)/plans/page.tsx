@@ -154,7 +154,7 @@ export default function PlansPage() {
           <Field label="Duration (days)" required hint="30 = monthly, 90 = quarterly, 365 = annual">
             <Input type="number" min={1} value={form.durationDays} onChange={(e) => setForm({ ...form, durationDays: Number(e.target.value) || 1 })} />
           </Field>
-          <Field label="Sessions" hint="Only for PT packs — leave empty for unlimited">
+          <Field label="Sessions" hint="Only for PT packs. Leave empty for unlimited">
             <Input type="number" min={1} value={form.sessions} onChange={(e) => setForm({ ...form, sessions: e.target.value })} />
           </Field>
           <Field label="Freeze days allowed">

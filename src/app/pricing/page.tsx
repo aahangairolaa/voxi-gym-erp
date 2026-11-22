@@ -1,35 +1,22 @@
 import type { Metadata } from "next";
-import { LuCheck } from "react-icons/lu";
 import { ADD_ONS } from "@/components/marketing/pricing-data";
 import { PricingTable } from "@/components/marketing/pricing-table";
 import { SiteFooter, SiteNav } from "@/components/marketing/site-nav";
+import { BRANCH_DISCOUNTS, MAX_EXTRA_BRANCHES, TERMS, TRIAL_DAYS, branchPrice } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "VOXI gym management plans in Qatari Riyal (QAR). Essential, Professional and Elite.",
+  description: "VOXI gym management in Qatari Riyal (QAR). One plan with every feature, from QAR 25,000 a year, plus discounted branch add-ons.",
 };
 
-const COMPARE: [string, string | boolean, string | boolean, string | boolean][] = [
-  ["Branches", "1", "Up to 3", "Unlimited"],
-  ["Active members", "300", "1,500", "Unlimited"],
-  ["Staff accounts", "3", "Unlimited", "Unlimited"],
-  ["Members, plans & memberships", true, true, true],
-  ["Payments, receipts & cash drawer", true, true, true],
-  ["Front-desk check-in", true, true, true],
-  ["Reports & Excel export", true, true, true],
-  ["Biometric integration", false, "1 device / branch", "Unlimited"],
-  ["Workouts, classes & leaderboard", false, true, true],
-  ["Leads pipeline", false, true, true],
-  ["API access & custom integrations", false, false, true],
-  ["Data migration", "Paid add-on", "Paid add-on", "Included"],
-  ["Support", "Email", "Priority WhatsApp", "Dedicated manager + on-site"],
-];
+const fmt = (n: number) => n.toLocaleString("en");
 
-function Cell({ v }: { v: string | boolean }) {
-  if (v === true) return <LuCheck className="mx-auto h-5 w-5 text-brand-600" />;
-  if (v === false) return <span className="text-line-strong">—</span>;
-  return <span className="text-sm">{v}</span>;
-}
+const FAQ = [
+  ["How do I pay?", "After your trial, choose a term and branches on the Billing page inside VOXI. We send an invoice and you pay by bank transfer, card or Fawran. Your plan starts the day payment arrives."],
+  ["Can I add a branch later?", `Yes. Add up to ${MAX_EXTRA_BRANCHES} branches at any time from Billing. Each new branch is cheaper than the one before it.`],
+  ["What happens when my trial ends?", "Nothing is deleted. Choose a plan to keep going, and everything you set up during the trial stays exactly as it is."],
+  ["Is there a contract?", "Only the term you choose. Pick 1, 3, 6 or 12 months; longer terms cost less per month."],
+];
 
 export default function PricingPage() {
   return (
@@ -41,17 +28,54 @@ export default function PricingPage() {
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <p className="text-xs font-bold tracking-[0.25em] text-brand-600 uppercase">Pricing · Qatari Riyal</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-              Premium software, <span className="text-gradient">honest pricing</span>
+              One plan. <span className="text-gradient">Every feature.</span>
             </h1>
-            <p className="mt-4 text-muted">Every plan includes free updates, daily backups and secure cloud hosting. Start with a 14-day free trial.</p>
+            <p className="mt-4 text-muted">
+              Choose how long you want to commit and how many locations you run. Start with a {TRIAL_DAYS}-day free trial, no card needed.
+            </p>
           </div>
           <PricingTable />
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-5 pb-20">
-        <h2 className="mb-6 text-2xl font-semibold tracking-tight">Add-ons</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <h2 className="text-2xl font-semibold tracking-tight">Branch pricing</h2>
+        <p className="mt-2 mb-6 max-w-2xl text-sm text-muted">
+          Your main location is included. Every branch you add is discounted more than the one before it.
+        </p>
+        <div className="card overflow-x-auto">
+          <table className="table min-w-[640px]">
+            <thead>
+              <tr>
+                <th>Branch</th>
+                <th className="text-right">Discount</th>
+                {TERMS.map((t) => (
+                  <th key={t.months} className="text-right">
+                    {t.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {BRANCH_DISCOUNTS.map((d, i) => (
+                <tr key={i}>
+                  <td className="font-medium">Branch {i + 2}</td>
+                  <td className="text-right text-sm text-emerald-600 dark:text-emerald-400">{d ? `${Math.round(d * 100)}% off` : "Full price"}</td>
+                  {TERMS.map((t) => (
+                    <td key={t.months} className="text-right tabular-nums">
+                      QAR {fmt(branchPrice(i + 1, t.months))}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-5 pb-20">
+        <h2 className="mb-6 text-2xl font-semibold tracking-tight">One-time services</h2>
+        <div className="grid gap-4 md:grid-cols-2">
           {ADD_ONS.map((a) => (
             <div key={a.name} className="card p-6">
               <p className="font-semibold">{a.name}</p>
@@ -63,35 +87,18 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 pb-24">
-        <h2 className="mb-6 text-2xl font-semibold tracking-tight">Compare plans</h2>
-        <div className="card overflow-x-auto">
-          <table className="table min-w-[640px]">
-            <thead>
-              <tr>
-                <th>Feature</th>
-                <th className="text-center">Essential</th>
-                <th className="text-center text-brand-600!">Professional</th>
-                <th className="text-center">Elite</th>
-              </tr>
-            </thead>
-            <tbody>
-              {COMPARE.map(([f, a, b, c]) => (
-                <tr key={f}>
-                  <td className="font-medium">{f}</td>
-                  <td className="text-center">
-                    <Cell v={a} />
-                  </td>
-                  <td className="bg-brand-50/40 text-center dark:bg-brand-500/5">
-                    <Cell v={b} />
-                  </td>
-                  <td className="text-center">
-                    <Cell v={c} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <section className="mx-auto max-w-3xl px-5 pb-24">
+        <h2 className="text-center text-2xl font-semibold tracking-tight">Billing questions</h2>
+        <div className="mt-8 space-y-3">
+          {FAQ.map(([q, a]) => (
+            <details key={q} className="card group p-5 [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">
+                {q}
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface-2 text-brand-600 transition group-open:rotate-45">+</span>
+              </summary>
+              <p className="mt-3 text-sm text-muted">{a}</p>
+            </details>
+          ))}
         </div>
       </section>
       <SiteFooter />

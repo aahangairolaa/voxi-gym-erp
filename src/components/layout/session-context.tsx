@@ -21,6 +21,9 @@ export type CurrentGym = {
   brandColor: string | null;
   status: "TRIAL" | "ACTIVE" | "SUSPENDED";
   plan: "ESSENTIAL" | "PROFESSIONAL" | "ELITE";
+  billingMonths: number;
+  /** Set while the gym has asked VOXI to start or change its subscription. */
+  planRequest: unknown;
   whatsappEnabled: boolean;
   trialEndsAt: string | null;
 } | null;

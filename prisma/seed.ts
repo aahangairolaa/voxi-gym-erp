@@ -106,7 +106,8 @@ async function seedSecondGym(passwordHash: string) {
       openingHours: "Sat–Thu 6am–10pm",
       plan: "PROFESSIONAL",
       status: "TRIAL",
-      trialEndsAt: addDays(today, 10),
+      trialEndsAt: addDays(today, 5),
+      planRequest: { months: 6, extraBranches: 1, total: 21_060, requestedAt: new Date().toISOString(), requestedBy: "Dana Al-Ansari" },
       whatsappVerifyToken: randomBytes(12).toString("base64url"),
     },
   });

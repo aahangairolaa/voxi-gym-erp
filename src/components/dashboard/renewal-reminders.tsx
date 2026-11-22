@@ -53,7 +53,7 @@ export function RenewalReminders({ onRenew }: { onRenew: (m: SearchResult) => vo
         memberIds: pending.map((p) => p.memberId),
         type: tab === "expiring" ? "RENEWAL_REMINDER" : "EXPIRED",
       });
-      toast(r.failed ? "error" : "success", `${r.sent} sent${r.failed ? `, ${r.failed} failed — see WhatsApp log` : ""}`);
+      toast(r.failed ? "error" : "success", `${r.sent} sent${r.failed ? `, ${r.failed} failed, see the WhatsApp log` : ""}`);
       invalidate("/api/whatsapp/messages");
       reload();
     } catch (e) {
@@ -119,7 +119,7 @@ export function RenewalReminders({ onRenew }: { onRenew: (m: SearchResult) => vo
                 onClick={() => remind(r)}
                 loading={busy === r.memberId}
                 aria-label={`Send WhatsApp reminder to ${r.name}`}
-                title={recently(r) ? "Reminded this week — send again" : "Send WhatsApp reminder"}
+                title={recently(r) ? "Reminded this week. Send again" : "Send WhatsApp reminder"}
               >
                 {recently(r) ? <LuCheck className="h-3.5 w-3.5 text-emerald-600" /> : <LuMessageCircle className="h-3.5 w-3.5 text-emerald-600" />}
                 <span className="hidden sm:inline">{recently(r) ? "Sent" : "Remind"}</span>

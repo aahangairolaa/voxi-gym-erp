@@ -22,35 +22,35 @@ const toDate = (d: DateLike) => (d ? new Date(d) : null);
 /** "12 Nov 2026" */
 export function formatDate(d: DateLike) {
   const date = toDate(d);
-  if (!date) return "—";
+  if (!date) return "–";
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: QATAR_TZ });
 }
 
 /** "12 Nov" */
 export function formatShortDate(d: DateLike) {
   const date = toDate(d);
-  if (!date) return "—";
+  if (!date) return "–";
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: QATAR_TZ });
 }
 
 /** "7:45 PM" */
 export function formatTime(d: DateLike) {
   const date = toDate(d);
-  if (!date) return "—";
+  if (!date) return "–";
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: QATAR_TZ });
 }
 
 /** "12 Nov, 7:45 PM" */
 export function formatDateTime(d: DateLike) {
   const date = toDate(d);
-  if (!date) return "—";
+  if (!date) return "–";
   return `${formatShortDate(date)}, ${formatTime(date)}`;
 }
 
 /** "3 min ago", "in 5 days" */
 export function timeAgo(d: DateLike) {
   const date = toDate(d);
-  if (!date) return "—";
+  if (!date) return "–";
   const diff = (date.getTime() - Date.now()) / 1000;
   const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
   const abs = Math.abs(diff);
@@ -63,7 +63,7 @@ export function timeAgo(d: DateLike) {
 
 /** "BANK_TRANSFER" → "Bank transfer" */
 export function humanize(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "–";
   const s = value.replace(/_/g, " ").toLowerCase();
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

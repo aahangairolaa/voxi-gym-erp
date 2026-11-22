@@ -87,7 +87,7 @@ export async function importMembers(session: GymSession, rows: ImportRow[], opts
     let end: Date | null = null;
     if (r.plan?.trim()) {
       plan = planByName.get(r.plan.trim().toLowerCase()) ?? null;
-      if (!plan) return skipped.push({ row: rowNo, name, reason: `No plan called “${r.plan.trim()}” — create it first or fix the name` });
+      if (!plan) return skipped.push({ row: rowNo, name, reason: `No plan called “${r.plan.trim()}”. Create it first or fix the name` });
       end = parseDate(r.endDate);
       if (!end) return skipped.push({ row: rowNo, name, reason: "Plan given but the end date is missing or unreadable" });
       start = parseDate(r.startDate) ?? addDays(end, -(plan.durationDays - 1));
@@ -146,7 +146,7 @@ export async function importMembers(session: GymSession, rows: ImportRow[], opts
           status: o.end! < now ? ("EXPIRED" as const) : ("ACTIVE" as const),
           price: o.plan!.price,
           discount: o.plan!.price, // paid before VOXI → no balance owed
-          notes: "Imported — paid before VOXI",
+          notes: "Imported, paid before VOXI",
         }));
       if (memberships.length) await tx.membership.createMany({ data: memberships });
     },

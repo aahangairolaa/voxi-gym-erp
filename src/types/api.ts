@@ -340,6 +340,10 @@ export type AdminGym = {
   plan: SubscriptionPlan;
   status: GymStatus;
   trialEndsAt: ISODate | null;
+  billingMonths: number;
+  extraBranches: number;
+  paidUntil: ISODate | null;
+  planRequest: { months: number; extraBranches: number; total: number; requestedAt: ISODate; requestedBy: string } | null;
   platformNotes: string | null;
   createdAt: ISODate;
   owner: { name: string; email: string; lastLoginAt: ISODate | null } | null;
@@ -352,7 +356,7 @@ export type AdminGym = {
 };
 export type AdminGymsResponse = {
   gyms: AdminGym[];
-  stats: { total: number; active: number; trial: number; suspended: number; members: number; mrr: number };
+  stats: { total: number; active: number; trial: number; suspended: number; members: number; mrr: number; requests: number };
 };
 
 // ── Engagement (dashboard) ──────────────────────────────────────────────────

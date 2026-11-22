@@ -3,13 +3,14 @@
  * The VOXI team sees each gym's size and activity, never its members' details.
  */
 import bcrypt from "bcryptjs";
-import type { GymStatus, SubscriptionPlan } from "@prisma/client";
+import { Prisma, type GymStatus, type SubscriptionPlan } from "@prisma/client";
 import type { z } from "zod";
-import { addDays } from "@/lib/dates";
+import { addDays, addMonths } from "@/lib/dates";
 import { db } from "../db";
 import { ApiError } from "../http";
 import { randomToken } from "../crypto";
-import { EXERCISE_LIBRARY, STARTER_PLANS, SUBSCRIPTION_PRICE } from "../gym-defaults";
+import { EXERCISE_LIBRARY, STARTER_PLANS } from "../gym-defaults";
+import { quote } from "@/lib/pricing";
 import type { createGymSchema, updateGymSchema } from "../validators";
 
 function slugify(name: string) {
@@ -44,6 +45,10 @@ export async function listGyms() {
       plan: true,
       status: true,
       trialEndsAt: true,
+      billingMonths: true,
+      extraBranches: true,
+      paidUntil: true,
+      planRequest: true,
       platformNotes: true,
       createdAt: true,
       _count: { select: { members: true, staff: true, branches: true } },
@@ -78,7 +83,9 @@ export async function listGyms() {
       trial: rows.filter((g) => g.status === "TRIAL").length,
       suspended: rows.filter((g) => g.status === "SUSPENDED").length,
       members: rows.reduce((s, g) => s + g.members, 0),
-      mrr: paying.reduce((s, g) => s + SUBSCRIPTION_PRICE[g.plan], 0),
+      // Monthly recurring revenue: each paying gym's subscription spread over its term.
+      mrr: paying.reduce((s, g) => s + quote(g.billingMonths, g.extraBranches).perMonth, 0),
+      requests: rows.filter((g) => g.planRequest).length,
     },
   };
 }
@@ -107,6 +114,9 @@ export async function createGym(input: CreateGymInput) {
         plan: input.plan as SubscriptionPlan,
         status: input.status as GymStatus,
         trialEndsAt: input.status === "TRIAL" ? addDays(new Date(), input.trialDays) : null,
+        billingMonths: input.billingMonths,
+        extraBranches: input.extraBranches,
+        paidUntil: input.status === "ACTIVE" ? addMonths(new Date(), input.billingMonths) : null,
         whatsappVerifyToken: randomToken(12),
       },
     });
@@ -121,17 +131,24 @@ export async function createGym(input: CreateGymInput) {
 }
 
 export async function updateGym(id: string, input: z.infer<typeof updateGymSchema>) {
-  const gym = await db.gym.findUnique({ where: { id }, select: { id: true, status: true } });
+  const gym = await db.gym.findUnique({ where: { id }, select: { id: true, status: true, planRequest: true } });
   if (!gym) throw new ApiError(404, "Gym not found.");
+  // "Activate request": copy what the gym asked for on its Billing page.
+  const req = input.applyRequest ? (gym.planRequest as { months?: number; extraBranches?: number } | null) : null;
+  if (input.applyRequest && !req) throw new ApiError(400, "This gym has no pending plan request.");
+  const months = req?.months ?? input.billingMonths;
   return db.gym.update({
     where: { id },
     data: {
       ...(input.name ? { name: input.name } : {}),
-      ...(input.plan ? { plan: input.plan as SubscriptionPlan } : {}),
       ...(input.status ? { status: input.status as GymStatus } : {}),
       ...(input.trialEndsAt !== undefined ? { trialEndsAt: input.trialEndsAt } : {}),
       ...(input.platformNotes !== undefined ? { platformNotes: input.platformNotes } : {}),
+      ...(months !== undefined ? { billingMonths: months } : {}),
+      ...((req?.extraBranches ?? input.extraBranches) !== undefined ? { extraBranches: req?.extraBranches ?? input.extraBranches } : {}),
+      ...(input.paidUntil !== undefined ? { paidUntil: input.paidUntil } : {}),
+      ...(req ? { status: "ACTIVE" as GymStatus, paidUntil: addMonths(new Date(), months ?? 12), planRequest: Prisma.DbNull } : {}),
     },
-    select: { id: true, name: true, plan: true, status: true, trialEndsAt: true, platformNotes: true },
+    select: { id: true, name: true, status: true, trialEndsAt: true, billingMonths: true, extraBranches: true, paidUntil: true, planRequest: true, platformNotes: true },
   });
 }

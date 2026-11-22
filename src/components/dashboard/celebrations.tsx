@@ -49,7 +49,7 @@ export function Celebrations() {
             <Link href={`/members/${b.memberId}`} className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-ink hover:text-brand-600">{b.name}</p>
               <p className="truncate text-xs text-muted">
-                Turns {b.turning} · {b.daysAway === 0 ? "today 🎉" : b.daysAway === 1 ? "tomorrow" : `in ${b.daysAway} days`}
+                Turns {b.turning} · {b.daysAway === 0 ? "today" : b.daysAway === 1 ? "tomorrow" : `in ${b.daysAway} days`}
               </p>
             </Link>
             {b.daysAway === 0 && <Badge tone="brand">Today</Badge>}
@@ -71,7 +71,7 @@ export function Celebrations() {
             </div>
             <Link href={`/members/${m.memberId}`} className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-ink hover:text-brand-600">{m.name}</p>
-              <p className="truncate text-xs text-muted">Reached {m.milestone} visits 💪</p>
+              <p className="truncate text-xs text-muted">Reached {m.milestone} visits</p>
             </Link>
             <Badge tone="amber">{m.milestone}</Badge>
             {canMessage && (

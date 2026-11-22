@@ -15,7 +15,7 @@ export const GET = route(async (req) => {
 export const POST = route(async (req) => {
   const s = await requireGym("memberships");
   const r = await sellMembership(await readBody(req, sellMembershipSchema), s);
-  const paid = r.payment ? ` — paid QAR ${r.payment.amount} (${r.payment.invoiceNo})` : "";
+  const paid = r.payment ? `, paid QAR ${r.payment.amount} (${r.payment.invoiceNo})` : "";
   await audit(s, "membership.sell", "Membership", r.membership.id, `Sold a membership to ${r.memberName}${paid}`);
   return r;
 });

@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { TRIAL_DAYS } from "@/lib/pricing";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "../db";
 import { sendEmail, emailEnabled } from "../email";
@@ -78,7 +79,7 @@ export async function loginWithGoogle(profile: { sub: string; email: string }): 
   return sessionFor(staff);
 }
 
-/** Self-service sign-up: a new gym on a 14-day trial, its owner account, and starter data. */
+/** Self-service sign-up: a new gym on a 7-day trial, its owner account, and starter data. */
 export async function registerGym(input: {
   gymName: string;
   ownerName: string;
@@ -99,7 +100,9 @@ export async function registerGym(input: {
     branchName: "Main branch",
     plan: "PROFESSIONAL",
     status: "TRIAL",
-    trialDays: 14,
+    trialDays: TRIAL_DAYS,
+    billingMonths: 12,
+    extraBranches: 0,
     ownerName: input.ownerName,
     ownerEmail: input.email,
     ownerPasswordHash: passwordHash,
@@ -126,7 +129,7 @@ export async function requestPasswordReset(email: string, origin: string) {
       await sendEmail({
         to: staff.email,
         subject: "Reset your VOXI password",
-        text: `Hi ${staff.name.split(" ")[0]},\n\nSomeone (hopefully you) asked to reset your VOXI password. Open this link within 1 hour to choose a new one:\n\n${link}\n\nIf it wasn't you, you can ignore this email — your password stays the same.\n\n— VOXI`,
+        text: `Hi ${staff.name.split(" ")[0]},\n\nSomeone (hopefully you) asked to reset your VOXI password. Open this link within 1 hour to choose a new one:\n\n${link}\n\nIf it wasn't you, you can ignore this email. Your password stays the same.\n\nThe VOXI team`,
       });
     }
   }
@@ -158,7 +161,7 @@ export async function currentUser(session: Session) {
     session.gymId
       ? db.gym.findUnique({
           where: { id: session.gymId },
-          select: { id: true, name: true, logo: true, brandColor: true, status: true, plan: true, whatsappEnabled: true, trialEndsAt: true },
+          select: { id: true, name: true, logo: true, brandColor: true, status: true, plan: true, billingMonths: true, planRequest: true, whatsappEnabled: true, trialEndsAt: true },
         })
       : null,
     db.staff.findUnique({ where: { id: session.staffId }, select: { googleId: true, passwordHash: true } }),

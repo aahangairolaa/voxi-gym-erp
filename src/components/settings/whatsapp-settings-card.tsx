@@ -64,7 +64,7 @@ export function WhatsAppSettingsCard() {
     setBusy("test");
     try {
       await api.post("/api/whatsapp/test", { phone: testPhone });
-      toast("success", "Test message sent — check WhatsApp");
+      toast("success", "Test message sent. Check WhatsApp.");
     } catch (e) {
       toast("error", e instanceof Error ? e.message : "Failed");
     } finally {
@@ -99,7 +99,7 @@ export function WhatsAppSettingsCard() {
               </p>
             ) : (
               <p>
-                <b className="text-ink">Working now, no setup needed:</b> when staff press “Remind”, WhatsApp opens with the message ready — they just press send. To send automatically, connect the
+                <b className="text-ink">Working now, no setup needed:</b> when staff press “Remind”, WhatsApp opens with the message ready and they just press send. To send automatically, connect the
                 WhatsApp Business (Cloud) API below.
               </p>
             )}

@@ -27,7 +27,7 @@ export type TemplateConfig = {
 
 export const MESSAGE_TYPES: { type: MessageType; label: string; description: string }[] = [
   { type: "RENEWAL_REMINDER", label: "Renewal reminder", description: "Membership ends soon" },
-  { type: "EXPIRED", label: "Expired — come back", description: "Membership has ended" },
+  { type: "EXPIRED", label: "Expired, come back", description: "Membership has ended" },
   { type: "WELCOME", label: "Welcome", description: "New member joined" },
   { type: "PAYMENT_RECEIPT", label: "Payment receipt", description: "After a payment" },
   { type: "BIRTHDAY", label: "Birthday wishes", description: "On the member's birthday" },
@@ -38,7 +38,7 @@ export const MESSAGE_TYPES: { type: MessageType; label: string; description: str
 
 export const DEFAULT_TEMPLATES: Record<MessageType, TemplateConfig> = {
   RENEWAL_REMINDER: {
-    text: "Hi {firstName}, your {plan} membership at {gym} ends on {endDate} ({daysLeft} days left). Renew at reception or reply here so your training continues without a break. 💜",
+    text: "Hi {firstName}, your {plan} membership at {gym} ends on {endDate} ({daysLeft} days left). Renew at reception or reply here so your training continues without a break.",
     params: "firstName,plan,gym,endDate",
   },
   EXPIRED: {
@@ -46,7 +46,7 @@ export const DEFAULT_TEMPLATES: Record<MessageType, TemplateConfig> = {
     params: "firstName,gym,plan,endDate",
   },
   WELCOME: {
-    text: "Welcome to {gym}, {firstName}! 🎉 Your member number is {code}. Your digital member card (show the QR at reception): {cardUrl}",
+    text: "Welcome to {gym}, {firstName}. Your member number is {code}. Your digital member card (show the QR at reception): {cardUrl}",
     params: "gym,firstName,code,cardUrl",
   },
   PAYMENT_RECEIPT: {
@@ -54,15 +54,15 @@ export const DEFAULT_TEMPLATES: Record<MessageType, TemplateConfig> = {
     params: "firstName,gym,amount,description,invoiceNo",
   },
   BIRTHDAY: {
-    text: "Happy birthday, {firstName}! 🎂 Everyone at {gym} wishes you a strong and healthy year ahead.",
+    text: "Happy birthday, {firstName}! Everyone at {gym} wishes you a strong and healthy year ahead.",
     params: "firstName,gym",
   },
   MILESTONE: {
-    text: "Amazing work, {firstName}! You've just reached {visits} visits at {gym}. 💪 Keep it going!",
+    text: "Amazing work, {firstName}! You've just reached {visits} visits at {gym}. Keep it going!",
     params: "firstName,visits,gym",
   },
   CARD: {
-    text: "Hi {firstName}, here is your {gym} digital member card: {cardUrl} — show the QR code at reception to check in.",
+    text: "Hi {firstName}, here is your {gym} digital member card: {cardUrl}. Show the QR code at reception to check in.",
     params: "firstName,gym,cardUrl",
   },
   CUSTOM: { text: "{text}", params: "text" },

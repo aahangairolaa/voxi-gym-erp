@@ -187,7 +187,7 @@ export function ImportMembersModal({ open, onClose }: { open: boolean; onClose: 
                           setPreview(null);
                         }}
                       >
-                        <option value={-1}>— not in file —</option>
+                        <option value={-1}>Not in file</option>
                         {table[0]!.map((h, i) => (
                           <option key={i} value={i}>
                             {h || `Column ${i + 1}`}

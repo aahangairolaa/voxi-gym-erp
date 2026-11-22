@@ -7,7 +7,7 @@ import { AuthShell, Divider, GoogleButton, useAuthConfig } from "@/components/au
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api-client";
 
-/** Self-service sign-up: a new gym on a 14-day free trial. */
+/** Self-service sign-up: a new gym on a 7-day free trial. */
 export default function RegisterPage() {
   const router = useRouter();
   const cfg = useAuthConfig();
@@ -64,7 +64,7 @@ export default function RegisterPage() {
   return (
     <AuthShell
       title={google ? "Almost there" : "Start your free trial"}
-      subtitle={google ? `Finish setting up VOXI for ${google.email}.` : "14 days free · no card needed · cancel anytime"}
+      subtitle={google ? `Finish setting up VOXI for ${google.email}.` : "7 days free · no card needed · cancel anytime"}
       footer={
         <>
           Already have an account?{" "}
@@ -76,7 +76,7 @@ export default function RegisterPage() {
     >
       {cfg?.database === false && (
         <p className="mt-6 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
-          VOXI is getting ready — free trials open very soon. Want a demo now? <Link href="/#contact" className="font-semibold underline">Contact us</Link>.
+          VOXI is getting ready. Free trials open very soon. Want a demo now? <Link href="/#contact" className="font-semibold underline">Contact us</Link>.
         </p>
       )}
       {fromLogin && google && (
@@ -128,7 +128,7 @@ export default function RegisterPage() {
           Create my gym <LuArrowRight className="h-4 w-4" />
         </Button>
         <ul className="space-y-1.5 pt-2 text-xs text-muted">
-          {["Starter plans in QAR and an exercise library ready to go", "Add your team, import members, connect WhatsApp", "Your data stays yours — export it anytime"].map((t) => (
+          {["Starter plans in QAR and an exercise library ready to go", "Add your team, import members, connect WhatsApp", "Your data stays yours. Export it anytime"].map((t) => (
             <li key={t} className="flex items-center gap-2">
               <LuCircleCheck className="h-3.5 w-3.5 text-emerald-500" /> {t}
             </li>

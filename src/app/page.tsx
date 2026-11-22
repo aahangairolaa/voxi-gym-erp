@@ -5,13 +5,15 @@ import {
 } from "react-icons/lu";
 import { VoxiOrb } from "@/components/brand/logo";
 import { PricingTable } from "@/components/marketing/pricing-table";
+import { ShowcaseFilm } from "@/components/marketing/showcase-film";
+import { TRIAL_DAYS } from "@/lib/pricing";
 import { SiteFooter, SiteNav } from "@/components/marketing/site-nav";
 import { CONTACT } from "@/lib/contact";
 
 const FEATURES = [
   { icon: LuUsers, title: "Members", text: "Profiles with QID, emergency contacts, history and status at a glance." },
   { icon: LuIdCard, title: "Memberships", text: "Sell, renew, freeze and cancel. Renewals chain automatically." },
-  { icon: LuBanknote, title: "Payments in QAR", text: "Cash, card, Fawran and bank transfer — with printable receipts." },
+  { icon: LuBanknote, title: "Payments in QAR", text: "Cash, card, Fawran and bank transfer, with printable receipts." },
   { icon: LuScanFace, title: "Attendance", text: "One-tap front-desk check-in with live ‘who’s inside’ view." },
   { icon: LuFingerprint, title: "Biometric access", text: "Face & fingerprint terminals check members in and block expired plans." },
   { icon: LuDumbbell, title: "Workouts", text: "Programme builder, exercise library and workout logs for trainers." },
@@ -19,15 +21,15 @@ const FEATURES = [
   { icon: LuTrophy, title: "Leaderboard", text: "Points for visits and workouts keep your community motivated." },
   { icon: LuUserPlus, title: "Leads", text: "Instagram and WhatsApp enquiries in a pipeline until they join." },
   { icon: LuChartColumn, title: "Reports", text: "Revenue vs expenses, busy-hours heatmap, Excel exports." },
-  { icon: LuShieldCheck, title: "Roles & staff", text: "Owner, manager, reception and trainer — each sees only what they need." },
-  { icon: LuBuilding2, title: "Multi-branch", text: "The Pearl, Lusail, West Bay… one system, every location." },
+  { icon: LuShieldCheck, title: "Roles & staff", text: "Owner, manager, reception and trainer. Each sees only what they need." },
+  { icon: LuBuilding2, title: "Multi-branch", text: "The Pearl, Lusail, West Bay. One system for every location." },
 ];
 
 const FAQ = [
   ["Which biometric devices work with VOXI?", "Any device that can call a web address (webhook), plus ZKTeco terminals via their ADMS cloud mode out of the box. We also supply and install hardware."],
   ["Is my data safe?", "Each gym's data lives in its own encrypted cloud database. Staff only see what their role allows, and device keys are stored hashed."],
   ["Can I import my current members?", "Yes. Send us your Excel sheet or export from your old software and we migrate members, plans and balances for you."],
-  ["Does it work on phones and tablets?", "VOXI is fully responsive — reception can check members in from an iPad and owners can watch revenue from their phone."],
+  ["Does it work on phones and tablets?", "Yes. Reception can check members in from an iPad and owners can follow revenue from their phone."],
   ["Do you support Arabic?", "The interface is in English today. A full Arabic (right-to-left) version is on our roadmap."],
 ];
 
@@ -54,14 +56,14 @@ export default function LandingPage() {
             Your gym. <span className="bg-gradient-to-r from-[#c9b8ff] via-[#a78bff] to-[#e5a3ff] bg-clip-text text-transparent">Your business.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl animate-fade-up text-base text-white/65 [animation-delay:240ms] sm:text-lg">
-            VOXI is the all-in-one ERP for premium gyms in Qatar — members, memberships, biometric access, payments in QAR, classes, trainers and reports, beautifully simple.
+            VOXI is the all-in-one ERP for premium gyms in Qatar. Members, memberships, biometric access, payments in QAR, classes, trainers and reports, beautifully simple.
           </p>
           <div className="mt-8 flex animate-fade-up flex-wrap justify-center gap-3 [animation-delay:320ms]">
             <Link href="/pricing" className="inline-flex h-12 items-center gap-2 rounded-xl px-6 text-sm font-semibold text-white brand-gradient shadow-[0_10px_40px_-10px_rgba(124,92,255,0.9)] transition hover:brightness-110">
               See pricing <LuArrowRight className="h-4 w-4" />
             </Link>
             <Link href="/register" className="inline-flex h-12 items-center rounded-xl border border-white/20 bg-white/5 px-6 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/10">
-              Start 14-day free trial
+              Start {TRIAL_DAYS}-day free trial
             </Link>
           </div>
 
@@ -129,6 +131,19 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Film */}
+      <section id="film" className="relative scroll-mt-20 overflow-hidden bg-[#07040f] px-5 py-24 text-white sm:py-28">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-400/40 to-transparent" />
+        <div className="relative mx-auto max-w-6xl">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <p className="text-xs font-bold tracking-[0.25em] text-brand-300 uppercase">See it in motion</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-5xl">Built for the way premium gyms run</h2>
+            <p className="mt-4 text-white/60">From the first scan at the door to the last invoice of the day.</p>
+          </div>
+          <ShowcaseFilm />
+        </div>
+      </section>
+
       {/* Features */}
       <section id="features" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-24">
         <div className="mx-auto max-w-2xl text-center">
@@ -157,7 +172,7 @@ export default function LandingPage() {
             <p className="text-xs font-bold tracking-[0.25em] text-brand-300 uppercase">Biometric access</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Members walk in. VOXI does the rest.</h2>
             <p className="mt-4 text-white/65">
-              Connect face or fingerprint terminals at each entrance. Every scan checks the membership in real time — active members get in, expired ones are stopped and reception is alerted.
+              Connect face or fingerprint terminals at each entrance. Every scan checks the membership in real time. Active members get in, expired ones are stopped and reception is alerted.
             </p>
             <ul className="mt-6 space-y-3 text-sm text-white/80">
               {["Works with ZKTeco out of the box", "Open webhook API for any other brand", "Live scan feed & denied-entry alerts", "Automatic check-in & check-out times"].map((t) => (
@@ -175,8 +190,8 @@ export default function LandingPage() {
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-5 pb-24">
         <div className="mx-auto mb-10 max-w-2xl text-center">
           <p className="text-xs font-bold tracking-[0.25em] text-brand-600 uppercase">Pricing</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Simple plans in Qatari Riyal</h2>
-          <p className="mt-4 text-muted">Start with a 14-day free trial. No setup fee on yearly plans.</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">One plan, every feature</h2>
+          <p className="mt-4 text-muted">Pick your term and your branches. Start with a {TRIAL_DAYS}-day free trial, no card needed.</p>
         </div>
         <PricingTable />
       </section>
@@ -202,7 +217,7 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[32px] p-10 text-center text-white brand-gradient sm:p-16">
           <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[70%] -translate-x-1/2 rounded-full bg-white/20 blur-3xl" />
           <h2 className="relative text-3xl font-semibold tracking-tight sm:text-4xl">Ready to run a smarter gym?</h2>
-          <p className="relative mx-auto mt-3 max-w-xl text-white/80">See VOXI with your own data in a 20-minute demo — at your gym or online.</p>
+          <p className="relative mx-auto mt-3 max-w-xl text-white/80">See VOXI with your own data in a 20-minute demo, at your gym or online.</p>
           <div className="relative mt-8 flex flex-wrap justify-center gap-3">
             <a
               href={CONTACT.whatsapp ? `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent("Hi VOXI, I'd like a demo for my gym.")}` : `mailto:${CONTACT.email}?subject=VOXI%20demo`}

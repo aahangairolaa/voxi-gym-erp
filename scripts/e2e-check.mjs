@@ -197,6 +197,34 @@ await step("admin", async () => {
   check("gym owner can't open admin (403)", own.status === 403, own.status);
 });
 
+// ── Billing: plan requests, activation and branch limits ───────────────────
+await step("billing", async () => {
+  const b = await call("GET", "/api/billing", O);
+  check("billing: active gym sees its plan", b.json?.status === "ACTIVE" && b.json?.current?.months === 12, b.text);
+  // VOXI Fitness has 2 locations on a plan with 1 extra branch: a 3rd is refused
+  const br = await call("POST", "/api/branches", { ...O, body: { name: "Test Branch", address: null, phone: null, isActive: true } });
+  check("billing: branch limit enforced for paid plan", br.status === 403 && /Billing/.test(br.json?.error ?? ""), br.text);
+
+  const pulse = await login("pulse@voxi.qa");
+  const P = { cookie: pulse.cookie };
+  const req = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 2 } });
+  check("billing: trial gym requests 12 months + 2 branches", req.status === 200 && req.json?.quote?.total === 25000 + 14000 + 13300, req.text);
+  const tooMany = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 6 } });
+  check("billing: more than 5 extra branches refused", tooMany.status === 400, tooMany.status);
+  const rec = await call("GET", "/api/billing", { cookie: (await login("pulse.reception@voxi.qa")).cookie });
+  check("billing: reception can't open billing", rec.status === 403, rec.status);
+
+  const ad = await login("admin@voxi.qa");
+  const A = { cookie: ad.cookie };
+  const gyms = await call("GET", "/api/admin/gyms", A);
+  const pg = gyms.json?.gyms?.find((g) => g.slug === "pulse-ladies");
+  check("admin sees the plan request", pg?.planRequest?.extraBranches === 2 && gyms.json?.stats?.requests >= 1, JSON.stringify(pg?.planRequest));
+  const act = await call("PUT", `/api/admin/gyms/${pg?.id}`, { ...A, body: { applyRequest: true } });
+  check("admin activates the request", act.json?.status === "ACTIVE" && act.json?.extraBranches === 2 && act.json?.planRequest === null && !!act.json?.paidUntil, act.text);
+  const after = await call("GET", "/api/billing", P);
+  check("billing: gym now active with 3 locations", after.json?.status === "ACTIVE" && after.json?.current?.extraBranches === 2, after.text);
+});
+
 // ── Accounts: sign-up, lockout, password reset, sign out everywhere ─────────
 await step("accounts", async () => {
   const cfg = await call("GET", "/api/auth/config");
@@ -214,6 +242,8 @@ await step("accounts", async () => {
   check("self sign-up creates a gym on a trial", reg.ok && regJson.home?.startsWith("/dashboard"), JSON.stringify(regJson));
   const me = await call("GET", "/api/auth/me", R);
   check("new gym is on TRIAL with trial end date", me.json?.gym?.status === "TRIAL" && !!me.json?.gym?.trialEndsAt, me.text);
+  const trialDays = Math.round((new Date(me.json?.gym?.trialEndsAt).getTime() - Date.now()) / 86_400_000);
+  check("free trial is 7 days", trialDays === 7, trialDays);
   const plans = await call("GET", "/api/plans", R);
   check("new gym gets starter plans", (plans.json?.plans?.length ?? 0) >= 3, plans.json?.plans?.length);
   const ob = await call("GET", "/api/onboarding", R);

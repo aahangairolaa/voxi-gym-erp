@@ -48,7 +48,7 @@ export default function LoginPage() {
           <>
             New to VOXI?{" "}
             <Link href="/register" className="font-semibold text-brand-600 hover:underline dark:text-brand-300">
-              Start a 14-day free trial
+              Start a 7-day free trial
             </Link>
           </>
         )
@@ -56,7 +56,7 @@ export default function LoginPage() {
     >
           {cfg?.database === false && (
             <p className="mt-6 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
-              VOXI is getting ready — sign-in opens very soon. Want a demo? <Link href="/#contact" className="font-semibold underline">Contact us</Link>.
+              VOXI is getting ready. Sign-in opens very soon. Want a demo? <Link href="/#contact" className="font-semibold underline">Contact us</Link>.
             </p>
           )}
           {cfg?.google && (

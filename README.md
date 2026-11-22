@@ -186,7 +186,7 @@ Short version (full guide in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)):
 - **Dashboard**: renewal reminders (ending soon / recently expired, last reminded) and celebrations
   (birthdays this week, 10th/25th/50th… visit milestones)
 - **Activity log**: who sold, refunded, deleted, overrode or changed settings, and when
-- **Accounts**: self-service sign-up (14-day free trial with starter data), “Continue with Google”
+- **Accounts**: self-service sign-up (7-day free trial with starter data), “Continue with Google”
   (when Google keys are set), forgot-password emails (when Resend is set), lockout after 5 wrong
   passwords, “sign out on all other devices”, instant sign-out when staff are deactivated
 - **Onboarding**: “Get started” checklist for new gyms, trial banner, **member import from Excel/CSV**

@@ -21,7 +21,7 @@ export default function TermsPage() {
 
       <h2>Free trial and subscription</h2>
       <ul>
-        <li>New gyms get a 14-day free trial. To keep using VOXI after the trial, choose a paid plan.</li>
+        <li>New gyms get a 7-day free trial. To keep using VOXI after the trial, choose a paid plan.</li>
         <li>Subscriptions are billed in Qatari Riyal, monthly or yearly in advance, as shown on our pricing page or in your quote.</li>
         <li>If a payment is overdue we may pause the account after notice. Your data is not deleted while the account is paused.</li>
       </ul>

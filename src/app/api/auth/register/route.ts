@@ -7,7 +7,7 @@ import { registerGym } from "@/server/services/auth.service";
 import { audit } from "@/server/services/audit.service";
 
 /**
- * POST /api/auth/register (public) — start a 14-day free trial:
+ * POST /api/auth/register (public) — start a 7-day free trial:
  * { gymName, ownerName, email, phone?, password?, acceptTerms: true }
  * After "Continue with Google", password may be left out (the Google account is linked instead).
  */

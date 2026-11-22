@@ -54,7 +54,7 @@ export async function createStaff(input: StaffInput, session: GymSession) {
   await checkBranch(session.gymId, input.branchId);
   const { password, ...data } = input;
   const signsIn = data.role !== "HOUSEKEEPING";
-  if (signsIn && !data.email) throw new ApiError(400, "Enter an email — it's how this person signs in.");
+  if (signsIn && !data.email) throw new ApiError(400, "Enter an email. It's how this person signs in.");
   if (signsIn && !password) throw new ApiError(400, "Set a password for the new account (min 8 characters).");
   return db.staff.create({
     data: {
@@ -78,7 +78,7 @@ export async function updateStaff(id: string, input: StaffInput, session: GymSes
   }
   const { password, ...data } = input;
   const signsIn = data.role !== "HOUSEKEEPING";
-  if (signsIn && !data.email) throw new ApiError(400, "Enter an email — it's how this person signs in.");
+  if (signsIn && !data.email) throw new ApiError(400, "Enter an email. It's how this person signs in.");
   if (signsIn && !password && existing.passwordHash === "!no-password" && !existing.googleId) {
     throw new ApiError(400, "Set a password so this person can sign in (min 8 characters).");
   }

@@ -270,7 +270,7 @@ export async function sendBulk(session: GymSession, memberIds: string[], type: M
 export async function sendTest(gymId: string, phone: string) {
   const creds = await apiCreds(gymId);
   if (!creds) throw new ApiError(400, "Save the Phone number ID and access token and switch the API on first.");
-  const id = await sendViaApi(creds, toWhatsAppNumber(phone), "✅ VOXI test message — your WhatsApp Business API is connected.", { text: "" }, {}).catch((e: Error) => {
+  const id = await sendViaApi(creds, toWhatsAppNumber(phone), "VOXI test message: your WhatsApp Business API is connected.", { text: "" }, {}).catch((e: Error) => {
     throw new ApiError(400, `WhatsApp said: ${e.message}`);
   });
   return { ok: true, providerId: id };

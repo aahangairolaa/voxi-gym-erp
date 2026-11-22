@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
       {state === "sent" ? (
         <div className="mt-8 rounded-2xl border border-line bg-surface-2/60 p-5 text-sm text-ink-soft">
           <LuMailCheck className="mb-2 h-6 w-6 text-brand-600" />
-          If <b className="text-ink">{email}</b> has a VOXI account, a reset link is on its way. It works for 1 hour — check your spam folder too.
+          If <b className="text-ink">{email}</b> has a VOXI account, a reset link is on its way. It works for 1 hour. Check your spam folder too.
         </div>
       ) : state === "no-email" ? (
         <div className="mt-8 rounded-2xl border border-line bg-surface-2/60 p-5 text-sm text-ink-soft">

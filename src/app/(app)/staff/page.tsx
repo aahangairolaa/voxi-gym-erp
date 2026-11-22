@@ -16,7 +16,7 @@ const ROLE_HELP: Record<Role, string> = {
   MANAGER: "All operations, reports, staff (except owners/managers)",
   RECEPTION: "Members, sales, payments, cash drawer, check-in",
   TRAINER: "Members (view), check-in, workouts, classes",
-  HOUSEKEEPING: "Cleaning team — kept on your staff list (branch, phone, salary). No VOXI login needed.",
+  HOUSEKEEPING: "Cleaning team, kept on your staff list (branch, phone, salary). No VOXI login needed.",
   SUPER_ADMIN: "VOXI platform team",
 };
 const blank = { name: "", email: "", phone: "", role: "RECEPTION" as Role, branchId: "", salary: "" as number | "", specialty: "", isActive: true, password: "" };
@@ -99,7 +99,7 @@ export default function StaffPage() {
             <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3 text-xs">
               <div>
                 <p className="text-muted">{s.specialty ? "Specialty" : "Phone"}</p>
-                <p className="truncate font-medium">{s.specialty ?? s.phone ?? "—"}</p>
+                <p className="truncate font-medium">{s.specialty ?? s.phone ?? "–"}</p>
               </div>
               <div className="text-right">
                 <p className="text-muted">{s.salary !== null ? "Salary" : s.role === "HOUSEKEEPING" ? "Login" : "Last login"}</p>

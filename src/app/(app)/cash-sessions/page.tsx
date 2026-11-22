@@ -62,7 +62,7 @@ export default function CashSessionsPage() {
     <>
       <PageHeader
         title="Cash sessions"
-        subtitle="Open the drawer each shift, close it with a count — differences are flagged"
+        subtitle="Open the drawer each shift and close it with a count. Differences are flagged"
         actions={
           branchesWithoutOpen.length > 0 && (
             <Button onClick={() => { setOpenForm({ branchId: branchesWithoutOpen[0]!.id, openingFloat: 500, notes: "" }); setOpening(true); }}>
@@ -213,7 +213,7 @@ export default function CashSessionsPage() {
             </Field>
             {diffNow !== null && (
               <p className={cn("rounded-xl px-3 py-2 text-sm font-semibold", diffNow === 0 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10" : diffNow < 0 ? "bg-rose-50 text-rose-700 dark:bg-rose-500/10" : "bg-amber-50 text-amber-700 dark:bg-amber-500/10")}>
-                {diffNow === 0 ? "Balanced ✓" : diffNow < 0 ? `Short by ${formatQAR(-diffNow)}` : `Over by ${formatQAR(diffNow)}`}
+                {diffNow === 0 ? "Balanced" : diffNow < 0 ? `Short by ${formatQAR(-diffNow)}` : `Over by ${formatQAR(diffNow)}`}
               </p>
             )}
             <Field label="Notes" hint="Explain any difference">

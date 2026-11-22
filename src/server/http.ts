@@ -62,7 +62,7 @@ export function errorResponse(err: unknown) {
   }
   if (err instanceof Prisma.PrismaClientInitializationError || (err instanceof Error && /DATABASE_URL|Can't reach database/.test(err.message))) {
     console.error("[VOXI database unavailable]", err.message);
-    return NextResponse.json({ error: process.env.DATABASE_URL ? "VOXI can't reach its database right now. Please try again in a minute." : "VOXI is launching soon — sign-in isn't open yet." }, { status: 503 });
+    return NextResponse.json({ error: process.env.DATABASE_URL ? "VOXI can't reach its database right now. Please try again in a minute." : "VOXI is launching soon. Sign-in isn't open yet." }, { status: 503 });
   }
   console.error("[VOXI API error]", err);
   return NextResponse.json({ error: "Something went wrong on the server." }, { status: 500 });

@@ -127,7 +127,7 @@ export default function BiometricPage() {
     <>
       <PageHeader
         title="Biometric access"
-        subtitle="Connect fingerprint, face or card readers — scans check members in automatically"
+        subtitle="Connect fingerprint, face or card readers. Scans check members in automatically"
         actions={
           <Button onClick={() => setEditing("new")}>
             <LuPlus className="h-4 w-4" /> Add device
@@ -210,7 +210,7 @@ export default function BiometricPage() {
               {guide === "webhook" ? (
                 <>
                   <p>
-                    Your device (or a small bridge program on the reception PC) sends every scan to VOXI. VOXI checks the membership and answers <b>allowed: true/false</b> — open the turnstile when it’s true.
+                    Your device (or a small bridge program on the reception PC) sends every scan to VOXI. VOXI checks the membership and answers <b>allowed: true/false</b>. Open the turnstile when it’s true.
                   </p>
                   <pre className="overflow-x-auto rounded-xl bg-[#14112a] p-4 text-[12px] leading-relaxed text-[#d9d2ff]">
 {`POST ${origin}/api/biometric/scan
@@ -340,7 +340,7 @@ Content-Type: application/json
           </Field>
           <Field label="Branch">
             <Select value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}>
-              <option value="">—</option>
+              <option value="">Not set</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}

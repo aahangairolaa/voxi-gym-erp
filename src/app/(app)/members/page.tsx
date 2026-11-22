@@ -133,7 +133,7 @@ export default function MembersPage() {
                         </div>
                       </td>
                       <td className="font-mono text-xs text-ink-soft">{m.code}</td>
-                      <td className="text-ink-soft">{m.branch?.name ?? "—"}</td>
+                      <td className="text-ink-soft">{m.branch?.name ?? "–"}</td>
                       <td>
                         {m.plan ? (
                           <span className="inline-flex items-center gap-2 text-ink-soft">
@@ -141,7 +141,7 @@ export default function MembersPage() {
                             {m.plan.name}
                           </span>
                         ) : (
-                          <span className="text-muted">—</span>
+                          <span className="text-muted">–</span>
                         )}
                       </td>
                       <td>

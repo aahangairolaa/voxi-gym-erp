@@ -6,6 +6,8 @@ import type { z } from "zod";
 import { db } from "../db";
 import type { branchSchema, settingsSchema } from "../validators";
 import { ownedOr404 } from "./_shared";
+import { ApiError } from "../http";
+import { MAX_EXTRA_BRANCHES } from "@/lib/pricing";
 
 const profileSelect = {
   id: true,
@@ -29,6 +31,9 @@ const profileSelect = {
   plan: true,
   status: true,
   trialEndsAt: true,
+  billingMonths: true,
+  extraBranches: true,
+  paidUntil: true,
 } as const;
 
 export async function getSettings(gymId: string) {
@@ -53,7 +58,25 @@ export async function listBranches(gymId: string) {
   });
 }
 
+/** How many locations a gym may have: the main one plus its paid branch add-ons (trials can try all of them). */
+export function branchLimit(gym: { status: string; extraBranches: number }) {
+  return 1 + (gym.status === "TRIAL" ? MAX_EXTRA_BRANCHES : gym.extraBranches);
+}
+
 export async function createBranch(gymId: string, input: z.infer<typeof branchSchema>) {
+  const [gym, count] = await Promise.all([
+    db.gym.findUniqueOrThrow({ where: { id: gymId }, select: { status: true, extraBranches: true } }),
+    db.branch.count({ where: { gymId } }),
+  ]);
+  const limit = branchLimit(gym);
+  if (count >= limit) {
+    throw new ApiError(
+      403,
+      limit >= 1 + MAX_EXTRA_BRANCHES
+        ? `VOXI supports up to ${1 + MAX_EXTRA_BRANCHES} locations per gym for now. Contact us if you need more.`
+        : `Your plan includes ${limit} location${limit === 1 ? "" : "s"}. Add a branch from Billing to open another one.`,
+    );
+  }
   return db.branch.create({ data: { ...input, gymId } });
 }
 

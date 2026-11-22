@@ -18,7 +18,7 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
             <br />
             <span className="bg-gradient-to-r from-[#c9b8ff] to-[#e5a3ff] bg-clip-text text-transparent">Your business.</span>
           </p>
-          <p className="mt-3 max-w-md text-white/65">Members, memberships, biometric access and payments in QAR — one premium system built for gyms in Qatar.</p>
+          <p className="mt-3 max-w-md text-white/65">Members, memberships, biometric access and payments in QAR. One premium system built for gyms in Qatar.</p>
         </div>
       </div>
       <div className="relative flex items-center justify-center px-6 py-12">

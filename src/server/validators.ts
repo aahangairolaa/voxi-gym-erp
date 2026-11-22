@@ -3,6 +3,7 @@
  * If a request doesn't match, the API answers 400 with a readable message.
  */
 import { z } from "zod";
+import { MAX_EXTRA_BRANCHES } from "@/lib/pricing";
 import { fromDateInput } from "@/lib/dates";
 
 // ── Reusable pieces ──────────────────────────────────────────────────────────
@@ -373,7 +374,9 @@ export const createGymSchema = z.object({
   branchName: optStr(80),
   plan: subscription.default("PROFESSIONAL"),
   status: gymStatus.default("TRIAL"),
-  trialDays: z.coerce.number().int().min(1).max(90).default(14),
+  trialDays: z.coerce.number().int().min(1).max(90).default(7),
+  billingMonths: z.coerce.number().int().refine((n) => [1, 3, 6, 12].includes(n), "Choose 1, 3, 6 or 12 months").default(12),
+  extraBranches: z.coerce.number().int().min(0).max(MAX_EXTRA_BRANCHES).default(0),
   ownerName: str(100).min(1, "Owner name is required"),
   ownerEmail: z.string().trim().toLowerCase().email("Enter the owner's email"),
   ownerPassword: z.string().min(8, "Password must be at least 8 characters"),
@@ -390,4 +393,19 @@ export const updateGymSchema = z.object({
     .optional()
     .transform((v) => (v === undefined ? undefined : v ? (/^\d{4}-\d{2}-\d{2}$/.test(v) ? fromDateInput(v) : new Date(v)) : null)),
   platformNotes: z.string().trim().max(1000).nullable().optional(),
+  billingMonths: z.coerce.number().int().refine((n) => [1, 3, 6, 12].includes(n), "Choose 1, 3, 6 or 12 months").optional(),
+  extraBranches: z.coerce.number().int().min(0).max(MAX_EXTRA_BRANCHES).optional(),
+  paidUntil: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v === undefined ? undefined : v ? (/^\d{4}-\d{2}-\d{2}$/.test(v) ? fromDateInput(v) : new Date(v)) : null)),
+  /** Activate the plan the gym requested from Billing (sets term, branches, paid-until, status ACTIVE). */
+  applyRequest: z.boolean().optional(),
+});
+
+/** A gym owner/manager asks to start or change their subscription from Billing. */
+export const planRequestSchema = z.object({
+  months: z.coerce.number().int().refine((n) => [1, 3, 6, 12].includes(n), "Choose 1, 3, 6 or 12 months"),
+  extraBranches: z.coerce.number().int().min(0).max(MAX_EXTRA_BRANCHES),
 });

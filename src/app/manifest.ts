@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 /** Lets staff "Add to Home Screen" and open VOXI like an app. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "VOXI — Gym Management",
+    name: "VOXI Gym Management",
     short_name: "VOXI",
     description: "The all-in-one gym ERP for Qatar.",
     start_url: "/dashboard",

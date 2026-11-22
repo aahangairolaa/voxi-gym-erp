@@ -95,10 +95,10 @@ export default function ExpensesPage() {
                         <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold">{e.category}</span>
                       </td>
                       <td className="text-ink-soft">
-                        {e.description ?? "—"}
+                        {e.description ?? "–"}
                         <p className="text-[11px] text-muted">{humanize(e.method)}</p>
                       </td>
-                      <td className="text-ink-soft">{e.branch ?? "—"}</td>
+                      <td className="text-ink-soft">{e.branch ?? "–"}</td>
                       <td className="text-right font-semibold tabular-nums">{formatQAR(e.amount)}</td>
                       <td className="text-right">
                         <button onClick={() => remove(e)} className="rounded-lg p-1.5 text-muted hover:text-rose-600" aria-label="Delete">
@@ -139,7 +139,7 @@ export default function ExpensesPage() {
             </Select>
           </Field>
           <Field label="Description" className="sm:col-span-2">
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Kahramaa bill — October" />
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Kahramaa bill, October" />
           </Field>
           <div className="sm:col-span-2">
             <span className="label">Paid by</span>

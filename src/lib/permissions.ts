@@ -28,6 +28,7 @@ export type Module =
   | "staff"
   | "activity"
   | "settings"
+  | "billing"
   | "admin";
 
 const GYM_FLOOR: Role[] = ["OWNER", "MANAGER", "RECEPTION", "TRAINER"];
@@ -53,6 +54,7 @@ export const ACCESS: Record<Module, Role[]> = {
   staff: MANAGEMENT,
   activity: MANAGEMENT,
   settings: ["OWNER"],
+  billing: MANAGEMENT,
   admin: ["SUPER_ADMIN"],
 };
 
@@ -94,6 +96,7 @@ export const PATH_MODULE: [string, Module][] = [
   ["/messages", "messages"],
   ["/staff", "staff"],
   ["/activity", "activity"],
+  ["/billing", "billing"],
   ["/admin", "admin"],
 ];
 

@@ -45,7 +45,7 @@ export default function PrivacyPage() {
 
       <h2>Sharing</h2>
       <p>
-        We use trusted providers to run VOXI, such as cloud hosting and database providers, email delivery and — when a gym connects it — the WhatsApp Business
+        We use trusted providers to run VOXI, such as cloud hosting and database providers, email delivery and, when a gym connects it, the WhatsApp Business
         Platform by Meta. They may only use the data to provide their service to us. We share data with authorities only when the law requires it.
       </p>
 

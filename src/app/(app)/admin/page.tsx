@@ -6,9 +6,10 @@ import { useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
 import { toDateInput } from "@/lib/dates";
 import { formatDate, formatQAR, timeAgo } from "@/lib/format";
-import type { AdminGym, AdminGymsResponse, GymStatus, SubscriptionPlan } from "@/types/api";
+import { MAX_EXTRA_BRANCHES, TERMS, quote, qar, termFor } from "@/lib/pricing";
+import type { AdminGym, AdminGymsResponse, GymStatus } from "@/types/api";
 
-const PLAN_LABEL: Record<SubscriptionPlan, string> = { ESSENTIAL: "Essential", PROFESSIONAL: "Professional", ELITE: "Elite" };
+const planText = (months: number, extra: number) => `${termFor(months).label}${extra ? ` + ${extra} branch${extra === 1 ? "" : "es"}` : ""}`;
 const STATUS_TONE: Record<GymStatus, "green" | "amber" | "red"> = { ACTIVE: "green", TRIAL: "amber", SUSPENDED: "red" };
 const STATUS_LABEL: Record<GymStatus, string> = { ACTIVE: "Active", TRIAL: "Trial", SUSPENDED: "Suspended" };
 
@@ -36,7 +37,7 @@ export default function AdminPage() {
 
       <div className="stagger mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard accent label="Monthly recurring revenue" value={data ? formatQAR(data.stats.mrr) : "–"} icon={<LuTrendingUp className="h-[18px] w-[18px]" />} hint="Active subscriptions" />
-        <StatCard label="Gyms" value={data?.stats.total ?? "–"} icon={<LuBuilding2 className="h-[18px] w-[18px]" />} hint={data ? `${data.stats.active} active · ${data.stats.trial} on trial` : undefined} />
+        <StatCard label="Gyms" value={data?.stats.total ?? "–"} icon={<LuBuilding2 className="h-[18px] w-[18px]" />} hint={data ? `${data.stats.active} active · ${data.stats.trial} on trial${data.stats.requests ? ` · ${data.stats.requests} plan request${data.stats.requests === 1 ? "" : "s"}` : ""}` : undefined} />
         <StatCard label="Members across all gyms" value={data?.stats.members.toLocaleString("en") ?? "–"} icon={<LuUsers className="h-[18px] w-[18px]" />} />
         <StatCard label="Suspended" value={data?.stats.suspended ?? "–"} icon={<LuBuilding2 className="h-[18px] w-[18px]" />} />
       </div>
@@ -93,7 +94,7 @@ export default function AdminPage() {
                       </div>
                     </td>
                     <td>
-                      <p className="text-sm text-ink">{g.owner?.name ?? "—"}</p>
+                      <p className="text-sm text-ink">{g.owner?.name ?? "–"}</p>
                       <p className="text-xs text-muted">{g.owner?.email}</p>
                     </td>
                     <td>
@@ -102,9 +103,10 @@ export default function AdminPage() {
                           {STATUS_LABEL[g.status]}
                         </Badge>
                         <span className="text-xs text-muted">
-                          {PLAN_LABEL[g.plan]}
-                          {g.status === "TRIAL" && g.trialEndsAt && ` · ends ${formatDate(g.trialEndsAt)}`}
+                          {g.status === "ACTIVE" ? planText(g.billingMonths, g.extraBranches) : g.status === "TRIAL" && g.trialEndsAt ? `ends ${formatDate(g.trialEndsAt)}` : ""}
+                          {g.status === "ACTIVE" && g.paidUntil && ` · until ${formatDate(g.paidUntil)}`}
                         </span>
+                        {g.planRequest && <Badge tone="brand">Requested {planText(g.planRequest.months, g.planRequest.extraBranches)}</Badge>}
                       </div>
                     </td>
                     <td className="text-right tabular-nums">
@@ -125,7 +127,7 @@ export default function AdminPage() {
           </div>
         )}
       </Card>
-      <p className="mt-3 text-xs text-muted">For privacy, VOXI admins see each gym’s totals only — never its members’ details.</p>
+      <p className="mt-3 text-xs text-muted">For privacy, VOXI admins see each gym’s totals only, never its members’ details.</p>
 
       <CreateGymModal open={creating} onClose={() => setCreating(false)} onDone={reload} />
       <EditGymModal gym={editing} onClose={() => setEditing(null)} onDone={reload} />
@@ -135,7 +137,7 @@ export default function AdminPage() {
 
 const blank = {
   name: "", phone: "", email: "", address: "", branchName: "Main branch",
-  plan: "PROFESSIONAL" as SubscriptionPlan, status: "TRIAL" as GymStatus, trialDays: 14,
+  billingMonths: "12", extraBranches: "0", status: "TRIAL" as GymStatus, trialDays: 7,
   ownerName: "", ownerEmail: "", ownerPassword: "",
 };
 
@@ -162,7 +164,7 @@ function CreateGymModal({ open, onClose, onDone }: { open: boolean; onClose: () 
   const submit = async () => {
     setBusy(true);
     try {
-      const r = await api.post<{ name: string; ownerEmail: string }>("/api/admin/gyms", { ...form, trialDays: Number(form.trialDays) });
+      const r = await api.post<{ name: string; ownerEmail: string }>("/api/admin/gyms", { ...form, trialDays: Number(form.trialDays), billingMonths: Number(form.billingMonths), extraBranches: Number(form.extraBranches) });
       setCreated({ name: r.name, ownerEmail: r.ownerEmail, password: form.ownerPassword });
       onDone();
     } catch (e) {
@@ -179,7 +181,7 @@ function CreateGymModal({ open, onClose, onDone }: { open: boolean; onClose: () 
       open={open}
       onClose={onClose}
       size="lg"
-      title={created ? "Gym created 🎉" : "New gym"}
+      title={created ? "Gym created" : "New gym"}
       description={created ? "Send these login details to the owner. They should change the password after signing in." : "Creates the gym, its owner account, a first branch, starter plans and an exercise library."}
       footer={
         created ? (
@@ -229,11 +231,20 @@ function CreateGymModal({ open, onClose, onDone }: { open: boolean; onClose: () 
             </Field>
           </section>
           <section className="grid gap-4 sm:grid-cols-3">
-            <Field label="VOXI plan">
-              <Select value={form.plan} onChange={set("plan")}>
-                {Object.entries(PLAN_LABEL).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
+            <Field label="Billing term">
+              <Select value={form.billingMonths} onChange={set("billingMonths")}>
+                {TERMS.map((t) => (
+                  <option key={t.months} value={t.months}>
+                    {t.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Extra branches">
+              <Select value={form.extraBranches} onChange={set("extraBranches")}>
+                {Array.from({ length: MAX_EXTRA_BRANCHES + 1 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {i}
                   </option>
                 ))}
               </Select>
@@ -269,19 +280,26 @@ function CreateGymModal({ open, onClose, onDone }: { open: boolean; onClose: () 
 
 function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
-  const [form, setForm] = useState({ plan: "PROFESSIONAL" as SubscriptionPlan, status: "TRIAL" as GymStatus, trialEndsAt: "", platformNotes: "" });
+  const [form, setForm] = useState({ status: "TRIAL" as GymStatus, trialEndsAt: "", billingMonths: "12", extraBranches: "0", paidUntil: "", platformNotes: "" });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (gym)
-      setForm({ plan: gym.plan, status: gym.status, trialEndsAt: gym.trialEndsAt ? toDateInput(new Date(gym.trialEndsAt)) : "", platformNotes: gym.platformNotes ?? "" });
+      setForm({
+        status: gym.status,
+        trialEndsAt: gym.trialEndsAt ? toDateInput(new Date(gym.trialEndsAt)) : "",
+        billingMonths: String(gym.billingMonths),
+        extraBranches: String(gym.extraBranches),
+        paidUntil: gym.paidUntil ? toDateInput(new Date(gym.paidUntil)) : "",
+        platformNotes: gym.platformNotes ?? "",
+      });
   }, [gym]);
 
-  const save = async () => {
+  const send = async (body: object, msg: string) => {
     if (!gym) return;
     setBusy(true);
     try {
-      await api.put(`/api/admin/gyms/${gym.id}`, { ...form, trialEndsAt: form.trialEndsAt || null, platformNotes: form.platformNotes || null });
-      toast("success", `${gym.name} updated`);
+      await api.put(`/api/admin/gyms/${gym.id}`, body);
+      toast("success", msg);
       onDone();
       onClose();
     } catch (e) {
@@ -290,6 +308,22 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
       setBusy(false);
     }
   };
+
+  const save = () =>
+    send(
+      {
+        status: form.status,
+        trialEndsAt: form.trialEndsAt || null,
+        billingMonths: Number(form.billingMonths),
+        extraBranches: Number(form.extraBranches),
+        paidUntil: form.paidUntil || null,
+        platformNotes: form.platformNotes || null,
+      },
+      `${gym?.name} updated`,
+    );
+
+  const q = quote(Number(form.billingMonths), Number(form.extraBranches));
+  const req = gym?.planRequest;
 
   return (
     <Modal
@@ -303,16 +337,22 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
         </Button>
       }
     >
+      {req && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-brand-300 bg-brand-50/60 p-4 dark:border-brand-500/40 dark:bg-brand-500/10">
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-semibold text-ink">
+              Requested {planText(req.months, req.extraBranches)}, {qar(req.total)}
+            </p>
+            <p className="text-muted">
+              By {req.requestedBy} on {formatDate(req.requestedAt)}. Activate once the invoice is paid.
+            </p>
+          </div>
+          <Button size="sm" loading={busy} onClick={() => send({ applyRequest: true }, `${gym?.name} is now active`)}>
+            Activate request
+          </Button>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="VOXI plan">
-          <Select value={form.plan} onChange={(e) => setForm({ ...form, plan: e.target.value as SubscriptionPlan })}>
-            {Object.entries(PLAN_LABEL).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        </Field>
         <Field label="Status">
           <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as GymStatus })}>
             <option value="TRIAL">Free trial</option>
@@ -320,11 +360,33 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
             <option value="SUSPENDED">Suspended</option>
           </Select>
         </Field>
-        {form.status === "TRIAL" && (
-          <Field label="Trial ends" className="sm:col-span-2">
+        {form.status === "TRIAL" ? (
+          <Field label="Trial ends">
             <Input type="date" value={form.trialEndsAt} onChange={(e) => setForm({ ...form, trialEndsAt: e.target.value })} />
           </Field>
+        ) : (
+          <Field label="Paid until">
+            <Input type="date" value={form.paidUntil} onChange={(e) => setForm({ ...form, paidUntil: e.target.value })} />
+          </Field>
         )}
+        <Field label="Billing term">
+          <Select value={form.billingMonths} onChange={(e) => setForm({ ...form, billingMonths: e.target.value })}>
+            {TERMS.map((t) => (
+              <option key={t.months} value={t.months}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Extra branches" hint={`${qar(q.total)} per term`}>
+          <Select value={form.extraBranches} onChange={(e) => setForm({ ...form, extraBranches: e.target.value })}>
+            {Array.from({ length: MAX_EXTRA_BRANCHES + 1 }, (_, i) => (
+              <option key={i} value={i}>
+                {i}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Field label="Internal notes" className="sm:col-span-2" hint="Only the VOXI team sees this">
           <Textarea rows={3} value={form.platformNotes} onChange={(e) => setForm({ ...form, platformNotes: e.target.value })} />
         </Field>

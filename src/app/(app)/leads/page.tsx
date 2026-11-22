@@ -84,7 +84,7 @@ export default function LeadsPage() {
     <>
       <PageHeader
         title="Leads"
-        subtitle="Enquiries from walk-ins, Instagram and WhatsApp — follow up and convert"
+        subtitle="Enquiries from walk-ins, Instagram and WhatsApp. Follow up and convert"
         actions={
           <Button onClick={() => setEditing("new")}>
             <LuPlus className="h-4 w-4" /> New lead

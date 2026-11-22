@@ -112,7 +112,7 @@ export default function WorkoutsPage() {
         memberId: logForm.member.id, workoutPlanId: logForm.workoutPlanId || null, durationMin: logForm.durationMin,
         calories: logForm.calories === "" ? null : logForm.calories, notes: logForm.notes || null,
       });
-      toast("success", "Workout logged — points added to the leaderboard");
+      toast("success", "Workout logged and points added to the leaderboard");
       setLogging(false);
       setLogForm({ member: null, workoutPlanId: "", durationMin: 60, calories: "", notes: "" });
       logs.reload();
@@ -149,7 +149,7 @@ export default function WorkoutsPage() {
           <span>
             {days} days · {p.items.length} exercises
           </span>
-          <span>{p.trainer?.name.replace("Coach ", "") ?? "—"}</span>
+          <span>{p.trainer?.name.replace("Coach ", "") ?? "–"}</span>
         </div>
       </Card>
     );
@@ -222,7 +222,7 @@ export default function WorkoutsPage() {
                       <td className="text-ink-soft">{l.plan ?? "Free session"}</td>
                       <td className="text-ink-soft">{formatDateTime(l.loggedAt)}</td>
                       <td className="text-right tabular-nums">{l.durationMin} min</td>
-                      <td className="text-right tabular-nums">{l.calories ?? "—"}</td>
+                      <td className="text-right tabular-nums">{l.calories ?? "–"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -321,7 +321,7 @@ export default function WorkoutsPage() {
           </Field>
           <Field label="Trainer">
             <Select value={form.trainerId} onChange={(e) => setForm({ ...form, trainerId: e.target.value })}>
-              <option value="">—</option>
+              <option value="">Not set</option>
               {trainers.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
