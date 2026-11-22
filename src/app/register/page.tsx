@@ -10,7 +10,7 @@ import { api, fieldErrors } from "@/lib/api-client";
 import { collectErrors, emailError, nameError, passwordError, phoneError } from "@/lib/validate";
 import { cn } from "@/lib/utils";
 
-/** "Aisha Al Khater" -> ["Aisha", "Al Khater"] */
+/** "Mary Anne Smith" -> ["Mary", "Anne Smith"] */
 function splitName(full: string): [string, string] {
   const parts = full.trim().split(/\s+/);
   return [parts[0] ?? "", parts.slice(1).join(" ")];

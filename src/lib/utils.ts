@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** "Hamad Al-Thani" → "HA" */
+/** "James Carter" → "JC" */
 export function initials(name: string) {
   return name
     .split(/\s+/)

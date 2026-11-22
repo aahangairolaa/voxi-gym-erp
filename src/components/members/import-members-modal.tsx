@@ -100,7 +100,7 @@ export function ImportMembersModal({ open, onClose }: { open: boolean; onClose: 
   const template = () => {
     const csv = toCsv([
       ["First name", "Last name", "Mobile", "Email", "Gender", "Date of birth", "QID", "Nationality", "Plan name", "End date", "Notes"],
-      ["Aisha", "Al-Khater", "+974 5512 3456", "aisha@example.com", "Female", "15/03/1994", "", "Qatari", "Monthly", "30/12/2026", ""],
+      ["Alice", "Carter", "+974 5512 3456", "alice@example.com", "Female", "15/03/1994", "", "British", "Monthly", "30/12/2026", ""],
       ["Rahul", "Menon", "6612 7788", "", "Male", "", "", "Indian", "", "", "Walk-in, no plan yet"],
     ]);
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));

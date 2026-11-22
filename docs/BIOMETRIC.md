@@ -43,7 +43,7 @@ Response:
 
 ```json
 { "allowed": true, "action": "IN", "reason": null,
-  "member": { "code": "M-1042", "name": "Karim Fawzi", "status": "ACTIVE" } }
+  "member": { "code": "M-1042", "name": "Kevin Foster", "status": "ACTIVE" } }
 ```
 
 - `direction`: `"auto"` (first scan of the day = IN, next = OUT), `"in"` or `"out"`

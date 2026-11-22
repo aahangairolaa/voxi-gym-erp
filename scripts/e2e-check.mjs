@@ -430,7 +430,7 @@ await step("accounts", async () => {
 
   // Import members
   const rows = [
-    { fullName: "Aisha Al-Khater", phone: "+974 5512 3456", gender: "Female", plan: "Monthly", endDate: "30/12/2030" },
+    { fullName: "Alice Carter-Lane", phone: "+974 5512 3456", gender: "Female", plan: "Monthly", endDate: "30/12/2030" },
     { firstName: "Rahul", lastName: "Menon", phone: "6612 7788", email: "rahul@example.com" },
     { firstName: "No", lastName: "Phone", phone: "" },
     { firstName: "Dup", lastName: "Phone", phone: "55123456" },
@@ -441,7 +441,7 @@ await step("accounts", async () => {
   const imp = await call("POST", "/api/members/import", { ...R, body: { rows } });
   check("import creates members", imp.json?.created === 2, imp.text);
   const after = await call("GET", "/api/members?status=ACTIVE", R);
-  check("imported plan becomes an active membership", after.json?.members?.some((m) => m.name === "Aisha Al-Khater"), after.text);
+  check("imported plan becomes an active membership", after.json?.members?.some((m) => m.name === "Alice Carter-Lane"), after.text);
 
   // Sign out everywhere: old cookie stops working, new one works
   const old = R.cookie;

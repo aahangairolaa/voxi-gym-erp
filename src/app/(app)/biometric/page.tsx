@@ -220,7 +220,7 @@ Content-Type: application/json
 { "biometricUserId": "1001" }
 
 → { "allowed": true, "action": "IN",
-    "member": { "code": "M-1001", "name": "Hamad Al-Thani" } }`}
+    "member": { "code": "M-1001", "name": "James Carter" } }`}
                   </pre>
                   <p className="text-xs text-muted">
                     Test without hardware: <code className="rounded bg-surface-2 px-1.5 py-0.5">npm run biometric:simulate -- 1001</code>

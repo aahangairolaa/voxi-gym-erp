@@ -95,7 +95,7 @@ export default function LandingPage() {
                 </div>
                 <div className="hidden rounded-2xl border border-[#e8e5f2] bg-white p-4 sm:block">
                   <p className="text-sm font-semibold">Live scans</p>
-                  {["Hamad Al-Thani", "Noora Al-Kuwari", "Omar Haddad", "Maria Santos"].map((n, i) => (
+                  {["James Carter", "Olivia Bennett", "Daniel Brooks", "Maria Santos"].map((n, i) => (
                     <div key={n} className="mt-3 flex items-center gap-2.5">
                       <span className="h-7 w-7 rounded-full" style={{ background: `linear-gradient(135deg, hsl(${255 + i * 12} 85% 68%), hsl(${270 + i * 12} 70% 48%))` }} />
                       <span className="flex-1 truncate text-xs font-semibold">{n}</span>

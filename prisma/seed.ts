@@ -110,21 +110,21 @@ async function seedSecondGym(passwordHash: string) {
       plan: "PROFESSIONAL",
       status: "TRIAL",
       trialEndsAt: addDays(today, 5),
-      planRequest: { months: 6, extraBranches: 1, total: 23_400, requestedAt: new Date().toISOString(), requestedBy: "Dana Al-Ansari" },
+      planRequest: { months: 6, extraBranches: 1, total: 23_400, requestedAt: new Date().toISOString(), requestedBy: "Diana Ashford" },
       whatsappVerifyToken: randomBytes(12).toString("base64url"),
     },
   });
   await db.branch.create({ data: { id: "br_pulse", gymId, name: "Lusail Marina", address: "Marina District, Lusail City" } });
   await db.staff.createMany({
     data: [
-      { id: "st_pulse_owner", gymId, name: "Dana Al-Ansari", email: "pulse@voxi.qa", role: "OWNER", passwordHash, branchId: null, phone: "+974 5511 0001" },
-      { id: "st_pulse_rec", gymId, name: "Mae Santos", email: "pulse.reception@voxi.qa", role: "RECEPTION", passwordHash, branchId: "br_pulse", phone: "+974 5511 0002" },
+      { id: "st_pulse_owner", gymId, name: "Diana Ashford", email: "pulse@voxi.qa", role: "OWNER", passwordHash, branchId: null, phone: "+974 5511 0001" },
+      { id: "st_pulse_rec", gymId, name: "Megan Sanders", email: "pulse.reception@voxi.qa", role: "RECEPTION", passwordHash, branchId: "br_pulse", phone: "+974 5511 0002" },
     ],
   });
   await db.plan.createMany({ data: STARTER_PLANS.map((p, i) => ({ ...p, id: `pl_pulse_${i}`, gymId })) });
   await db.exercise.createMany({ data: EXERCISE_LIBRARY.map(([name, muscleGroup, equipment]) => ({ gymId, name, muscleGroup, equipment })) });
 
-  const names = ["Aisha Al-Khater", "Sara Haddad", "Maryam Al-Marri", "Priya Nair", "Lina Saleh", "Emma Clarke", "Noora Al-Thani", "Fatima Rahman", "Reem Al-Kuwari", "Maria Santos", "Hessa Al-Naimi", "Dana Khoury"];
+  const names = ["Alice Carter", "Sarah Hayes", "Mary Mills", "Penny Nash", "Lina Saunders", "Emma Clarke", "Nora Thompson", "Fiona Reid", "Rebecca Kerr", "Maria Santos", "Helen Norris", "Daisy Knight"];
   let invoice = 0;
   for (let i = 0; i < names.length; i++) {
     const [firstName, ...rest] = names[i]!.split(" ");

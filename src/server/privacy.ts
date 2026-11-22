@@ -1,6 +1,6 @@
 /**
  * Hide member contact details from roles the owner hasn't allowed to see them.
- * "+974 5512 3456" → "+974 •••• 3456",  "noora@mail.com" → "n••••@mail.com"
+ * "+974 5512 3456" → "+974 •••• 3456",  "olivia@mail.com" → "o••••@mail.com"
  */
 export function maskPhone(v: string | null | undefined) {
   if (!v) return v ?? null;

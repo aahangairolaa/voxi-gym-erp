@@ -75,16 +75,16 @@ export function generateSeedData(passwordHash: string) {
 
   // ── Staff ──────────────────────────────────────────────────────────────────
   const staff = [
-    { id: "st_owner", name: "Abdulla Al-Kuwari", email: "owner@voxi.qa", role: "OWNER", branchId: null, salary: null, specialty: null, phone: "+974 5500 0001" },
-    { id: "st_manager", name: "Rania Haddad", email: "manager@voxi.qa", role: "MANAGER", branchId: "br_pearl", salary: 18000, specialty: null, phone: "+974 5500 0002" },
+    { id: "st_owner", name: "Andrew Collins", email: "owner@voxi.qa", role: "OWNER", branchId: null, salary: null, specialty: null, phone: "+974 5500 0001" },
+    { id: "st_manager", name: "Rachel Hughes", email: "manager@voxi.qa", role: "MANAGER", branchId: "br_pearl", salary: 18000, specialty: null, phone: "+974 5500 0002" },
     { id: "st_rec1", name: "Joanna Cruz", email: "reception@voxi.qa", role: "RECEPTION", branchId: "br_pearl", salary: 6500, specialty: null, phone: "+974 5500 0003" },
-    { id: "st_rec2", name: "Imran Sheikh", email: "lusail@voxi.qa", role: "RECEPTION", branchId: "br_lusail", salary: 6500, specialty: null, phone: "+974 5500 0004" },
-    { id: "st_tr1", name: "Coach Karim Mansour", email: "trainer@voxi.qa", role: "TRAINER", branchId: "br_pearl", salary: 12000, specialty: "Strength & Conditioning", phone: "+974 5500 0005" },
+    { id: "st_rec2", name: "Ian Shepherd", email: "lusail@voxi.qa", role: "RECEPTION", branchId: "br_lusail", salary: 6500, specialty: null, phone: "+974 5500 0004" },
+    { id: "st_tr1", name: "Coach Kevin Marshall", email: "trainer@voxi.qa", role: "TRAINER", branchId: "br_pearl", salary: 12000, specialty: "Strength & Conditioning", phone: "+974 5500 0005" },
     { id: "st_tr2", name: "Coach Elena Petrova", email: "elena@voxi.qa", role: "TRAINER", branchId: "br_pearl", salary: 11500, specialty: "Pilates & Mobility", phone: "+974 5500 0006" },
     { id: "st_tr3", name: "Coach Marcus Reid", email: "marcus@voxi.qa", role: "TRAINER", branchId: "br_lusail", salary: 11000, specialty: "Boxing & HIIT", phone: "+974 5500 0007" },
-    { id: "st_tr4", name: "Coach Hessa Al-Sada", email: "hessa@voxi.qa", role: "TRAINER", branchId: "br_lusail", salary: 11000, specialty: "Ladies Fitness", phone: "+974 5500 0008" },
-    { id: "st_hk1", name: "Maricel Dela Cruz", email: null, role: "HOUSEKEEPING", branchId: "br_pearl", salary: 2800, specialty: null, phone: "+974 5500 0009" },
-    { id: "st_hk2", name: "Suresh Bhandari", email: null, role: "HOUSEKEEPING", branchId: "br_lusail", salary: 2600, specialty: null, phone: "+974 5500 0010" },
+    { id: "st_tr4", name: "Coach Hannah Scott", email: "hannah@voxi.qa", role: "TRAINER", branchId: "br_lusail", salary: 11000, specialty: "Ladies Fitness", phone: "+974 5500 0008" },
+    { id: "st_hk1", name: "Mary Collins", email: null, role: "HOUSEKEEPING", branchId: "br_pearl", salary: 2800, specialty: null, phone: "+974 5500 0009" },
+    { id: "st_hk2", name: "Steven Baker", email: null, role: "HOUSEKEEPING", branchId: "br_lusail", salary: 2600, specialty: null, phone: "+974 5500 0010" },
   ].map((s) => ({
     ...s,
     // Housekeeping staff are on the team list but don't sign in
@@ -107,26 +107,26 @@ export function generateSeedData(passwordHash: string) {
   const planById = new Map(plans.map((p) => [p.id, p]));
 
   // ── Names ──────────────────────────────────────────────────────────────────
-  const qMale = ["Hamad", "Khalid", "Abdullah", "Mohammed", "Tamim", "Jassim", "Faisal", "Nasser", "Ali", "Saad", "Fahad", "Mubarak", "Hamad", "Sultan", "Rashid"];
-  const qFemale = ["Noora", "Aisha", "Maryam", "Hessa", "Latifa", "Shaikha", "Al Anoud", "Lulwa", "Dana", "Reem", "Moza", "Fatima"];
-  const qLast = ["Al-Thani", "Al-Kuwari", "Al-Marri", "Al-Naimi", "Al-Sulaiti", "Al-Mohannadi", "Al-Hajri", "Al-Kaabi", "Al-Mansouri", "Al-Emadi", "Al-Sada", "Al-Obaidli", "Al-Attiyah", "Al-Khulaifi"];
+  // English names only (by request): demo data never uses Arabic names
+  const qMale = ["James", "Oliver", "Harry", "Jack", "George", "Noah", "Charlie", "Thomas", "William", "Henry", "Leo", "Samuel", "Edward", "Daniel", "Lucas"];
+  const qFemale = ["Olivia", "Amelia", "Isla", "Ava", "Emily", "Sophie", "Grace", "Lily", "Chloe", "Ella", "Charlotte", "Hannah"];
+  const qLast = ["Smith", "Johnson", "Williams", "Brown", "Taylor", "Wilson", "Davies", "Evans", "Walker", "Wright", "Robinson", "Thompson", "Hughes", "Edwards"];
+  const qNationality = ["British", "American", "Canadian", "Australian", "Irish"];
   const expats: [string, string, "MALE" | "FEMALE", string][] = [
-    ["Omar", "Haddad", "MALE", "Lebanese"], ["Sara", "Mahmoud", "FEMALE", "Egyptian"], ["Yousef", "Nasr", "MALE", "Jordanian"],
-    ["Mariam", "Khan", "FEMALE", "Pakistani"], ["Tariq", "Aziz", "MALE", "Pakistani"], ["Rahul", "Menon", "MALE", "Indian"],
-    ["Priya", "Nair", "FEMALE", "Indian"], ["Arjun", "Pillai", "MALE", "Indian"], ["Maria", "Santos", "FEMALE", "Filipino"],
-    ["Paolo", "Reyes", "MALE", "Filipino"], ["James", "Whitfield", "MALE", "British"], ["Emma", "Clarke", "FEMALE", "British"],
-    ["Karim", "Fawzi", "MALE", "Egyptian"], ["Lina", "Saleh", "FEMALE", "Syrian"], ["Ahmed", "Osman", "MALE", "Sudanese"],
-    ["Daniel", "Brooks", "MALE", "American"], ["Nadia", "Rahman", "FEMALE", "Other"], ["Bilal", "Qureshi", "MALE", "Pakistani"],
-    ["Sneha", "Iyer", "FEMALE", "Indian"], ["Hassan", "Darwish", "MALE", "Lebanese"], ["Rana", "Khoury", "FEMALE", "Lebanese"],
-    ["Mostafa", "Elsayed", "MALE", "Egyptian"], ["Anjali", "Sharma", "FEMALE", "Indian"], ["Kiran", "Thapa", "MALE", "Nepali"],
+    ["Michael", "Harris", "MALE", "American"], ["Sarah", "Mitchell", "FEMALE", "American"], ["Ryan", "Cooper", "MALE", "American"],
+    ["Megan", "Foster", "FEMALE", "Canadian"], ["Ethan", "Campbell", "MALE", "Canadian"], ["Jessica", "Bennett", "FEMALE", "Canadian"],
+    ["Liam", "Murphy", "MALE", "Irish"], ["Niamh", "Kelly", "FEMALE", "Irish"], ["Sean", "Byrne", "MALE", "Irish"],
+    ["Jack", "Morrison", "MALE", "Australian"], ["Zoe", "Anderson", "FEMALE", "Australian"], ["Mia", "Clarke", "FEMALE", "British"],
+    ["James", "Whitfield", "MALE", "British"], ["Emma", "Clarke", "FEMALE", "British"], ["Daniel", "Brooks", "MALE", "American"],
+    ["Hannah", "Reed", "FEMALE", "American"], ["Callum", "Fraser", "MALE", "British"], ["Rachel", "Green", "FEMALE", "American"],
   ];
   // More variety: an expat's surname is picked from people of the same nationality
   const moreExpats: [string, string, "MALE" | "FEMALE", string][] = [
-    ["Layla", "Hijazi", "FEMALE", "Lebanese"], ["Ziad", "Aoun", "MALE", "Lebanese"], ["Hala", "Mansour", "FEMALE", "Egyptian"], ["Amr", "Fathy", "MALE", "Egyptian"],
-    ["Rania", "Odeh", "FEMALE", "Jordanian"], ["Sami", "Haddadin", "MALE", "Jordanian"], ["Ayesha", "Siddiqui", "FEMALE", "Pakistani"], ["Usman", "Malik", "MALE", "Pakistani"],
-    ["Vikram", "Reddy", "MALE", "Indian"], ["Divya", "Menon", "FEMALE", "Indian"], ["Joel", "Thomas", "MALE", "Indian"], ["Angelica", "Cruz", "FEMALE", "Filipino"],
-    ["Mark", "Villanueva", "MALE", "Filipino"], ["Oliver", "Hughes", "MALE", "British"], ["Sophie", "Turner", "FEMALE", "British"], ["Nour", "Kassab", "FEMALE", "Syrian"],
-    ["Majd", "Haddad", "MALE", "Syrian"], ["Ryan", "Mitchell", "MALE", "American"], ["Sita", "Gurung", "FEMALE", "Nepali"], ["Bishal", "Rai", "MALE", "Nepali"],
+    ["Lucy", "Barnes", "FEMALE", "British"], ["Matthew", "Ward", "MALE", "British"], ["Kate", "Turner", "FEMALE", "British"], ["Adam", "Price", "MALE", "British"],
+    ["Laura", "Stewart", "FEMALE", "Canadian"], ["Nathan", "Ross", "MALE", "Canadian"], ["Abigail", "Hayes", "FEMALE", "American"], ["Tyler", "Jenkins", "MALE", "American"],
+    ["Ben", "Sullivan", "MALE", "Irish"], ["Erin", "Walsh", "FEMALE", "Irish"], ["Josh", "Bailey", "MALE", "Australian"], ["Holly", "Fisher", "FEMALE", "Australian"],
+    ["Mark", "Collins", "MALE", "American"], ["Oliver", "Hughes", "MALE", "British"], ["Sophie", "Turner", "FEMALE", "British"], ["Amy", "Palmer", "FEMALE", "Australian"],
+    ["Ryan", "Mitchell", "MALE", "American"], ["Jade", "Spencer", "FEMALE", "British"], ["Connor", "Doyle", "MALE", "Irish"],
   ];
   const expatPool = [...expats, ...moreExpats];
   const surnamesBy = new Map<string, string[]>();
@@ -153,7 +153,7 @@ export function generateSeedData(passwordHash: string) {
     const [firstName, lastName, gender, nationality] = qatari
       ? (() => {
           const g = chance(0.6) ? "MALE" : "FEMALE";
-          return [pick(g === "MALE" ? qMale : qFemale), pick(qLast), g, "Qatari"] as const;
+          return [pick(g === "MALE" ? qMale : qFemale), pick(qLast), g, pick(qNationality)] as const;
         })()
       : pickExpat();
     const code = `M-${1001 + i}`;
@@ -403,7 +403,7 @@ export function generateSeedData(passwordHash: string) {
   }
 
   // ── Leads ─────────────────────────────────────────────────────────────────
-  const leadNames = ["Faisal Al-Hajri", "Sophie Martin", "Abdulrahman Saleh", "Neha Kapoor", "Luis Garcia", "Huda Al-Marri", "Kevin O'Brien", "Amal Youssef", "Ravi Kumar", "Jana Novak", "Majed Al-Kaabi", "Grace Lim", "Waleed Hamdan", "Zainab Ali", "Chris Evans", "Noor Al-Emadi", "Pedro Alves", "Latifa Al-Suwaidi"];
+  const leadNames = ["Frank Harper", "Sophie Martin", "Andrew Stone", "Nicole Parker", "Luke Gardner", "Holly Marsh", "Kevin O'Brien", "Amanda Young", "Robert King", "Jane Novak", "Mason Kirby", "Grace Lim", "Will Hampton", "Zara Allen", "Chris Evans", "Natalie Ellis", "Peter Alves", "Lauren Sutton"];
   const leads = leadNames.map((name, i) => {
     const status = weighted<string>([["NEW", 5], ["CONTACTED", 5], ["TRIAL", 3], ["LOST", 2]]);
     return {
