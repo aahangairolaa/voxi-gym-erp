@@ -3,6 +3,7 @@ import {
   LuArrowRight, LuBanknote, LuCalendarDays, LuChartColumn, LuDumbbell, LuFingerprint, LuIdCard, LuScanFace, LuShieldCheck,
   LuSmartphone, LuTrophy, LuUserPlus, LuUsers, LuBuilding2, LuLanguages, LuZap,
 } from "react-icons/lu";
+import { VoxiOrb } from "@/components/brand/logo";
 import { PricingTable } from "@/components/marketing/pricing-table";
 import { ShowcaseFilm } from "@/components/marketing/showcase-film";
 import { TRIAL_DAYS } from "@/lib/pricing";
@@ -43,13 +44,16 @@ export default function LandingPage() {
         <div className="pointer-events-none absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full border border-brand-500/20" />
         <div className="pointer-events-none absolute -right-52 -bottom-52 h-[640px] w-[640px] rounded-full border border-brand-500/15" />
         <div className="relative mx-auto max-w-6xl px-5 text-center">
+          <span className="inline-flex animate-fade-up items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-white/80 backdrop-blur">
+            <VoxiOrb size={14} /> Run Your Gym, Not the Chaos
+          </span>
           <img
             src="/brand/voxi-wordmark.webp"
             alt="VOXI"
             className="mx-auto mt-4 w-full max-w-[620px] animate-fade-up [animation-delay:80ms] [mask-image:radial-gradient(closest-side,#000_62%,transparent_100%)]"
           />
           <h1 className="mx-auto mt-2 max-w-3xl animate-fade-up font-display text-4xl leading-[1.08] font-semibold tracking-tight [animation-delay:160ms] sm:text-6xl">
-            Run Your Gym, <span className="bg-gradient-to-r from-[#c9b8ff] via-[#a78bff] to-[#e5a3ff] bg-clip-text text-transparent">Not the Chaos</span>
+            Your gym. <span className="bg-gradient-to-r from-[#c9b8ff] via-[#a78bff] to-[#e5a3ff] bg-clip-text text-transparent">Your business.</span>
           </h1>
           <p className="mx-auto mt-5 max-w-2xl animate-fade-up text-base text-white/65 [animation-delay:240ms] sm:text-lg">
             VOXI is the all-in-one ERP for premium gyms in Qatar. Members, memberships, biometric access, payments in QAR, classes, trainers and reports, beautifully simple.

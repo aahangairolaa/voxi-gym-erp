@@ -8,7 +8,7 @@ import { useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
 import { CONTACT } from "@/lib/contact";
 import { formatDate } from "@/lib/format";
-import { MAX_LOCATIONS, quote, qar, termFor, type Quote } from "@/lib/pricing";
+import { MAX_LOCATIONS, quote, qar, termFor, type Promo, type Quote } from "@/lib/pricing";
 
 type Billing = {
   name: string;
@@ -17,7 +17,7 @@ type Billing = {
   billingMonths: number;
   extraBranches: number;
   paidUntil: string | null;
-  planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; requestedAt: string; requestedBy: string } | null;
+  planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; promoCode?: string | null; promoDiscount?: number; totalToday?: number; requestedAt: string; requestedBy: string } | null;
   branchesUsed: number;
   current: Quote | null;
 };
@@ -31,16 +31,19 @@ export default function BillingPage() {
   const { data, error, reload } = useApi<Billing>("/api/billing");
   const [busy, setBusy] = useState(false);
 
-  const choose = async ({ quote: q, entrances, onboarding, oneTime }: PlanChoice) => {
+  const checkPromo = (code: string, months: number) =>
+    api.get<Promo>(`/api/billing/promo?code=${encodeURIComponent(code)}&months=${months}`);
+
+  const choose = async ({ quote: q, entrances, onboarding, oneTime, promoCode, totalToday }: PlanChoice) => {
     const ok = await confirm({
       title: "Request this plan?",
-      message: `VOXI for ${q.termLabel}${branchText(q.extraBranches)}: ${qar(q.total)}${oneTime ? `, plus ${qar(oneTime)} one-time setup` : ""}. The VOXI team will confirm and send your invoice. You can pay by bank transfer, card or Fawran.`,
+      message: `VOXI for ${q.termLabel}${branchText(q.extraBranches)}: ${qar(q.total)}${oneTime ? `, plus ${qar(oneTime)} one-time setup` : ""}${promoCode ? `, with code ${promoCode}` : ""}. Your first invoice: ${qar(totalToday)}. The VOXI team will confirm and send your invoice. You can pay by bank transfer, card or Fawran.`,
       confirmLabel: "Send request",
     });
     if (!ok) return;
     setBusy(true);
     try {
-      await api.post("/api/billing", { months: q.months, extraBranches: q.extraBranches, entrances, onboarding });
+      await api.post("/api/billing", { months: q.months, extraBranches: q.extraBranches, entrances, onboarding, promoCode });
       toast("success", "Request sent. We will be in touch within one business day.");
       // Reload so the sidebar and banner show the pending request
       window.location.reload();
@@ -135,7 +138,9 @@ export default function BillingPage() {
               Requested: VOXI for {reqQuote.termLabel}
               {branchText(reqQuote.extraBranches)}, {qar(reqQuote.total)}
               {req.oneTime ? `, plus ${qar(req.oneTime)} one-time setup` : ""}
+              {req.promoCode ? `, code ${req.promoCode} (−${qar(req.promoDiscount ?? 0)})` : ""}
             </p>
+            {req.totalToday != null && <p className="mt-0.5 text-sm font-medium text-ink">First invoice: {qar(req.totalToday)}</p>}
             <p className="mt-0.5 text-sm text-muted">
               Sent by {req.requestedBy} on {formatDate(req.requestedAt)}. We will confirm and send your invoice within one business day.
             </p>
@@ -162,6 +167,7 @@ export default function BillingPage() {
             busy={busy}
             chooseLabel={req ? "Update request" : data.status === "ACTIVE" ? "Request this change" : "Choose this plan"}
             onChoose={choose}
+            onCheckPromo={checkPromo}
           />
           {user.role !== "OWNER" && <p className="mt-3 text-xs text-muted">Your gym owner will be included on the invoice.</p>}
         </div>

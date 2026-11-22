@@ -7,6 +7,7 @@ import { Prisma, type GymStatus, type SubscriptionPlan } from "@prisma/client";
 import type { z } from "zod";
 import { addDays, addMonths } from "@/lib/dates";
 import { db } from "../db";
+import { countPromoUse } from "./promo.service";
 import { ApiError } from "../http";
 import { randomToken } from "../crypto";
 import { EXERCISE_LIBRARY, STARTER_PLANS } from "../gym-defaults";
@@ -135,8 +136,9 @@ export async function updateGym(id: string, input: z.infer<typeof updateGymSchem
   const gym = await db.gym.findUnique({ where: { id }, select: { id: true, status: true, planRequest: true } });
   if (!gym) throw new ApiError(404, "Gym not found.");
   // "Activate request": copy what the gym asked for on its Billing page.
-  const req = input.applyRequest ? (gym.planRequest as { months?: number; extraBranches?: number } | null) : null;
+  const req = input.applyRequest ? (gym.planRequest as { months?: number; extraBranches?: number; promoCode?: string | null } | null) : null;
   if (input.applyRequest && !req) throw new ApiError(400, "This gym has no pending plan request.");
+  if (req?.promoCode) await countPromoUse(req.promoCode);
   const months = req?.months ?? input.billingMonths;
   return db.gym.update({
     where: { id },

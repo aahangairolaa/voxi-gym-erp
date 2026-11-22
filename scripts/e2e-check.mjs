@@ -344,12 +344,11 @@ await step("billing", async () => {
   const pulse = await login("pulse@voxi.qa");
   const P = { cookie: pulse.cookie };
   const req = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 2 } });
-  check("billing: trial gym requests 12 months + 2 branches", req.status === 200 && req.json?.quote?.total === 25000 + 14000 + 13300, req.text);
+  check("billing: trial gym requests 12 months + 2 branches", req.status === 200 && req.json?.quote?.total === 25000 + 12000 + 9600, req.text);
   const one = await call("POST", "/api/billing", { ...P, body: { months: 3, extraBranches: 0, entrances: 2, onboarding: true } });
-  check("billing: one-time add-ons priced (2 entrances + onboarding)", one.json?.oneTime === 2 * 2900 + 1500 && one.json?.quote?.total === 10000, one.text);
+  check("billing: one-time add-ons priced (2 entrances + onboarding)", one.json?.oneTime === 1500 + 1430 + 1500 && one.json?.quote?.total === 10000, one.text);
   const noMonthly = await call("POST", "/api/billing", { ...P, body: { months: 1, extraBranches: 0 } });
   check("billing: no 1-month plan", noMonthly.status === 400, noMonthly.status);
-  await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 2 } });
   const tooMany = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 5 } });
   check("billing: more than 5 locations refused", tooMany.status === 400, tooMany.status);
   const rec = await call("GET", "/api/billing", { cookie: (await login("pulse.reception@voxi.qa")).cookie });
@@ -357,11 +356,45 @@ await step("billing", async () => {
 
   const ad = await login("admin@voxi.qa");
   const A = { cookie: ad.cookie };
+
+  // Promo codes: VOXI creates them, gyms apply them on Billing
+  const code = `E2E${Date.now().toString().slice(-6)}`;
+  const mk = await call("POST", "/api/admin/promos", { ...A, body: { code: code.toLowerCase(), kind: "PERCENT", value: 20, appliesTo: "ALL" } });
+  check("admin creates a promo code (stored upper-case)", mk.status === 200 && mk.json?.code === code, mk.text);
+  const dup = await call("POST", "/api/admin/promos", { ...A, body: { code, kind: "PERCENT", value: 10 } });
+  check("duplicate promo code refused", dup.status === 409, dup.text);
+  const over = await call("POST", "/api/admin/promos", { ...A, body: { code: code + "X", kind: "PERCENT", value: 150 } });
+  check("promo over 100% refused", over.status === 400 && !!over.json?.fields?.value, over.text);
+  const annualOnly = `${code}Y`;
+  await call("POST", "/api/admin/promos", { ...A, body: { code: annualOnly, kind: "AMOUNT", value: 3000, appliesTo: "SUBSCRIPTION", minMonths: 12 } });
+  const gymCant = await call("POST", "/api/admin/promos", { ...P, body: { code: "HACK", kind: "PERCENT", value: 100 } });
+  check("gyms can't create promo codes", gymCant.status === 403, gymCant.status);
+  const chk = await call("GET", `/api/billing/promo?code=${code.toLowerCase()}&months=12`, P);
+  check("gym checks a promo code", chk.status === 200 && chk.json?.value === 20 && chk.json?.label === "20% off", chk.text);
+  const bogus = await call("GET", "/api/billing/promo?code=NOPE123&months=12", P);
+  check("unknown promo code refused", bogus.status === 400 && /isn't valid/.test(bogus.json?.error ?? ""), bogus.text);
+  const short = await call("GET", `/api/billing/promo?code=${annualOnly}&months=3`, P);
+  check("annual-only code refused on 3 months", short.status === 400 && /Annual/.test(short.json?.error ?? ""), short.text);
+  const withPromo = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 2, entrances: 1, promoCode: code } });
+  check(
+    "promo comes off the first invoice",
+    withPromo.status === 200 && withPromo.json?.totalToday === Math.round((25000 + 12000 + 9600 + 1500) * 0.8) && withPromo.json?.request?.promoCode === code,
+    withPromo.text,
+  );
+  const amt = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 0, promoCode: annualOnly } });
+  check("fixed-amount code takes QAR off the subscription", amt.json?.totalToday === 25000 - 3000, amt.text);
+  await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 2, promoCode: code } });
   const gyms = await call("GET", "/api/admin/gyms", A);
   const pg = gyms.json?.gyms?.find((g) => g.slug === "pulse-ladies");
   check("admin sees the plan request", pg?.planRequest?.extraBranches === 2 && gyms.json?.stats?.requests >= 1, JSON.stringify(pg?.planRequest));
   const act = await call("PUT", `/api/admin/gyms/${pg?.id}`, { ...A, body: { applyRequest: true } });
   check("admin activates the request", act.json?.status === "ACTIVE" && act.json?.extraBranches === 2 && act.json?.planRequest === null && !!act.json?.paidUntil, act.text);
+  const promos = await call("GET", "/api/admin/promos", A);
+  const used = promos.json?.promos?.find((p) => p.code === code);
+  check("activating counts one promo use", used?.uses === 1, JSON.stringify(used));
+  await call("PATCH", `/api/admin/promos/${used?.id}`, { ...A, body: { active: false } });
+  const off = await call("GET", `/api/billing/promo?code=${code}&months=12`, P);
+  check("switched-off promo code refused", off.status === 400, off.text);
   const after = await call("GET", "/api/billing", P);
   check("billing: gym now active with 3 locations", after.json?.status === "ACTIVE" && after.json?.current?.extraBranches === 2, after.text);
 

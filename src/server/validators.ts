@@ -457,6 +457,26 @@ export const planRequestSchema = z.object({
   months: z.coerce.number().int().refine((n) => [3, 6, 12].includes(n), "Choose 3, 6 or 12 months"),
   extraBranches: z.coerce.number().int().min(0).max(MAX_EXTRA_BRANCHES),
   /** One-time services: biometric entrances to install and data migration. */
-  entrances: z.coerce.number().int().min(0).max(20).default(0),
+  entrances: z.coerce.number().int().min(0).max(10).default(0),
   onboarding: z.boolean().default(false),
+  promoCode: z.string().trim().max(40).optional().nullable(),
 });
+
+/** A VOXI promo code (admin). */
+export const promoSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .min(3, "Use at least 3 characters")
+      .max(30)
+      .regex(/^[A-Za-z0-9_-]+$/, "Letters, numbers, - and _ only, no spaces"),
+    kind: z.enum(["PERCENT", "AMOUNT"]),
+    value: z.coerce.number().int("Whole numbers only").min(1, "Must be at least 1"),
+    appliesTo: z.enum(["ALL", "SUBSCRIPTION", "ONE_TIME"]).default("ALL"),
+    minMonths: z.coerce.number().int().refine((n) => [3, 6, 12].includes(n)).optional().nullable(),
+    expiresAt: optDate,
+    maxUses: z.coerce.number().int().min(1).optional().nullable(),
+    note: optStr(200),
+  })
+  .refine((p) => p.kind !== "PERCENT" || p.value <= 100, { message: "A percentage can't be more than 100", path: ["value"] });

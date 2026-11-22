@@ -1,15 +1,22 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { LuCheck, LuFingerprint, LuMapPin, LuMinus, LuPlus, LuSparkles, LuUpload } from "react-icons/lu";
+import { LuCheck, LuFingerprint, LuMapPin, LuMinus, LuPlus, LuSparkles, LuTicket, LuUpload, LuX } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import {
-  BRANCH_DISCOUNTS, DEFAULT_TERM, INCLUDED, MAX_EXTRA_BRANCHES, ONE_TIME_ADDONS, TERMS, TRIAL_DAYS, addonsTotal, branchPrice, quote, type Quote,
+  BRANCH_DISCOUNTS, DEFAULT_TERM, ENTRANCE_DISCOUNTS, ENTRANCE_PRICE, INCLUDED, MAX_ENTRANCES, MAX_EXTRA_BRANCHES, ONE_TIME_ADDONS, TERMS, TRIAL_DAYS,
+  branchListPrice, branchPrice, checkout, entranceDiscount, entrancePrice, quote, type Promo, type Quote,
 } from "@/lib/pricing";
 
 const fmt = (n: number) => n.toLocaleString("en");
 
-export type PlanChoice = { quote: Quote; entrances: number; onboarding: boolean; oneTime: number };
+export type PlanChoice = { quote: Quote; entrances: number; onboarding: boolean; oneTime: number; promoCode: string | null; totalToday: number };
+
+/** "QAR 12,000" struck through, next to the price after discount. */
+function Was({ list, net, className }: { list: number; net: number; className?: string }) {
+  if (list <= net) return null;
+  return <s className={cn("mr-1.5 font-normal opacity-55 decoration-1", className)}>{fmt(list)}</s>;
+}
 
 type Props = {
   /** "marketing" ends with a free-trial button; "billing" calls onChoose with the selection. */
@@ -19,6 +26,8 @@ type Props = {
   onChoose?: (c: PlanChoice) => void;
   busy?: boolean;
   chooseLabel?: string;
+  /** Billing only: checks a promo code with VOXI. Shows the promo code box when given. */
+  onCheckPromo?: (code: string, months: number) => Promise<Promo>;
 };
 
 function Stepper({ value, min = 0, max, onChange, label }: { value: number; min?: number; max: number; onChange: (n: number) => void; label: string }) {
@@ -49,14 +58,36 @@ function StepLabel({ n, title, hint }: { n: string; title: string; hint?: string
 }
 
 /** One VOXI subscription: pick a term, tailor it with add-ons, see the total. */
-export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM, initialBranches = 0, onChoose, busy, chooseLabel }: Props) {
+export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM, initialBranches = 0, onChoose, busy, chooseLabel, onCheckPromo }: Props) {
   const [months, setMonths] = useState<number>(TERMS.some((t) => t.months === initialMonths) ? initialMonths : DEFAULT_TERM);
   const [branches, setBranches] = useState(Math.min(initialBranches, MAX_EXTRA_BRANCHES));
   const [entrances, setEntrances] = useState(0);
   const [onboarding, setOnboarding] = useState(false);
-  const q = quote(months, branches);
-  const one = addonsTotal(months, entrances, onboarding);
+  const [promo, setPromo] = useState<Promo | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const c = checkout(months, branches, entrances, onboarding, promo);
+  const q = c.quote;
+  const one = c.oneTime;
   const annual = months === 12;
+  const promoNeedsLonger = !!promo && !c.promo; // code kept, but this term is too short for it
+  const nextEntrance = entrances < MAX_ENTRANCES ? entrances + 1 : null;
+
+  const applyPromo = async () => {
+    if (!onCheckPromo || !promoInput.trim()) return;
+    setChecking(true);
+    setPromoError(null);
+    try {
+      const p = await onCheckPromo(promoInput, months);
+      setPromo(p);
+      setPromoInput("");
+    } catch (e) {
+      setPromoError(e instanceof Error ? e.message : "That code couldn't be applied.");
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <div className="space-y-14">
@@ -155,7 +186,7 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                 </span>
                 <div>
                   <p className="font-semibold text-ink">Extra branches</p>
-                  <p className="mt-0.5 text-sm text-muted">Your main location is included. Run up to 5 in total; every new branch costs less.</p>
+                  <p className="mt-0.5 text-sm text-muted">Your main location is included. Run up to 5 in total: the 2nd added branch is 20% off, and every one after costs even less.</p>
                 </div>
               </div>
               <Stepper value={branches} max={MAX_EXTRA_BRANCHES} onChange={setBranches} label="branches" />
@@ -180,7 +211,10 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                       <span className={on ? "font-medium text-ink" : "text-ink-soft"}>Branch {i + 2}</span>
                       {d > 0 && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{Math.round(d * 100)}% off</span>}
                     </span>
-                    <span className={cn("tabular-nums", on ? "font-semibold text-ink" : "text-muted")}>QAR {fmt(branchPrice(i + 1, months))}</span>
+                    <span className={cn("tabular-nums", on ? "font-semibold text-ink" : "text-muted")}>
+                      QAR <Was list={branchListPrice(months)} net={branchPrice(i + 1, months)} />
+                      {fmt(branchPrice(i + 1, months))}
+                    </span>
                   </button>
                 );
               })}
@@ -194,11 +228,31 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">
                   <LuFingerprint className="h-5 w-5" />
                 </span>
-                <Stepper value={entrances} max={10} onChange={setEntrances} label="entrances" />
+                <Stepper value={entrances} max={MAX_ENTRANCES} onChange={setEntrances} label="entrances" />
               </div>
               <p className="mt-4 font-semibold text-ink">{ONE_TIME_ADDONS[0].name}</p>
               <p className="mt-0.5 text-sm text-muted">{ONE_TIME_ADDONS[0].note}</p>
-              <p className="mt-3 text-sm font-semibold text-ink tabular-nums">QAR {fmt(ONE_TIME_ADDONS[0].price)} <span className="font-normal text-muted">per entrance, one-time</span></p>
+              <p className="mt-3 text-sm font-semibold text-ink tabular-nums">
+                QAR {fmt(ENTRANCE_PRICE)} <span className="font-normal text-muted">per entrance, one-time</span>
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                Each extra entrance gets more off, up to {Math.round(ENTRANCE_DISCOUNTS[ENTRANCE_DISCOUNTS.length - 1] * 100)}%.
+              </p>
+              {entrances > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {one.entrances.map((e) => (
+                    <span key={e.n} className="rounded-lg border border-brand-300 bg-brand-50/70 px-2 py-1 text-[11px] font-medium text-ink tabular-nums dark:border-brand-500/40 dark:bg-brand-500/10">
+                      #{e.n} <Was list={e.listPrice} net={e.price} className="mr-1" />
+                      {fmt(e.price)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {nextEntrance && entrances > 0 && (
+                <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  Next entrance: QAR {fmt(entrancePrice(nextEntrance))} ({Math.round(entranceDiscount(nextEntrance) * 100)}% off)
+                </p>
+              )}
             </div>
             {/* Onboarding */}
             <button
@@ -242,19 +296,59 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                     Branch {b.n + 1}
                     {b.discount > 0 && <span className="ml-1.5 text-emerald-300">{Math.round(b.discount * 100)}% off</span>}
                   </dt>
-                  <dd className="tabular-nums">QAR {fmt(b.price)}</dd>
+                  <dd className="tabular-nums">
+                    QAR <Was list={b.listPrice} net={b.price} />
+                    {fmt(b.price)}
+                  </dd>
                 </div>
               ))}
               {entrances > 0 && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-white/70">Biometric entrance × {entrances} <span className="text-white/45">one-time</span></dt>
-                  <dd className="tabular-nums">QAR {fmt(one.biometric)}</dd>
+                  <dt className="text-white/70">
+                    Biometric entrance × {one.entrances.length} <span className="text-white/45">one-time</span>
+                    {one.biometricList > one.biometric && <span className="ml-1.5 text-emerald-300">multi-entrance discount</span>}
+                  </dt>
+                  <dd className="tabular-nums">
+                    QAR <Was list={one.biometricList} net={one.biometric} />
+                    {fmt(one.biometric)}
+                  </dd>
                 </div>
               )}
               {(onboarding || annual) && (
                 <div className="flex justify-between gap-3">
                   <dt className="text-white/70">Onboarding and migration <span className="text-white/45">one-time</span></dt>
-                  <dd className="tabular-nums">{annual ? <span className="text-emerald-300">Free</span> : `QAR ${fmt(one.onboarding)}`}</dd>
+                  <dd className="tabular-nums">
+                    {annual ? (
+                      <>
+                        <Was list={ONE_TIME_ADDONS[1].price} net={0} />
+                        <span className="text-emerald-300">Free</span>
+                      </>
+                    ) : (
+                      `QAR ${fmt(one.onboarding)}`
+                    )}
+                  </dd>
+                </div>
+              )}
+              {(c.volumeDiscount > 0 || c.promoDiscount > 0) && (
+                <div className="space-y-2 border-t border-white/10 pt-3">
+                  <div className="flex justify-between gap-3 text-white/55">
+                    <dt>Full price</dt>
+                    <dd className="tabular-nums">QAR {fmt(c.listTotal)}</dd>
+                  </div>
+                  {c.volumeDiscount > 0 && (
+                    <div className="flex justify-between gap-3 text-emerald-300">
+                      <dt>Bundle discounts</dt>
+                      <dd className="tabular-nums">− QAR {fmt(c.volumeDiscount)}</dd>
+                    </div>
+                  )}
+                  {c.promoDiscount > 0 && c.promo && (
+                    <div className="flex justify-between gap-3 text-emerald-300">
+                      <dt>
+                        Promo {c.promo.code} <span className="text-emerald-300/70">({c.promo.label})</span>
+                      </dt>
+                      <dd className="tabular-nums">− QAR {fmt(c.promoDiscount)}</dd>
+                    </div>
+                  )}
                 </div>
               )}
               {q.saving > 0 && (
@@ -264,18 +358,77 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                 </div>
               )}
             </dl>
+            {onCheckPromo && (
+              <div className="lg:col-start-1">
+                {promo ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-sm font-semibold text-emerald-200">
+                      <LuTicket className="h-4 w-4" /> {promo.code}
+                      <span className="font-normal text-emerald-200/75">{promo.label}</span>
+                      <button type="button" onClick={() => setPromo(null)} aria-label="Remove promo code" className="ml-1 rounded-md p-0.5 text-emerald-200/70 hover:bg-white/10 hover:text-white">
+                        <LuX className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                    {promoNeedsLonger && (
+                      <span className="text-xs text-amber-300">This code needs the {promo.minMonths === 12 ? "Annual" : `${promo.minMonths}-month`} plan or longer.</span>
+                    )}
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void applyPromo();
+                    }}
+                  >
+                    <label htmlFor="promo" className="mb-1.5 block text-xs font-semibold tracking-wide text-white/60">
+                      Promo code
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <LuTicket className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/40" />
+                        <input
+                          id="promo"
+                          value={promoInput}
+                          onChange={(e) => {
+                            setPromoInput(e.target.value.toUpperCase().replace(/\s/g, ""));
+                            setPromoError(null);
+                          }}
+                          placeholder="Enter code"
+                          maxLength={30}
+                          autoComplete="off"
+                          className="h-11 w-full rounded-xl border border-white/15 bg-white/5 pr-3 pl-9 text-sm font-semibold tracking-wider text-white uppercase outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-white/35 placeholder:normal-case focus:border-white/40"
+                        />
+                      </div>
+                      <button type="submit" disabled={checking || !promoInput.trim()} className="h-11 rounded-xl border border-white/20 px-4 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-40">
+                        {checking ? "Checking..." : "Apply"}
+                      </button>
+                    </div>
+                    {promoError && <p role="alert" className="mt-1.5 text-xs font-medium text-rose-300">{promoError}</p>}
+                  </form>
+                )}
+              </div>
+            )}
 
-            <div className="flex flex-col justify-between gap-6 lg:border-l lg:border-white/10 lg:pl-10">
+            <div className="flex flex-col justify-between gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-l lg:border-white/10 lg:pl-10">
               <div>
                 <p className="text-xs font-semibold tracking-[0.2em] text-white/55 uppercase">Total today</p>
-                <p className="mt-2 flex items-end gap-1.5">
+                {c.listTotal > c.totalToday && (
+                  <p className="mt-2 text-sm text-white/45 tabular-nums">
+                    <s>QAR {fmt(c.listTotal)}</s>
+                    <span className="ml-2 rounded-full bg-emerald-400/15 px-2 py-0.5 text-xs font-semibold text-emerald-300 no-underline">
+                      You save QAR {fmt(c.listTotal - c.totalToday)}
+                    </span>
+                  </p>
+                )}
+                <p className="mt-1 flex items-end gap-1.5">
                   <span className="mb-1.5 text-sm font-semibold text-white/70">QAR</span>
-                  <span className="font-display text-5xl font-semibold tracking-tight tabular-nums">{fmt(q.total + one.total)}</span>
+                  <span className="font-display text-5xl font-semibold tracking-tight tabular-nums">{fmt(c.totalToday)}</span>
                 </p>
                 <p className="mt-1 text-sm text-white/60">
-                  Then QAR {fmt(q.total)} every {q.termLabel}
+                  Then QAR {fmt(c.renewal)} every {q.termLabel}
                   {q.months > 1 && <> · QAR {fmt(q.perMonth)} per month</>}
                 </p>
+                {c.promoDiscount > 0 && <p className="mt-1 text-xs text-white/45">The promo code applies to your first invoice.</p>}
               </div>
               <div>
                 {mode === "marketing" ? (
@@ -286,7 +439,9 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => onChoose?.({ quote: q, entrances, onboarding: onboarding && !annual, oneTime: one.total })}
+                    onClick={() =>
+                      onChoose?.({ quote: q, entrances: one.entrances.length, onboarding: onboarding && !annual, oneTime: one.total, promoCode: c.promo?.code ?? null, totalToday: c.totalToday })
+                    }
                     className="flex h-12 w-full items-center justify-center rounded-xl bg-white text-sm font-semibold text-[#2d1a6e] transition hover:bg-brand-50 disabled:opacity-60"
                   >
                     {busy ? "Sending..." : (chooseLabel ?? "Choose this plan")}

@@ -1,10 +1,10 @@
 "use client";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
-import { LuBuilding2, LuCopy, LuPencil, LuPlus, LuTrendingUp, LuUsers } from "react-icons/lu";
+import { LuBuilding2, LuCopy, LuPencil, LuPlus, LuTicket, LuTrendingUp, LuUsers } from "react-icons/lu";
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, Modal, PageHeader, Segmented, Select, Skeleton, StatCard, Textarea, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
-import { api } from "@/lib/api-client";
+import { api, fieldErrors } from "@/lib/api-client";
 import { toDateInput } from "@/lib/dates";
 import { formatDate, formatQAR, timeAgo } from "@/lib/format";
 import { MAX_EXTRA_BRANCHES, TERMS, quote, qar, termFor } from "@/lib/pricing";
@@ -129,6 +129,8 @@ export default function AdminPage() {
         )}
       </Card>
       <p className="mt-3 text-xs text-muted">For privacy, VOXI admins see each gym’s totals only, never its members’ details.</p>
+
+      <PromoCodes />
 
       <CreateGymModal open={creating} onClose={() => setCreating(false)} onDone={reload} />
       <EditGymModal gym={editing} onClose={() => setEditing(null)} onDone={reload} />
@@ -351,6 +353,12 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
                 {req.onboarding ? "onboarding" : ""} ({qar(req.oneTime)})
               </p>
             )}
+            {req.promoCode && (
+              <p className="text-emerald-700 dark:text-emerald-400">
+                Promo {req.promoCode}: −{qar(req.promoDiscount ?? 0)}
+              </p>
+            )}
+            {req.totalToday != null && <p className="font-semibold text-ink">Invoice now: {qar(req.totalToday)}</p>}
             <p className="text-muted">
               By {req.requestedBy} on {formatDate(req.requestedAt)}. Activate once the invoice is paid.
             </p>
@@ -397,6 +405,187 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
         </Field>
         <Field label="Internal notes" className="sm:col-span-2" hint="Only the VOXI team sees this">
           <Textarea rows={3} value={form.platformNotes} onChange={(e) => setForm({ ...form, platformNotes: e.target.value })} />
+        </Field>
+      </div>
+    </Modal>
+  );
+}
+
+type PromoRow = {
+  id: string; code: string; kind: "PERCENT" | "AMOUNT"; value: number; appliesTo: "ALL" | "SUBSCRIPTION" | "ONE_TIME";
+  minMonths: number | null; expiresAt: string | null; maxUses: number | null; uses: number; active: boolean; note: string | null; label: string;
+};
+
+/** Promo codes gyms can enter on their Billing page. */
+function PromoCodes() {
+  const { data, reload } = useApi<{ promos: PromoRow[] }>("/api/admin/promos");
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const promos = data?.promos ?? [];
+
+  const toggle = async (p: PromoRow) => {
+    try {
+      await api.patch(`/api/admin/promos/${p.id}`, { active: !p.active });
+      toast("success", `${p.code} ${p.active ? "switched off" : "switched on"}`);
+      reload();
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  const status = (p: PromoRow) => {
+    if (!p.active) return <Badge tone="gray">Off</Badge>;
+    if (p.expiresAt && new Date(p.expiresAt).getTime() < Date.now()) return <Badge tone="red">Expired</Badge>;
+    if (p.maxUses != null && p.uses >= p.maxUses) return <Badge tone="amber">Used up</Badge>;
+    return <Badge tone="green">Live</Badge>;
+  };
+
+  return (
+    <div className="mt-10">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Promo codes</h2>
+          <p className="text-sm text-muted">Gyms enter these on their Billing page. A code takes money off the first invoice only.</p>
+        </div>
+        <Button variant="secondary" onClick={() => setOpen(true)}>
+          <LuTicket className="h-4 w-4" /> New promo code
+        </Button>
+      </div>
+      <Card>
+        {promos.length === 0 ? (
+          <EmptyState icon={LuTicket} title="No promo codes yet" message="Create one, e.g. LAUNCH20 for 20% off the first invoice." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs text-muted">
+                  <th className="px-4 py-3 font-medium">Code</th>
+                  <th className="px-4 py-3 font-medium">Discount</th>
+                  <th className="px-4 py-3 font-medium">Rules</th>
+                  <th className="px-4 py-3 font-medium">Used</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {promos.map((p) => (
+                  <tr key={p.id} className="border-b border-line last:border-0">
+                    <td className="px-4 py-3 font-mono font-semibold tracking-wide text-ink">{p.code}</td>
+                    <td className="px-4 py-3 text-ink-soft">{p.label}</td>
+                    <td className="px-4 py-3 text-muted">
+                      {[p.minMonths ? `${termFor(p.minMonths).name} or longer` : "Any plan", p.expiresAt ? `until ${formatDate(p.expiresAt)}` : null, p.note]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </td>
+                    <td className="px-4 py-3 text-ink-soft tabular-nums">
+                      {p.uses}
+                      {p.maxUses != null ? ` / ${p.maxUses}` : ""}
+                    </td>
+                    <td className="px-4 py-3">{status(p)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Button size="sm" variant="ghost" onClick={() => toggle(p)}>
+                        {p.active ? "Switch off" : "Switch on"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+      <NewPromoModal open={open} onClose={() => setOpen(false)} onDone={reload} />
+    </div>
+  );
+}
+
+function NewPromoModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const empty = { code: "", kind: "PERCENT" as "PERCENT" | "AMOUNT", value: "", appliesTo: "ALL", minMonths: "", expiresAt: "", maxUses: "", note: "" };
+  const [f, setF] = useState(empty);
+  const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (open) {
+      setF(empty);
+      setErrors({});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const save = async () => {
+    setBusy(true);
+    setErrors({});
+    try {
+      await api.post("/api/admin/promos", {
+        code: f.code,
+        kind: f.kind,
+        value: f.value,
+        appliesTo: f.appliesTo,
+        minMonths: f.minMonths || null,
+        expiresAt: f.expiresAt || null,
+        maxUses: f.maxUses || null,
+        note: f.note || null,
+      });
+      toast("success", `${f.code.toUpperCase()} created`);
+      onDone();
+      onClose();
+    } catch (e) {
+      setErrors(fieldErrors(e));
+      toast("error", e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="New promo code"
+      description="Gyms type the code on their Billing page. It takes money off their first invoice."
+      footer={
+        <Button onClick={save} loading={busy}>
+          Create code
+        </Button>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Code" required hint="Letters and numbers, e.g. LAUNCH20" error={errors.code}>
+          <Input value={f.code} maxLength={30} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase().replace(/\s/g, "") })} className="font-mono tracking-wide" />
+        </Field>
+        <Field label="Discount" required error={errors.value}>
+          <div className="flex gap-2">
+            <Select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as "PERCENT" | "AMOUNT" })} className="w-28">
+              <option value="PERCENT">%</option>
+              <option value="AMOUNT">QAR</option>
+            </Select>
+            <Input type="number" min={1} max={f.kind === "PERCENT" ? 100 : undefined} inputMode="numeric" value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} placeholder={f.kind === "PERCENT" ? "20" : "2000"} />
+          </div>
+        </Field>
+        <Field label="Takes money off">
+          <Select value={f.appliesTo} onChange={(e) => setF({ ...f, appliesTo: e.target.value })}>
+            <option value="ALL">The whole first invoice</option>
+            <option value="SUBSCRIPTION">The subscription only</option>
+            <option value="ONE_TIME">One-time services only</option>
+          </Select>
+        </Field>
+        <Field label="Valid for">
+          <Select value={f.minMonths} onChange={(e) => setF({ ...f, minMonths: e.target.value })}>
+            <option value="">Any plan</option>
+            <option value="6">6 months or longer</option>
+            <option value="12">Annual only</option>
+          </Select>
+        </Field>
+        <Field label="Expires on" hint="Optional" error={errors.expiresAt}>
+          <Input type="date" value={f.expiresAt} min={toDateInput(new Date())} onChange={(e) => setF({ ...f, expiresAt: e.target.value })} />
+        </Field>
+        <Field label="Maximum gyms" hint="Optional. Empty means no limit" error={errors.maxUses}>
+          <Input type="number" min={1} inputMode="numeric" value={f.maxUses} onChange={(e) => setF({ ...f, maxUses: e.target.value })} />
+        </Field>
+        <Field label="Note" hint="Only VOXI admins see this" className="sm:col-span-2">
+          <Input value={f.note} maxLength={200} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="e.g. Launch offer for gyms met at the expo" />
         </Field>
       </div>
     </Modal>

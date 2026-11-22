@@ -344,7 +344,7 @@ export type AdminGym = {
   billingMonths: number;
   extraBranches: number;
   paidUntil: ISODate | null;
-  planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; requestedAt: ISODate; requestedBy: string } | null;
+  planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; promoCode?: string | null; promoDiscount?: number; totalToday?: number; requestedAt: ISODate; requestedBy: string } | null;
   platformNotes: string | null;
   createdAt: ISODate;
   owner: { name: string; email: string; lastLoginAt: ISODate | null } | null;

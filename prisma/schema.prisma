@@ -714,3 +714,25 @@ model EmailCode {
 
   @@index([email, purpose, createdAt])
 }
+
+/// Discount codes VOXI gives to gyms (e.g. LAUNCH20), managed from /admin and applied on the Billing page.
+model PromoCode {
+  id        String    @id @default(cuid())
+  /// Upper-case, letters and numbers, e.g. "LAUNCH20"
+  code      String    @unique
+  /// PERCENT: value is 1-100. AMOUNT: value is QAR off.
+  kind      String    @default("PERCENT")
+  value     Int
+  /// ALL | SUBSCRIPTION | ONE_TIME
+  appliesTo String    @default("ALL")
+  /// Only for terms of at least this many months (e.g. 12 = Annual only)
+  minMonths Int?
+  expiresAt DateTime?
+  /// How many gyms can use it; empty means no limit
+  maxUses   Int?
+  /// Counted when VOXI activates a plan that used the code
+  uses      Int       @default(0)
+  active    Boolean   @default(true)
+  note      String?
+  createdAt DateTime  @default(now())
+}

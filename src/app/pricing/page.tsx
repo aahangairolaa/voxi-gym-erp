@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { PricingTable } from "@/components/marketing/pricing-table";
 import { SiteFooter, SiteNav } from "@/components/marketing/site-nav";
-import { BRANCH_DISCOUNTS, MAX_LOCATIONS, TERMS, TRIAL_DAYS, branchPrice } from "@/lib/pricing";
+import { BRANCH_DISCOUNTS, ENTRANCE_DISCOUNTS, ENTRANCE_PRICE, MAX_LOCATIONS, TERMS, TRIAL_DAYS, branchListPrice, branchPrice, entrancePrice } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -12,7 +12,8 @@ const fmt = (n: number) => n.toLocaleString("en");
 
 const FAQ = [
   ["How do I pay?", "After your trial, choose a term and branches on the Billing page inside VOXI. We send an invoice and you pay by bank transfer, card or Fawran. Your plan starts the day payment arrives."],
-  ["Can I add a branch later?", `Yes. Run up to ${MAX_LOCATIONS} locations and add branches any time from Billing. Each new branch is cheaper than the one before it.`],
+  ["Can I add a branch later?", `Yes. Run up to ${MAX_LOCATIONS} locations and add branches any time from Billing. The 2nd branch you add is 20% off, and every one after it costs even less.`],
+  ["Do you have promo codes?", "Yes, from time to time. Enter your code on the Billing page when you choose your plan and the discount comes off your first invoice."],
   ["What happens when my trial ends?", "Nothing is deleted. Choose a plan to keep going, and everything you set up during the trial stays exactly as it is."],
   ["Is there a contract?", "Only the term you choose. Pick 3, 6 or 12 months. Longer terms cost less per month."],
 ];
@@ -62,9 +63,38 @@ export default function PricingPage() {
                   <td className="text-right text-sm text-emerald-600 dark:text-emerald-400">{d ? `${Math.round(d * 100)}% off` : "Full price"}</td>
                   {TERMS.map((t) => (
                     <td key={t.months} className="text-right tabular-nums">
+                      {d > 0 && <s className="mr-1.5 text-muted decoration-1">{fmt(branchListPrice(t.months))}</s>}
                       QAR {fmt(branchPrice(i + 1, t.months))}
                     </td>
                   ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <h2 className="mt-14 text-2xl font-semibold tracking-tight">Biometric entrances</h2>
+        <p className="mt-2 mb-6 max-w-2xl text-sm text-muted">
+          A one-time price per entrance: terminal, turnstile wiring and member enrolment. Every extra entrance gets a little more off.
+        </p>
+        <div className="card overflow-x-auto">
+          <table className="table min-w-[480px]">
+            <thead>
+              <tr>
+                <th>Entrance</th>
+                <th className="text-right">Discount</th>
+                <th className="text-right">One-time price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ENTRANCE_DISCOUNTS.map((d, i) => (
+                <tr key={i}>
+                  <td className="font-medium">{i === ENTRANCE_DISCOUNTS.length - 1 ? `Entrance ${i + 1} and up` : `Entrance ${i + 1}`}</td>
+                  <td className="text-right text-sm text-emerald-600 dark:text-emerald-400">{d ? `${Math.round(d * 100)}% off` : "Full price"}</td>
+                  <td className="text-right tabular-nums">
+                    {d > 0 && <s className="mr-1.5 text-muted decoration-1">{fmt(ENTRANCE_PRICE)}</s>}
+                    QAR {fmt(entrancePrice(i + 1))}
+                  </td>
                 </tr>
               ))}
             </tbody>
