@@ -7,7 +7,8 @@ import { useApi } from "@/hooks/use-api";
 import { useBranches } from "@/hooks/use-lookups";
 import { PhotoInput } from "@/components/members/photo-input";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { api } from "@/lib/api-client";
+import { api, fieldErrors } from "@/lib/api-client";
+import { collectErrors, emailError, nameError, phoneError } from "@/lib/validate";
 import { formatQAR, timeAgo } from "@/lib/format";
 import { ROLE_LABEL, ROLES, type Role } from "@/lib/permissions";
 import type { StaffMember } from "@/types/api";
@@ -21,7 +22,7 @@ const ROLE_HELP: Record<Role, string> = {
   HOUSEKEEPING: "Cleaning team, kept on your staff list (branch, phone, salary). No VOXI login needed.",
   SUPER_ADMIN: "VOXI platform team",
 };
-const blank = { name: "", email: "", phone: "", role: "RECEPTION" as Role, branchId: "", salary: "" as number | "", specialty: "", isActive: true, password: "" };
+const blank = { name: "", email: "", phone: "+974 ", role: "RECEPTION" as Role, branchId: "", salary: "" as number | "", specialty: "", isActive: true, password: "" };
 
 export default function StaffPage() {
   const me = useUser();
@@ -36,10 +37,22 @@ export default function StaffPage() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoChange, setPhotoChange] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [tried, setTried] = useState(false);
+  const [serverFields, setServerFields] = useState<Record<string, string>>({});
+  const problems = collectErrors({
+    name: nameError(form.name.slice(0, 60), "Full name"),
+    email: emailError(form.email, signsIn),
+    phone: phoneError(form.phone),
+    password: signsIn && editing === "new" ? (form.password.length < 8 ? "Use at least 8 characters" : null) : form.password && form.password.length < 8 ? "Use at least 8 characters" : null,
+    salary: form.salary !== "" && (form.salary < 0 || !Number.isInteger(form.salary)) ? "Enter a whole number of riyals" : null,
+  });
+  const err = (k: string) => (tried ? (problems[k] ?? serverFields[k]) : serverFields[k]) ?? null;
   const allowedRoles = me.role === "OWNER" ? ROLES : (["RECEPTION", "TRAINER", "HOUSEKEEPING"] as Role[]);
 
   useEffect(() => {
     setError(null);
+    setTried(false);
+    setServerFields({});
     setPhoto(editing && editing !== "new" ? editing.photoUrl : null);
     setPhotoChange(undefined);
     if (editing === "new") setForm(blank);
@@ -51,6 +64,12 @@ export default function StaffPage() {
   }, [editing]);
 
   const save = async () => {
+    setTried(true);
+    setServerFields({});
+    if (Object.keys(problems).length) {
+      setError("Please fix the highlighted fields.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -61,6 +80,7 @@ export default function StaffPage() {
       setEditing(null);
       reload();
     } catch (e) {
+      setServerFields(fieldErrors(e));
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setSaving(false);
@@ -146,11 +166,11 @@ export default function StaffPage() {
               }}
             />
           </div>
-          <Field label="Full name" required>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Field label="Full name" required error={err("name")}>
+            <Input value={form.name} maxLength={100} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
-          <Field label={signsIn ? "Email (login)" : "Email (optional)"} required={signsIn}>
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Field label={signsIn ? "Email (login)" : "Email (optional)"} required={signsIn} error={err("email")}>
+            <Input type="email" inputMode="email" maxLength={254} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="name@example.com" />
           </Field>
           <Field label="Role" hint={ROLE_HELP[form.role]}>
             <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
@@ -171,12 +191,12 @@ export default function StaffPage() {
               ))}
             </Select>
           </Field>
-          <Field label="Phone">
-            <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+          <Field label="Mobile" required error={err("phone")}>
+            <PhoneInput value={form.phone} invalid={!!err("phone")} onChange={(v) => setForm({ ...form, phone: v })} />
           </Field>
           {me.role === "OWNER" && (
-            <Field label="Monthly salary (QAR)">
-              <Input type="number" min={0} value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value === "" ? "" : Number(e.target.value) })} />
+            <Field label="Monthly salary (QAR)" hint="Optional" error={err("salary")}>
+              <Input type="number" min={0} step={1} inputMode="numeric" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value === "" ? "" : Number(e.target.value) })} />
             </Field>
           )}
           {form.role === "TRAINER" && (
@@ -185,7 +205,7 @@ export default function StaffPage() {
             </Field>
           )}
           {signsIn && (
-            <Field label={editing === "new" ? "Password" : "New password"} hint={editing === "new" ? "At least 8 characters" : "Leave empty to keep the current password"} required={editing === "new"}>
+            <Field label={editing === "new" ? "Password" : "New password"} hint={editing === "new" ? "At least 8 characters" : "Leave empty to keep the current password"} required={editing === "new"} error={err("password")}>
               <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />
             </Field>
           )}

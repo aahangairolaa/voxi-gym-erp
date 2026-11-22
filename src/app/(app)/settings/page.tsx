@@ -9,6 +9,7 @@ import { RolesAccessCard } from "@/components/settings/roles-access-card";
 import { Button, Card, CardHeader, Field, Input, Modal, PageHeader, Toggle, useConfirm, useToast } from "@/components/ui";
 import { invalidate, useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
+import { phoneError } from "@/lib/validate";
 import { can } from "@/lib/permissions";
 import type { Branch, Settings } from "@/types/api";
 
@@ -30,7 +31,12 @@ export default function SettingsPage() {
     else if (branchEdit) setBranchForm({ name: branchEdit.name, address: branchEdit.address ?? "", phone: branchEdit.phone ?? "", isActive: branchEdit.isActive });
   }, [branchEdit]);
 
+  const branchPhoneError = phoneError(branchForm.phone, false);
   const saveBranch = async () => {
+    if (branchPhoneError) {
+      toast("error", branchPhoneError);
+      return;
+    }
     try {
       const body = { ...branchForm, address: branchForm.address || null, phone: branchForm.phone || null };
       if (branchEdit === "new") await api.post("/api/branches", body);
@@ -146,8 +152,8 @@ export default function SettingsPage() {
           <Field label="Address">
             <Input value={branchForm.address} onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })} />
           </Field>
-          <Field label="Phone">
-            <PhoneInput value={branchForm.phone} onChange={(v) => setBranchForm({ ...branchForm, phone: v })} />
+          <Field label="Phone" hint="Optional" error={branchForm.phone.replace(/^\+\d+\s*/, "") ? branchPhoneError : null}>
+            <PhoneInput value={branchForm.phone} invalid={!!branchForm.phone.replace(/^\+\d+\s*/, "") && !!branchPhoneError} onChange={(v) => setBranchForm({ ...branchForm, phone: v })} />
           </Field>
           <Toggle checked={branchForm.isActive} onChange={(v) => setBranchForm({ ...branchForm, isActive: v })} label="Active" />
         </div>

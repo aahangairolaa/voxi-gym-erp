@@ -113,7 +113,8 @@ await step("payments", async () => {
 
 await step("photo", async () => {
   const cur = (await call("GET", `/api/members/${voxiMemberId}`, O)).json;
-  const base = { firstName: cur.firstName, lastName: cur.lastName, phone: cur.phone, email: cur.email, gender: cur.gender, branchId: cur.branch?.id ?? null };
+  const dohaDob = cur.dateOfBirth ? new Date(new Date(cur.dateOfBirth).getTime() + 3 * 3600_000).toISOString().slice(0, 10) : "1990-01-15";
+  const base = { firstName: cur.firstName, lastName: cur.lastName || "Member", phone: cur.phone, email: cur.email, gender: cur.gender ?? "MALE", dateOfBirth: dohaDob, branchId: cur.branch?.id ?? null };
   const u = await call("PUT", `/api/members/${voxiMemberId}`, { ...O, body: { ...base, photo: PNG } });
   check("upload member photo", u.status === 200, u.text);
   const detail = await call("GET", `/api/members/${voxiMemberId}`, O);
@@ -155,10 +156,35 @@ await step("self check-in screen", async () => {
 
 await step("member rules", async () => {
   const young = new Date(Date.now() - 5 * 365 * 86_400_000).toISOString().slice(0, 10);
-  const kid = await call("POST", "/api/members", { ...O, body: { firstName: "Tiny", lastName: "", phone: "+974 5000 0001", dateOfBirth: young } });
-  check("members must be 10 or older", kid.status === 400 && /10 years/.test(kid.json?.error ?? ""), kid.text);
-  const noLast = await call("POST", "/api/members", { ...O, body: { firstName: "Mononym", phone: "+974 5000 0002", dateOfBirth: "1995-06-15" } });
-  check("last name is optional", noLast.status === 200 && noLast.json?.lastName === "", noLast.text);
+  const good = { firstName: "Rule", lastName: "Tester", phone: "+974 5000 0002", gender: "FEMALE", dateOfBirth: "1995-06-15" };
+  const kid = await call("POST", "/api/members", { ...O, body: { ...good, dateOfBirth: young } });
+  check("members must be 10 or older", kid.status === 400 && /10 years/.test(kid.json?.error ?? "") && !!kid.json?.fields?.dateOfBirth, kid.text);
+  const bads = [
+    ["letters in phone are refused", { phone: "+974 5512abcd" }, "phone"],
+    ["Qatar numbers need 8 digits", { phone: "+974 5512345" }, "phone"],
+    ["long phone numbers are refused", { phone: "+974 55123456789012345678" }, "phone"],
+    ["India numbers need 10 digits", { phone: "+91 98765 4321" }, "phone"],
+    ["a sentence is not an email", { email: "this is not an email" }, "email"],
+    ["email without a domain is refused", { email: "name@gmail" }, "email"],
+    ["last name is required", { lastName: "" }, "lastName"],
+    ["names can't contain numbers", { firstName: "R2D2" }, "firstName"],
+    ["gender is required", { gender: null }, "gender"],
+    ["date of birth is required", { dateOfBirth: null }, "dateOfBirth"],
+    ["future birthdays are refused", { dateOfBirth: "2099-01-01" }, "dateOfBirth"],
+    ["QID must be 11 digits", { qid: "12345" }, "qid"],
+    ["emergency phone is checked too", { emergencyPhone: "+974 12" }, "emergencyPhone"],
+  ];
+  for (const [label, patch, field] of bads) {
+    const r = await call("POST", "/api/members", { ...O, body: { ...good, ...patch } });
+    check(label, r.status === 400 && !!r.json?.fields?.[field], r.text);
+  }
+  const noLast = await call("POST", "/api/members", { ...O, body: { ...good, phone: "+974 5000-0002", email: "Rule.Tester@Example.com", emergencyPhone: "+974 " } });
+  check("valid member saves (phone tidied, email lower-cased)", noLast.status === 200 && noLast.json?.lastName === "Tester", noLast.text);
+  const gotM = noLast.json?.id ? (await call("GET", `/api/members/${noLast.json.id}`, O)).json : null;
+  check("phone saved as +974 50000002", gotM?.phone === "+974 50000002" && gotM?.email === "rule.tester@example.com" && gotM?.emergencyPhone == null, JSON.stringify([gotM?.phone, gotM?.email, gotM?.emergencyPhone]));
+  const india = await call("POST", "/api/members", { ...O, body: { ...good, firstName: "Arjun", phone: "+91 98765 43210" } });
+  check("10-digit Indian mobile accepted", india.status === 200, india.text);
+  if (india.json?.id) await call("DELETE", `/api/members/${india.json.id}`, O);
   const got = noLast.json?.id ? (await call("GET", `/api/members/${noLast.json.id}`, O)).json : null;
   const dob = got?.dateOfBirth ? new Date(new Date(got.dateOfBirth).getTime() + 3 * 3600_000).toISOString().slice(0, 10) : null;
   check("date of birth saved as entered (Doha date)", dob === "1995-06-15", got?.dateOfBirth);
@@ -214,10 +240,12 @@ await step("tenant isolation", async () => {
 // ── Housekeeping: a staff role without a login ────────────────────────────
 await step("housekeeping", async () => {
   const add = await call("POST", "/api/staff", { ...O, body: { name: "Test Cleaner", role: "HOUSEKEEPING", phone: "5500 1122", salary: 2500 } });
+  const noPhone = await call("POST", "/api/staff", { ...O, body: { name: "No Phone", role: "HOUSEKEEPING", phone: "" } });
+  check("staff need a mobile number", noPhone.status === 400 && !!noPhone.json?.fields?.phone, noPhone.text);
   check("add housekeeping staff without email or password", add.status === 200 && add.json?.role === "HOUSEKEEPING", add.text);
   const list = await call("GET", "/api/staff", O);
   check("housekeeping staff appear on the team list", list.json?.staff?.some((s) => s.name === "Test Cleaner"), list.text?.slice(0, 120));
-  const noEmail = await call("POST", "/api/staff", { ...O, body: { name: "No Email Reception", role: "RECEPTION", password: "longpassword1" } });
+  const noEmail = await call("POST", "/api/staff", { ...O, body: { name: "No Email Reception", role: "RECEPTION", phone: "+974 55001123", password: "longpassword1" } });
   check("other roles still need an email", noEmail.status === 400, noEmail.text);
   const gone = await call("GET", "/api/housekeeping/today", O);
   check("no separate housekeeping section", gone.status === 404, gone.status);
@@ -290,7 +318,7 @@ await step("staff photo", async () => {
 // ── New staff confirm their email on first sign-in ─────────────────────────
 await step("staff email check", async () => {
   const em = `new-staff-${Date.now()}@example.com`;
-  const add = await call("POST", "/api/staff", { ...O, body: { name: "New Receptionist", email: em, phone: null, role: "RECEPTION", branchId: null, salary: null, specialty: null, isActive: true, password: "longpassword1" } });
+  const add = await call("POST", "/api/staff", { ...O, body: { name: "New Receptionist", email: em, phone: "+974 55001124", role: "RECEPTION", branchId: null, salary: null, specialty: null, isActive: true, password: "longpassword1" } });
   check("owner adds a staff login", add.status === 200, add.text?.slice(0, 120));
   const first = await call("POST", "/api/auth/login", { body: { email: em, password: "longpassword1" } });
   check("first sign-in asks for an email code", first.json?.needsCode === true, first.text);
@@ -357,9 +385,19 @@ await step("accounts", async () => {
   const ms = await fetch(BASE + "/api/auth/microsoft?intent=login", { redirect: "manual" });
   check("Microsoft sign-in off until keys are added", ms.status >= 300 && ms.status < 400 && (ms.headers.get("location") || "").includes("microsoft_off"), ms.headers.get("location"));
   const email = `e2e-${Date.now()}@example.com`;
-  const bad = await call("POST", "/api/auth/register", { body: { gymName: "E2E Gym", ownerName: "Test Owner", email, password: "longpassword1", acceptTerms: false } });
+  const bad = await call("POST", "/api/auth/register", { body: { gymName: "E2E Gym", firstName: "Test", lastName: "Owner", email, phone: "+974 5555 1234", password: "longpassword1", acceptTerms: false } });
   check("sign-up requires accepting terms", bad.status === 400, bad.text);
-  const form = { gymName: "E2E Gym", ownerName: "Test Owner", email, phone: "5555 1234", password: "longpassword1", acceptTerms: true };
+  const form = { gymName: "E2E Gym", firstName: "Test", lastName: "Owner", email, phone: "+974 5555 1234", password: "longpassword1", acceptTerms: true, marketingOptIn: true };
+  for (const [label, patch, field] of [
+    ["sign-up needs a last name", { lastName: "" }, "lastName"],
+    ["sign-up needs a mobile number", { phone: "+974 " }, "phone"],
+    ["sign-up refuses letters in the mobile", { phone: "+974 55ab1234" }, "phone"],
+    ["sign-up refuses a sentence as email", { email: "hello there friend" }, "email"],
+    ["sign-up password needs a number", { password: "onlyletters" }, "password"],
+  ]) {
+    const r = await call("POST", "/api/auth/register", { body: { ...form, ...patch } });
+    check(label, r.status === 400 && !!r.json?.fields?.[field], r.text);
+  }
   const step1 = await call("POST", "/api/auth/register", { body: form });
   check("email sign-up sends a code first (no gym yet)", step1.json?.needsCode === true && !sessionCookie({ headers: step1.headers }), step1.text);
   await sleep(300);
@@ -387,7 +425,7 @@ await step("accounts", async () => {
   check("get-started checklist", ob.json?.total === 6 && ob.json?.done < 6, ob.text);
   const mem = await call("GET", "/api/members", R);
   check("new gym starts with no members (isolated)", mem.json?.counts?.ALL === 0, mem.json?.counts?.ALL);
-  const dup = await call("POST", "/api/auth/register", { body: { gymName: "Again", ownerName: "Someone Else", email, password: "longpassword1", acceptTerms: true } });
+  const dup = await call("POST", "/api/auth/register", { body: { gymName: "Again", firstName: "Someone", lastName: "Else", email, phone: "+974 5555 9876", password: "longpassword1", acceptTerms: true } });
   check("same email can't sign up twice", dup.status === 409, dup.text);
 
   // Import members

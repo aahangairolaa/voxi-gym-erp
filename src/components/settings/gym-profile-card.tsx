@@ -3,7 +3,8 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useRef, useState } from "react";
 import { LuImagePlus, LuStore, LuTrash2 } from "react-icons/lu";
 import { Button, Card, CardHeader, Field, Input, Skeleton, Textarea, useToast } from "@/components/ui";
-import { api } from "@/lib/api-client";
+import { api, fieldErrors } from "@/lib/api-client";
+import { collectErrors, emailError, phoneError, websiteError } from "@/lib/validate";
 import { compressImage } from "@/lib/image";
 import type { Settings } from "@/types/api";
 
@@ -15,6 +16,17 @@ export function GymProfileCard({ settings, editable, onSaved }: { settings: Sett
   const [form, setForm] = useState<Settings | null>(null);
   const [logoChange, setLogoChange] = useState<string | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  const [tried, setTried] = useState(false);
+  const [serverFields, setServerFields] = useState<Record<string, string>>({});
+  const problems = form
+    ? collectErrors({
+        name: form.name.trim() ? null : "Gym name is required",
+        phone: phoneError(form.phone, false),
+        email: emailError(form.email, false),
+        website: websiteError(form.website),
+      })
+    : {};
+  const err = (k: string) => (tried ? (problems[k] ?? serverFields[k]) : serverFields[k]) ?? null;
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -26,6 +38,12 @@ export function GymProfileCard({ settings, editable, onSaved }: { settings: Sett
 
   const save = async () => {
     if (!form) return;
+    setTried(true);
+    setServerFields({});
+    if (Object.keys(problems).length) {
+      toast("error", "Please fix the highlighted fields.");
+      return;
+    }
     setSaving(true);
     try {
       const { logo: _logo, ...rest } = form;
@@ -34,6 +52,7 @@ export function GymProfileCard({ settings, editable, onSaved }: { settings: Sett
       onSaved();
       setTimeout(() => window.location.reload(), 700); // refresh sidebar logo & colours
     } catch (e) {
+      setServerFields(fieldErrors(e));
       toast("error", e instanceof Error ? e.message : "Failed");
     } finally {
       setSaving(false);
@@ -123,7 +142,7 @@ export function GymProfileCard({ settings, editable, onSaved }: { settings: Sett
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Gym name" required>
+            <Field label="Gym name" required error={err("name")}>
               <Input {...f("name")} />
             </Field>
             <Field label="Legal name">
@@ -132,14 +151,14 @@ export function GymProfileCard({ settings, editable, onSaved }: { settings: Sett
             <Field label="Commercial Registration (CR) no.">
               <Input {...f("crNumber")} />
             </Field>
-            <Field label="Phone">
-              <PhoneInput value={form?.phone ?? ""} onChange={(v) => form && setForm({ ...form, phone: v })} />
+            <Field label="Phone" error={err("phone")}>
+              <PhoneInput value={form?.phone ?? ""} invalid={!!err("phone")} onChange={(v) => form && setForm({ ...form, phone: v })} />
             </Field>
-            <Field label="Email">
-              <Input {...f("email")} />
+            <Field label="Email" error={err("email")}>
+              <Input type="email" inputMode="email" maxLength={254} placeholder="hello@yourgym.qa" {...f("email")} />
             </Field>
-            <Field label="Website">
-              <Input {...f("website")} />
+            <Field label="Website" error={err("website")}>
+              <Input inputMode="url" placeholder="yourgym.qa" {...f("website")} />
             </Field>
             <Field label="Instagram" hint="e.g. @voxi.qa">
               <Input {...f("instagram")} />

@@ -133,6 +133,8 @@ export async function registerGym(input: {
   microsoftId?: string | null;
   /** true when the owner proved the email (code, Google or Microsoft) */
   emailVerified?: boolean;
+  /** ticked "send me offers and product news" */
+  marketingOptIn?: boolean;
 }): Promise<Session> {
   if (process.env.ALLOW_SIGNUP === "false") throw new ApiError(403, "New sign-ups are closed. Please contact VOXI for a demo.");
   if (!input.password && !input.googleId && !input.microsoftId) throw new ApiError(400, "Choose a password (at least 8 characters).");
@@ -156,7 +158,13 @@ export async function registerGym(input: {
     ownerMicrosoftId: input.microsoftId ?? null,
   });
   const owner = await db.staff.findUniqueOrThrow({ where: { email: gym.ownerEmail } });
-  await db.staff.update({ where: { id: owner.id }, data: { lastLoginAt: new Date(), ...(input.emailVerified ? { emailVerifiedAt: new Date() } : {}) } });
+  await db.staff.update({ where: { id: owner.id }, data: {
+      lastLoginAt: new Date(),
+      phone: input.phone,
+      ...(input.emailVerified ? { emailVerifiedAt: new Date() } : {}),
+      ...(input.marketingOptIn ? { marketingOptIn: true, marketingOptInAt: new Date() } : {}),
+    },
+  });
   return sessionFor(owner);
 }
 

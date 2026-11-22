@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { LuPhone, LuPlus, LuUserCheck, LuTrash2, LuMessageCircle, LuCalendar } from "react-icons/lu";
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Skeleton, Textarea, useConfirm, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
-import { api } from "@/lib/api-client";
+import { api, fieldErrors } from "@/lib/api-client";
+import { collectErrors, emailError, nameError, phoneError } from "@/lib/validate";
 import { LEAD_SOURCES, LEAD_STATUSES } from "@/lib/constants";
 import { toDateInput } from "@/lib/dates";
 import { formatShortDate, humanize, timeAgo } from "@/lib/format";
@@ -30,8 +31,18 @@ export default function LeadsPage() {
   const [editing, setEditing] = useState<Lead | "new" | null>(null);
   const [form, setForm] = useState(blank);
   const [saving, setSaving] = useState(false);
+  const [tried, setTried] = useState(false);
+  const [serverFields, setServerFields] = useState<Record<string, string>>({});
+  const problems = collectErrors({
+    name: nameError(form.name.slice(0, 60), "Name"),
+    phone: phoneError(form.phone),
+    email: emailError(form.email, false),
+  });
+  const err = (k: string) => (tried ? (problems[k] ?? serverFields[k]) : serverFields[k]) ?? null;
 
   useEffect(() => {
+    setTried(false);
+    setServerFields({});
     if (editing === "new") setForm(blank);
     else if (editing)
       setForm({
@@ -43,6 +54,9 @@ export default function LeadsPage() {
   const leads = data?.leads ?? [];
 
   const save = async () => {
+    setTried(true);
+    setServerFields({});
+    if (Object.keys(problems).length) return;
     setSaving(true);
     try {
       const body = { ...form, email: form.email || null, interest: form.interest || null, notes: form.notes || null, followUpAt: form.followUpAt || null };
@@ -52,6 +66,7 @@ export default function LeadsPage() {
       setEditing(null);
       reload();
     } catch (e) {
+      setServerFields(fieldErrors(e));
       toast("error", e instanceof Error ? e.message : "Failed");
     } finally {
       setSaving(false);
@@ -182,14 +197,14 @@ export default function LeadsPage() {
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name" required>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Field label="Name" required error={err("name")}>
+            <Input value={form.name} maxLength={100} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
-          <Field label="Mobile" required>
-            <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+          <Field label="Mobile" required error={err("phone")}>
+            <PhoneInput value={form.phone} invalid={!!err("phone")} onChange={(v) => setForm({ ...form, phone: v })} />
           </Field>
-          <Field label="Email">
-            <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <Field label="Email" hint="Optional" error={err("email")}>
+            <Input type="email" inputMode="email" maxLength={254} placeholder="name@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </Field>
           <Field label="Source">
             <Select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>

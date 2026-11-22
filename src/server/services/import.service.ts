@@ -10,6 +10,13 @@ import { ApiError } from "../http";
 import { randomToken } from "../crypto";
 import { addDays, endOfDay, fromDateInput, startOfDay } from "@/lib/dates";
 import type { GymSession } from "../auth";
+import { emailError, normalizePhone, phoneError } from "@/lib/validate";
+
+/** Spreadsheets usually hold local numbers: "5512 3456" means +974, "00974 ..." means +974. */
+function importPhone(raw: string) {
+  const v = raw.trim().replace(/^00/, "+");
+  return v.startsWith("+") ? v : `+974 ${v}`;
+}
 
 export type ImportRow = Partial<Record<(typeof IMPORT_FIELDS)[number], string>>;
 export const IMPORT_FIELDS = ["firstName", "lastName", "fullName", "phone", "email", "gender", "dateOfBirth", "qid", "nationality", "emergencyName", "emergencyPhone", "notes", "plan", "startDate", "endDate"] as const;
@@ -76,13 +83,16 @@ export async function importMembers(session: GymSession, rows: ImportRow[], opts
       last = parts.join(" ");
     }
     const name = `${first} ${last}`.trim() || `(row ${rowNo})`;
-    const phone = (r.phone ?? "").trim();
+    const rawPhone = (r.phone ?? "").trim();
     if (!first) return skipped.push({ row: rowNo, name, reason: "No name" });
-    if (digits(phone).length < 7) return skipped.push({ row: rowNo, name, reason: "Missing or short phone number" });
+    if (!rawPhone) return skipped.push({ row: rowNo, name, reason: "Missing phone number" });
+    const phoneProblem = phoneError(importPhone(rawPhone), true);
+    if (phoneProblem) return skipped.push({ row: rowNo, name, reason: `Phone “${rawPhone}”: ${phoneProblem.toLowerCase()}` });
+    const phone = normalizePhone(importPhone(rawPhone));
     const key = phoneKey(phone);
     if (seen.has(key)) return skipped.push({ row: rowNo, name, reason: "Phone number already in VOXI (or twice in the file)" });
     const email = r.email?.trim().toLowerCase() || null;
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return skipped.push({ row: rowNo, name, reason: `Invalid email “${email}”` });
+    if (email && emailError(email, false)) return skipped.push({ row: rowNo, name, reason: `Invalid email “${email}”` });
 
     let plan: (typeof plans)[number] | null = null;
     let start: Date | null = null;

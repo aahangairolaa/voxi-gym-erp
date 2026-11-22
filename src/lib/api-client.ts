@@ -8,9 +8,16 @@ export class ApiClientError extends Error {
   constructor(
     message: string,
     public status: number,
+    /** For 400s from form validation: { fieldName: "what's wrong" } */
+    public fields: Record<string, string> = {},
   ) {
     super(message);
   }
+}
+
+/** The per-field messages of a failed save, if the server sent any. */
+export function fieldErrors(err: unknown): Record<string, string> {
+  return err instanceof ApiClientError ? err.fields : {};
 }
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -28,7 +35,7 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   }
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiClientError(data?.error ?? `Request failed (${res.status})`, res.status);
+  if (!res.ok) throw new ApiClientError(data?.error ?? `Request failed (${res.status})`, res.status, data?.fields ?? {});
   return data as T;
 }
 

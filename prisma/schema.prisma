@@ -274,6 +274,8 @@ model Staff {
   sessionVersion Int       @default(0) // bump to sign this person out on every device
   photo          String? // small JPEG as a data: URL (served by /api/staff/:id/photo)
   photoUpdatedAt DateTime?
+  marketingOptIn   Boolean   @default(false) // ticked "send me VOXI offers and product news" at sign-up
+  marketingOptInAt DateTime?
   passwordResets PasswordReset[]
 
   paymentsReceived  Payment[]         @relation("ReceivedBy")

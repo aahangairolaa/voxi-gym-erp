@@ -190,6 +190,17 @@
     @apply mb-1.5 block text-xs font-semibold tracking-wide text-ink-soft;
   }
 
+  /* A field with a problem: red outline on whatever input it holds */
+  [data-invalid] .input,
+  [data-invalid] .phone-box,
+  .input[aria-invalid="true"] {
+    border-color: var(--color-rose-500, #f43f5e);
+  }
+  [data-invalid] .input:focus,
+  [data-invalid] .phone-box:focus-within {
+    box-shadow: 0 0 0 4px rgb(244 63 94 / 0.15);
+  }
+
   /* Data tables */
   .table {
     @apply w-full text-left text-sm;

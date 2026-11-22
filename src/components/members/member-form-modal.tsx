@@ -5,7 +5,8 @@ import { Button, Field, Input, Modal, Select, Textarea, useToast } from "@/compo
 import { invalidate } from "@/hooks/use-api";
 import { useForm } from "@/hooks/use-form";
 import { useBranches, usePlans } from "@/hooks/use-lookups";
-import { api } from "@/lib/api-client";
+import { api, fieldErrors } from "@/lib/api-client";
+import { collectErrors, dobBounds, dobError, emailError, nameError, phoneError, qidError } from "@/lib/validate";
 import { NATIONALITIES } from "@/lib/constants";
 import { toDateInput } from "@/lib/dates";
 import { formatQAR } from "@/lib/format";
@@ -39,6 +40,8 @@ export function MemberFormModal({
   const [method, setMethod] = useState("CARD");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tried, setTried] = useState(false); // after the first save attempt, problems update as you type
+  const [serverFields, setServerFields] = useState<Record<string, string>>({});
   // photo: shown value (URL or new data URL); photoChange: what to send (undefined = keep)
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoChange, setPhotoChange] = useState<string | null | undefined>(undefined);
@@ -47,6 +50,8 @@ export function MemberFormModal({
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setTried(false);
+    setServerFields({});
     setPlanId("");
     setPhoto(member?.photoUrl ?? null);
     setPhotoChange(undefined);
@@ -62,9 +67,29 @@ export function MemberFormModal({
   }, [open, member]);
 
   const plan = plans.find((p) => p.id === planId);
+  const v0 = form.values;
+  const problems = collectErrors({
+    firstName: nameError(v0.firstName, "First name"),
+    lastName: nameError(v0.lastName, "Last name"),
+    phone: phoneError(v0.phone),
+    email: emailError(v0.email, false),
+    gender: v0.gender ? null : "Choose male or female",
+    dateOfBirth: dobError(v0.dateOfBirth),
+    qid: qidError(v0.qid),
+    emergencyName: v0.emergencyName.trim() ? nameError(v0.emergencyName, "Contact name", false) : null,
+    emergencyPhone: phoneError(v0.emergencyPhone, false),
+  });
+  const err = (k: string) => (tried ? (problems[k] ?? serverFields[k]) : serverFields[k]) ?? null;
+  const bounds = dobBounds();
 
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    setTried(true);
+    setServerFields({});
+    if (Object.keys(problems).length) {
+      setError("Please fix the highlighted fields.");
+      return;
+    }
     setSaving(true);
     setError(null);
     const v = form.values;
@@ -93,8 +118,9 @@ export function MemberFormModal({
         onSaved?.(created.id);
       }
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save");
+    } catch (e) {
+      setServerFields(fieldErrors(e));
+      setError(e instanceof Error ? e.message : "Could not save");
     } finally {
       setSaving(false);
     }
@@ -132,30 +158,35 @@ export function MemberFormModal({
         <section>
           <p className="mb-3 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Personal</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="First name" required>
-              <Input {...form.bind("firstName")} autoFocus={!editing} />
+            <Field label="First name" required error={err("firstName")}>
+              <Input {...form.bind("firstName")} autoFocus={!editing} maxLength={60} autoComplete="off" />
             </Field>
-            <Field label="Last name (optional)">
-              <Input {...form.bind("lastName")} />
+            <Field label="Last name" required error={err("lastName")}>
+              <Input {...form.bind("lastName")} maxLength={60} autoComplete="off" />
             </Field>
-            <Field label="Mobile" required>
-              <PhoneInput value={form.values.phone} onChange={(v) => form.set("phone", v)} />
+            <Field label="Mobile" required error={err("phone")}>
+              <PhoneInput value={form.values.phone} invalid={!!err("phone")} onChange={(v) => form.set("phone", v)} />
             </Field>
-            <Field label="Email">
-              <Input type="email" {...form.bind("email")} />
+            <Field label="Email" hint="Optional" error={err("email")}>
+              <Input type="email" inputMode="email" {...form.bind("email")} maxLength={254} placeholder="name@example.com" />
             </Field>
-            <Field label="Gender">
+            <Field label="Gender" required error={err("gender")}>
               <Select {...form.bind("gender")}>
-                <option value="">Not set</option>
+                <option value="">Choose</option>
                 <option value="MALE">Male</option>
                 <option value="FEMALE">Female</option>
               </Select>
             </Field>
-            <Field label="Date of birth" hint="Members must be 10 or older">
-              <Input type="date" {...form.bind("dateOfBirth")} max={toDateInput(new Date(Date.now() - 10 * 365.25 * 86_400_000))} min="1900-01-01" />
+            <Field label="Date of birth" required hint="Members must be 10 or older" error={err("dateOfBirth")}>
+              <Input type="date" {...form.bind("dateOfBirth")} max={bounds.max} min={bounds.min} />
             </Field>
-            <Field label="QID number" hint="Qatar ID, 11 digits">
-              <Input {...form.bind("qid")} inputMode="numeric" maxLength={11} />
+            <Field label="QID number" hint="Optional. Qatar ID, 11 digits" error={err("qid")}>
+              <Input
+                value={form.values.qid}
+                onChange={(e) => form.set("qid", e.target.value.replace(/\D/g, "").slice(0, 11))}
+                inputMode="numeric"
+                maxLength={11}
+              />
             </Field>
             <Field label="Nationality">
               <Select {...form.bind("nationality")}>
@@ -180,11 +211,11 @@ export function MemberFormModal({
         <section>
           <p className="mb-3 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Emergency & notes</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Emergency contact">
-              <Input {...form.bind("emergencyName")} />
+            <Field label="Emergency contact" hint="Optional" error={err("emergencyName")}>
+              <Input {...form.bind("emergencyName")} maxLength={80} />
             </Field>
-            <Field label="Emergency phone">
-              <PhoneInput value={form.values.emergencyPhone} onChange={(v) => form.set("emergencyPhone", v)} />
+            <Field label="Emergency phone" hint="Optional" error={err("emergencyPhone")}>
+              <PhoneInput value={form.values.emergencyPhone} invalid={!!err("emergencyPhone")} onChange={(v) => form.set("emergencyPhone", v)} />
             </Field>
             <Field label="Notes" className="sm:col-span-2" hint="Injuries, preferences, corporate deal…">
               <Textarea rows={2} {...form.bind("notes")} />

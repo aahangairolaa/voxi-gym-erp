@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { MAX_EXTRA_BRANCHES } from "@/lib/pricing";
 import { fromDateInput } from "@/lib/dates";
+import { dobError, emailError, nameError, normalizePhone, passwordError, phoneError, qidError, websiteError } from "@/lib/validate";
 
 // ── Reusable pieces ──────────────────────────────────────────────────────────
 const str = (max = 200) => z.string().trim().max(max);
@@ -36,13 +37,39 @@ const optDate = z
   .nullable()
   .transform((v) => (v ? (/^\d{4}-\d{2}-\d{2}$/.test(v) ? fromDateInput(v) : new Date(v)) : null));
 
-/** Qatar numbers: 8 digits, optional +974 */
-const phone = z
+/** Turns one of the shared rules (lib/validate) into a zod check. */
+const rule = (check: (v: string) => string | null) => (v: string, ctx: z.RefinementCtx) => {
+  const msg = check(v);
+  if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+};
+
+/** Mobile number with country code, e.g. "+974 5512 3456"; the digit count is checked per country. */
+const phone = z.string().trim().max(30).superRefine(rule((v) => phoneError(v, true))).transform(normalizePhone);
+/** Same, but may be left empty (a bare country code counts as empty). */
+const optPhone = z
   .string()
   .trim()
-  .min(7, "Phone number is too short")
-  .max(20)
-  .regex(/^[+\d\s-]+$/, "Phone can only contain digits, spaces, + and -");
+  .max(30)
+  .optional()
+  .nullable()
+  .transform((v) => v ?? "")
+  .superRefine(rule((v) => phoneError(v, false)))
+  .transform((v) => (phoneError(v, true) ? null : normalizePhone(v)));
+
+const reqEmail = z.string().trim().toLowerCase().superRefine(rule((v) => emailError(v, true)));
+const optEmail = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .optional()
+  .nullable()
+  .transform((v) => v ?? "")
+  .superRefine(rule((v) => emailError(v, false)))
+  .transform((v) => (v ? v : null));
+
+const personName = (what: string) => z.string().trim().max(60).superRefine(rule((v) => nameError(v, what, true)));
+/** Full name of a person, e.g. staff: letters only, at least 2 characters. */
+const fullName = z.string().trim().max(100).superRefine(rule((v) => nameError(v.slice(0, 60), "Name", true)));
 
 export const paymentMethod = z.enum(["CASH", "CARD", "BANK_TRANSFER", "FAWRAN", "ONLINE"]);
 /** Roles a gym can give its staff (SUPER_ADMIN is created only by the VOXI team). */
@@ -57,7 +84,7 @@ const imageDataUrl = (maxKb: number) =>
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email("Enter a valid email"),
+  email: reqEmail,
   password: z.string().min(1, "Enter your password"),
   /** 6-digit code from the email, the first time this account signs in with a password */
   code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code").optional(),
@@ -65,30 +92,27 @@ export const loginSchema = z.object({
 
 // ── Members ──────────────────────────────────────────────────────────────────
 export const MIN_MEMBER_AGE = 10;
-/** Latest allowed date of birth: today, 10 years ago. */
-function minAgeDate() {
-  const d = new Date();
-  d.setUTCFullYear(d.getUTCFullYear() - MIN_MEMBER_AGE);
-  return d;
-}
 export const memberSchema = z.object({
-  firstName: str(60).min(1, "First name is required"),
-  lastName: z.string().trim().max(60).optional().nullable().transform((v) => v ?? ""),
+  firstName: personName("First name"),
+  lastName: personName("Last name"),
   phone,
-  email: z
-    .string()
+  email: optEmail,
+  gender: z.enum(["MALE", "FEMALE"], { errorMap: () => ({ message: "Choose male or female" }) }),
+  dateOfBirth: z
+    .string({ required_error: "Date of birth is required", invalid_type_error: "Date of birth is required" })
     .trim()
-    .toLowerCase()
-    .email("Invalid email")
-    .optional()
-    .nullable()
-    .or(z.literal("").transform(() => null)),
-  gender: z.enum(["MALE", "FEMALE"]).optional().nullable(),
-  dateOfBirth: optDate.refine((d) => !d || d <= minAgeDate(), `Members must be at least ${MIN_MEMBER_AGE} years old. Check the date of birth.`).refine((d) => !d || d.getFullYear() >= 1900, "Check the date of birth."),
-  qid: optStr(20),
+    .superRefine(rule((v) => dobError(v, true)))
+    .transform((v) => fromDateInput(v.slice(0, 10))),
+  qid: optStr(20).superRefine((v, ctx) => {
+    const msg = qidError(v);
+    if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+  }),
   nationality: optStr(60),
-  emergencyName: optStr(80),
-  emergencyPhone: optStr(20),
+  emergencyName: optStr(80).superRefine((v, ctx) => {
+    const msg = v ? nameError(v, "Emergency contact name", false) : null;
+    if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+  }),
+  emergencyPhone: optPhone,
   notes: optStr(1000),
   branchId: optId,
   /** undefined = keep the current photo, null = remove it */
@@ -260,9 +284,9 @@ export const bookingUpdateSchema = z.object({
 
 // ── Leads ────────────────────────────────────────────────────────────────────
 export const leadSchema = z.object({
-  name: str(100).min(1),
+  name: fullName,
   phone,
-  email: z.string().trim().email().optional().nullable().or(z.literal("").transform(() => null)),
+  email: optEmail,
   source: z.enum(["WALK_IN", "INSTAGRAM", "WHATSAPP", "WEBSITE", "REFERRAL", "OTHER"]).default("WALK_IN"),
   status: z.enum(["NEW", "CONTACTED", "TRIAL", "CONVERTED", "LOST"]).default("NEW"),
   interest: optStr(120),
@@ -273,10 +297,10 @@ export const leadSchema = z.object({
 
 // ── Staff ────────────────────────────────────────────────────────────────────
 export const staffSchema = z.object({
-  name: str(100).min(1),
+  name: fullName,
   /** Required for everyone who signs in; housekeeping staff don't sign in, so it's optional for them. */
-  email: z.string().trim().toLowerCase().email("Enter a valid email").optional().nullable().or(z.literal("").transform(() => null)),
-  phone: optStr(20),
+  email: optEmail,
+  phone,
   role,
   branchId: optId,
   salary: money.optional().nullable(),
@@ -296,10 +320,13 @@ export const settingsSchema = z.object({
   name: str(100).min(1, "Gym name is required"),
   legalName: optStr(150),
   crNumber: optStr(40),
-  phone: optStr(30),
-  email: optStr(120),
+  phone: optPhone,
+  email: optEmail,
   address: optStr(300),
-  website: optStr(120),
+  website: optStr(120).superRefine((v, ctx) => {
+    const msg = websiteError(v);
+    if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
+  }),
   instagram: optStr(80),
   openingHours: optStr(200),
   /** undefined = keep, null = remove */
@@ -311,9 +338,9 @@ export const settingsSchema = z.object({
 });
 
 export const branchSchema = z.object({
-  name: str(80).min(1),
+  name: str(80).min(1, "Branch name is required"),
   address: optStr(200),
-  phone: optStr(30),
+  phone: optPhone,
   isActive: z.boolean().default(true),
 });
 
@@ -322,14 +349,22 @@ export const passwordChangeSchema = z.object({
   newPassword: z.string().min(8, "New password must be at least 8 characters"),
 });
 
-const email = z.string().trim().toLowerCase().email("Enter a valid email");
+const email = reqEmail;
 export const registerSchema = z.object({
   gymName: z.string().trim().min(2, "Enter your gym's name").max(100),
-  ownerName: z.string().trim().min(2, "Enter your name").max(100),
+  firstName: personName("First name"),
+  lastName: personName("Last name"),
   email,
-  phone: optStr(30),
-  password: z.string().min(8, "Password must be at least 8 characters").max(200).optional().nullable(),
+  phone,
+  password: z
+    .string()
+    .max(200)
+    .superRefine(rule(passwordError))
+    .optional()
+    .nullable(),
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "Please accept the terms and privacy policy" }) }),
+  /** "Send me offers and product news from VOXI" (optional) */
+  marketingOptIn: z.boolean().optional().default(false),
   website: z.string().max(0).optional(), // honeypot: real people leave this empty
   /** 6-digit code from the email (second step of email sign-up) */
   code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code").optional(),
@@ -337,7 +372,7 @@ export const registerSchema = z.object({
 export const forgotPasswordSchema = z.object({ email });
 export const resetPasswordSchema = z.object({
   token: z.string().min(20).max(200),
-  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+  password: z.string().max(200).superRefine(rule(passwordError)),
 });
 
 // ── WhatsApp ─────────────────────────────────────────────────────────────────
@@ -381,8 +416,8 @@ const gymStatus = z.enum(["TRIAL", "ACTIVE", "SUSPENDED"]);
 export const createGymSchema = z.object({
   name: str(100).min(2, "Gym name is required"),
   slug: optStr(40),
-  phone: optStr(30),
-  email: z.string().trim().toLowerCase().email().optional().nullable().or(z.literal("").transform(() => null)),
+  phone: optPhone,
+  email: optEmail,
   address: optStr(200),
   branchName: optStr(80),
   plan: subscription.default("PROFESSIONAL"),
@@ -390,8 +425,8 @@ export const createGymSchema = z.object({
   trialDays: z.coerce.number().int().min(1).max(90).default(7),
   billingMonths: z.coerce.number().int().refine((n) => [3, 6, 12].includes(n), "Choose 3, 6 or 12 months").default(12),
   extraBranches: z.coerce.number().int().min(0).max(MAX_EXTRA_BRANCHES).default(0),
-  ownerName: str(100).min(1, "Owner name is required"),
-  ownerEmail: z.string().trim().toLowerCase().email("Enter the owner's email"),
+  ownerName: fullName,
+  ownerEmail: reqEmail,
   ownerPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
 

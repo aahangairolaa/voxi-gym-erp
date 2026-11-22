@@ -19,7 +19,7 @@ export function Field({
   required?: boolean;
 }) {
   return (
-    <label className={cn("block", className)}>
+    <label className={cn("block", className)} data-invalid={error ? "" : undefined}>
       {label && (
         <span className="label">
           {label}
@@ -28,7 +28,11 @@ export function Field({
       )}
       {children}
       {hint && !error && <span className="mt-1 block text-[11px] text-muted">{hint}</span>}
-      {error && <span className="mt-1 block text-[11px] font-medium text-rose-600">{error}</span>}
+      {error && (
+        <span role="alert" className="mt-1 block text-[11px] font-medium text-rose-600 dark:text-rose-400">
+          {error}
+        </span>
+      )}
     </label>
   );
 }

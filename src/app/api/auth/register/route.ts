@@ -12,7 +12,7 @@ import { audit } from "@/server/services/audit.service";
 
 /**
  * POST /api/auth/register (public) — start a 7-day free trial:
- * { gymName, ownerName, email, phone?, password?, acceptTerms: true }
+ * { gymName, firstName, lastName, email, phone, password?, acceptTerms: true, marketingOptIn? }
  * After "Continue with Google/Microsoft", password may be left out (that account is linked instead).
  *
  * Email sign-ups are two steps: the first call emails a 6-digit code and answers { needsCode: true };
@@ -32,20 +32,21 @@ export const POST = route(async (req) => {
       if (!input.password) throw new ApiError(400, "Choose a password (at least 8 characters).");
       if (await db.staff.findUnique({ where: { email: input.email }, select: { id: true } }))
         throw new ApiError(409, "That email already has a VOXI account. Sign in instead, or use a different email.");
-      await sendCode(input.email, "signup", input.ownerName);
+      await sendCode(input.email, "signup", input.firstName);
       return { needsCode: true, email: input.email };
     }
     await checkCode(input.email, "signup", input.code);
   }
   const session = await registerGym({
     gymName: input.gymName,
-    ownerName: input.ownerName,
+    ownerName: `${input.firstName} ${input.lastName}`.trim(),
     email: input.email,
-    phone: input.phone ?? null,
+    phone: input.phone,
     password: input.password ?? null,
     googleId: viaGoogle?.sub ?? null,
     microsoftId: viaMicrosoft?.sub ?? null,
     emailVerified: mustVerify || !!via,
+    marketingOptIn: input.marketingOptIn,
   });
   if (google) store.delete(GOOGLE_SIGNUP_COOKIE);
   await setSessionCookie(session);

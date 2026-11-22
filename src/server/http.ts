@@ -9,6 +9,19 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError, type ZodType, type ZodTypeDef } from "zod";
 import { Prisma } from "@prisma/client";
 
+/** "dateOfBirth" -> "Date of birth" */
+function labelFor(path: string) {
+  const last = path.split(".").pop() ?? path;
+  const words = last.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Our own rules already name the field ("Mobile number is required"); zod's built-in ones ("Required") don't. */
+function readableIssue(path: string, message: string) {
+  const generic = /^(required|invalid( input| date| enum value.*)?|expected .*|string must contain .*|number must be .*)$/i.test(message);
+  return generic && path ? `${labelFor(path)}: ${message.charAt(0).toLowerCase()}${message.slice(1)}` : message;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -41,12 +54,15 @@ export function errorResponse(err: unknown) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
   if (err instanceof ZodError) {
+    // One readable message for toasts, plus { field: message } so forms can mark each field
+    const fields: Record<string, string> = {};
+    for (const i of err.issues) {
+      const k = i.path.join(".");
+      if (k && !fields[k]) fields[k] = readableIssue(k, i.message);
+    }
     const first = err.issues[0];
-    const field = first?.path.join(".");
-    return NextResponse.json(
-      { error: field ? `${field}: ${first!.message}` : first?.message ?? "Invalid input", issues: err.issues },
-      { status: 400 },
-    );
+    const key = first?.path.join(".") ?? "";
+    return NextResponse.json({ error: first ? readableIssue(key, first.message) : "Invalid input", fields }, { status: 400 });
   }
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === "P2002") {
