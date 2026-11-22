@@ -13,6 +13,7 @@ const fmt = (n: number) => n.toLocaleString("en");
 const FAQ = [
   ["How do I pay?", "After your trial, choose a term and branches on the Billing page inside VOXI. We send an invoice and you pay by bank transfer, card or Fawran. Your plan starts the day payment arrives."],
   ["Can I add a branch later?", `Yes. Run up to ${MAX_LOCATIONS} locations and add branches any time from Billing. The 2nd branch you add is 20% off, and every one after it costs even less.`],
+  ["My gym has a café. Can VOXI run it?", "Yes. Add VOXI Café for QAR 8,000 a year: a menu of up to 14 items, counter sales by cash or card, stock counts and your café team. Every gym can preview it inside VOXI before buying."],
   ["Do you have promo codes?", "Yes, from time to time. Enter your code on the Billing page when you choose your plan and the discount comes off your first invoice."],
   ["What happens when my trial ends?", "Nothing is deleted. Choose a plan to keep going, and everything you set up during the trial stays exactly as it is."],
   ["Is there a contract?", "Only the term you choose. Pick 3, 6 or 12 months. Longer terms cost less per month."],

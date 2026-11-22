@@ -28,6 +28,15 @@ export function termFor(months: number) {
   return TERMS.find((t) => t.months === months) ?? TERMS[TERMS.length - 1];
 }
 
+/** VOXI Café add-on (menu, café sales, café team), per 12 months; shorter terms pro rata. */
+export const CAFE_PRICE_YEAR = 8_000;
+/** Most items a gym café menu can hold. */
+export const MAX_CAFE_ITEMS = 14;
+
+export function cafePrice(months: number) {
+  return round10(CAFE_PRICE_YEAR * (termFor(months).price / 25_000));
+}
+
 /** Price of one added branch before any discount, for a given term. */
 export function branchListPrice(months: number) {
   return round10(BRANCH_PRICE_YEAR * (termFor(months).price / 25_000));
@@ -46,13 +55,15 @@ export type Quote = {
   extraBranches: number;
   branches: { n: number; price: number; listPrice: number; discount: number }[];
   branchTotal: number;
+  /** VOXI Café add-on for this term (0 when not chosen). */
+  cafe: number;
   total: number;
   perMonth: number;
   /** Saving compared with renewing the shortest term for the same period. */
   saving: number;
 };
 
-export function quote(months: number, extraBranches: number): Quote {
+export function quote(months: number, extraBranches: number, cafe = false): Quote {
   const term = termFor(months);
   const count = Math.max(0, Math.min(MAX_EXTRA_BRANCHES, Math.floor(extraBranches)));
   const branches = Array.from({ length: count }, (_, i) => ({
@@ -62,10 +73,12 @@ export function quote(months: number, extraBranches: number): Quote {
     discount: BRANCH_DISCOUNTS[i] ?? 0,
   }));
   const branchTotal = branches.reduce((s, b) => s + b.price, 0);
-  const total = term.price + branchTotal;
+  const cafeTotal = cafe ? cafePrice(term.months) : 0;
+  const total = term.price + branchTotal + cafeTotal;
   const short = TERMS[0];
   const times = term.months / short.months;
-  const shortEquivalent = short.price * times + branches.reduce((s, b) => s + branchPrice(b.n, short.months) * times, 0);
+  const shortEquivalent =
+    short.price * times + branches.reduce((s, b) => s + branchPrice(b.n, short.months) * times, 0) + (cafe ? cafePrice(short.months) * times : 0);
   return {
     months: term.months,
     termLabel: term.label,
@@ -73,6 +86,7 @@ export function quote(months: number, extraBranches: number): Quote {
     extraBranches: count,
     branches,
     branchTotal,
+    cafe: cafeTotal,
     total,
     perMonth: Math.round(total / term.months),
     saving: Math.max(0, Math.round(shortEquivalent - total)),
@@ -166,13 +180,13 @@ export type Checkout = {
 };
 
 /** The full price picture for a plan choice: list prices, every discount, and the net total. */
-export function checkout(months: number, extraBranches: number, entrances: number, onboarding: boolean, promo?: Promo | null): Checkout {
-  const q = quote(months, extraBranches);
+export function checkout(months: number, extraBranches: number, entrances: number, onboarding: boolean, promo?: Promo | null, cafe = false): Checkout {
+  const q = quote(months, extraBranches, cafe);
   const one = addonsTotal(q.months, entrances, onboarding);
   const branchList = q.branches.reduce((s, b) => s + b.listPrice, 0);
   // Annual always includes onboarding, so it counts as a saving there
   const freeOnboarding = q.months === 12 ? ONE_TIME_ADDONS[1].price : 0;
-  const listTotal = q.base + branchList + one.biometricList + one.onboarding + freeOnboarding;
+  const listTotal = q.base + branchList + q.cafe + one.biometricList + one.onboarding + freeOnboarding;
   const volumeDiscount = branchList - q.branchTotal + (one.biometricList - one.biometric) + freeOnboarding;
   const valid = promo && (!promo.minMonths || q.months >= promo.minMonths) ? promo : null;
   const promoOff = promoDiscount(valid, q.months, q.total, one.total);

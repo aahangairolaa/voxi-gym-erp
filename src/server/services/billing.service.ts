@@ -26,6 +26,8 @@ export type PlanRequest = {
   volumeDiscount?: number;
   /** What the first invoice comes to, after every discount. */
   totalToday?: number;
+  /** VOXI Café add-on included */
+  cafe?: boolean;
   requestedAt: string;
   requestedBy: string;
 };
@@ -34,7 +36,7 @@ export async function getBilling(gymId: string) {
   const [gym, branches] = await Promise.all([
     db.gym.findUniqueOrThrow({
       where: { id: gymId },
-      select: { name: true, status: true, trialEndsAt: true, billingMonths: true, extraBranches: true, paidUntil: true, planRequest: true },
+      select: { name: true, status: true, trialEndsAt: true, billingMonths: true, extraBranches: true, cafeEnabled: true, paidUntil: true, planRequest: true },
     }),
     db.branch.count({ where: { gymId } }),
   ]);
@@ -42,13 +44,13 @@ export async function getBilling(gymId: string) {
     ...gym,
     planRequest: (gym.planRequest as PlanRequest | null) ?? null,
     branchesUsed: branches,
-    current: gym.status === "ACTIVE" ? quote(gym.billingMonths, gym.extraBranches) : null,
+    current: gym.status === "ACTIVE" ? quote(gym.billingMonths, gym.extraBranches, gym.cafeEnabled) : null,
   };
 }
 
 export async function requestPlan(gymId: string, by: string, input: z.infer<typeof planRequestSchema>) {
   const promo = input.promoCode?.trim() ? await findUsablePromo(input.promoCode, input.months) : null;
-  const c = checkout(input.months, input.extraBranches, input.entrances, input.onboarding, promo);
+  const c = checkout(input.months, input.extraBranches, input.entrances, input.onboarding, promo, input.cafe);
   const q = c.quote;
   const request: PlanRequest = {
     months: q.months,
@@ -61,6 +63,7 @@ export async function requestPlan(gymId: string, by: string, input: z.infer<type
     promoDiscount: c.promoDiscount,
     volumeDiscount: c.volumeDiscount,
     totalToday: c.totalToday,
+    cafe: input.cafe,
     requestedAt: new Date().toISOString(),
     requestedBy: by,
   };

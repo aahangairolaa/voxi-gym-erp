@@ -450,6 +450,8 @@ export const updateGymSchema = z.object({
     .transform((v) => (v === undefined ? undefined : v ? (/^\d{4}-\d{2}-\d{2}$/.test(v) ? fromDateInput(v) : new Date(v)) : null)),
   /** Activate the plan the gym requested from Billing (sets term, branches, paid-until, status ACTIVE). */
   applyRequest: z.boolean().optional(),
+  /** Switch the VOXI Café add-on on or off by hand */
+  cafeEnabled: z.boolean().optional(),
 });
 
 /** A gym owner/manager asks to start or change their subscription from Billing. */
@@ -460,6 +462,40 @@ export const planRequestSchema = z.object({
   entrances: z.coerce.number().int().min(0).max(10).default(0),
   onboarding: z.boolean().default(false),
   promoCode: z.string().trim().max(40).optional().nullable(),
+  /** VOXI Café add-on */
+  cafe: z.boolean().default(false),
+});
+
+// ── VOXI Café ────────────────────────────────────────────────────────────────
+export const CAFE_CATEGORIES = ["COFFEE", "SHAKE", "JUICE", "SNACK", "MEAL", "DRINK"] as const;
+
+export const cafeItemSchema = z.object({
+  name: z.string().trim().min(2, "Give the item a name").max(60),
+  category: z.enum(CAFE_CATEGORIES, { errorMap: () => ({ message: "Choose a category" }) }),
+  price: z.coerce.number().int("Whole riyals only").min(1, "Price must be at least QAR 1").max(1000, "Check the price"),
+  calories: z.coerce.number().int().min(0).max(5000).optional().nullable(),
+  protein: z.coerce.number().int().min(0).max(300).optional().nullable(),
+  stock: z.coerce.number().int().min(0, "Stock can't be negative").max(100000).optional().nullable(),
+  active: z.boolean().default(true),
+});
+
+export const cafeSaleSchema = z.object({
+  items: z
+    .array(z.object({ itemId: z.string().min(1), qty: z.coerce.number().int().min(1).max(50) }))
+    .min(1, "Add at least one item")
+    .max(30),
+  method: z.enum(["CASH", "CARD", "TRANSFER"]),
+  memberId: z.string().optional().nullable(),
+});
+
+export const cafeRoleSchema = z.object({
+  cafeRole: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null)),
 });
 
 /** A VOXI promo code (admin). */

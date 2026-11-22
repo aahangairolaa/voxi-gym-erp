@@ -1,16 +1,16 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { LuCheck, LuFingerprint, LuMapPin, LuMinus, LuPlus, LuSparkles, LuTicket, LuUpload, LuX } from "react-icons/lu";
+import { LuCheck, LuCoffee, LuFingerprint, LuMapPin, LuMinus, LuPlus, LuSparkles, LuTicket, LuUpload, LuX } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import {
   BRANCH_DISCOUNTS, DEFAULT_TERM, ENTRANCE_DISCOUNTS, ENTRANCE_PRICE, INCLUDED, MAX_ENTRANCES, MAX_EXTRA_BRANCHES, ONE_TIME_ADDONS, TERMS, TRIAL_DAYS,
-  branchListPrice, branchPrice, checkout, entranceDiscount, entrancePrice, quote, type Promo, type Quote,
+  CAFE_PRICE_YEAR, MAX_CAFE_ITEMS, branchListPrice, branchPrice, cafePrice, checkout, entranceDiscount, entrancePrice, quote, type Promo, type Quote,
 } from "@/lib/pricing";
 
 const fmt = (n: number) => n.toLocaleString("en");
 
-export type PlanChoice = { quote: Quote; entrances: number; onboarding: boolean; oneTime: number; promoCode: string | null; totalToday: number };
+export type PlanChoice = { quote: Quote; entrances: number; onboarding: boolean; oneTime: number; promoCode: string | null; totalToday: number; cafe: boolean };
 
 /** "QAR 12,000" struck through, next to the price after discount. */
 function Was({ list, net, className }: { list: number; net: number; className?: string }) {
@@ -23,6 +23,8 @@ type Props = {
   mode?: "marketing" | "billing";
   initialMonths?: number;
   initialBranches?: number;
+  /** Start with the VOXI Café add-on chosen (e.g. it's already on, or they came from the café preview). */
+  initialCafe?: boolean;
   onChoose?: (c: PlanChoice) => void;
   busy?: boolean;
   chooseLabel?: string;
@@ -58,16 +60,17 @@ function StepLabel({ n, title, hint }: { n: string; title: string; hint?: string
 }
 
 /** One VOXI subscription: pick a term, tailor it with add-ons, see the total. */
-export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM, initialBranches = 0, onChoose, busy, chooseLabel, onCheckPromo }: Props) {
+export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM, initialBranches = 0, initialCafe = false, onChoose, busy, chooseLabel, onCheckPromo }: Props) {
   const [months, setMonths] = useState<number>(TERMS.some((t) => t.months === initialMonths) ? initialMonths : DEFAULT_TERM);
   const [branches, setBranches] = useState(Math.min(initialBranches, MAX_EXTRA_BRANCHES));
   const [entrances, setEntrances] = useState(0);
   const [onboarding, setOnboarding] = useState(false);
+  const [cafe, setCafe] = useState(initialCafe);
   const [promo, setPromo] = useState<Promo | null>(null);
   const [promoInput, setPromoInput] = useState("");
   const [promoError, setPromoError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
-  const c = checkout(months, branches, entrances, onboarding, promo);
+  const c = checkout(months, branches, entrances, onboarding, promo, cafe);
   const q = c.quote;
   const one = c.oneTime;
   const annual = months === 12;
@@ -276,6 +279,38 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
             </button>
           </div>
         </div>
+        {/* VOXI Café */}
+        <button
+          type="button"
+          onClick={() => setCafe((v) => !v)}
+          aria-pressed={cafe}
+          className={cn(
+            "card relative mt-4 flex w-full flex-col gap-5 overflow-hidden p-6 text-left transition sm:flex-row sm:items-center",
+            cafe ? "border-brand-400 dark:border-brand-500/50" : "hover:border-brand-300",
+          )}
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white brand-gradient shadow-[0_8px_20px_-8px_rgba(106,68,242,0.8)]">
+            <LuCoffee className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-ink">VOXI Café</span>
+              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">For gyms with a café</span>
+            </span>
+            <span className="mt-0.5 block text-sm text-muted">
+              Run your in-house café from VOXI: a menu of up to {MAX_CAFE_ITEMS} items, counter sales by cash or card, stock counts, best sellers and your café team.
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-4">
+            <span className="text-right">
+              <span className="block text-sm font-semibold text-ink tabular-nums">QAR {fmt(cafePrice(months))}</span>
+              <span className="block text-xs text-muted">{months === 12 ? "per year" : `for ${q.termLabel} (QAR ${fmt(CAFE_PRICE_YEAR)} a year)`}</span>
+            </span>
+            <span className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", cafe ? "bg-brand-600" : "bg-line-strong")}>
+              <span className={cn("absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-300", cafe && "translate-x-5")} />
+            </span>
+          </span>
+        </button>
       </div>
 
       {/* 03: summary */}
@@ -312,6 +347,12 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                     QAR <Was list={one.biometricList} net={one.biometric} />
                     {fmt(one.biometric)}
                   </dd>
+                </div>
+              )}
+              {q.cafe > 0 && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-white/70">VOXI Café, {q.termLabel}</dt>
+                  <dd className="tabular-nums">QAR {fmt(q.cafe)}</dd>
                 </div>
               )}
               {(onboarding || annual) && (
@@ -440,7 +481,7 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                     type="button"
                     disabled={busy}
                     onClick={() =>
-                      onChoose?.({ quote: q, entrances: one.entrances.length, onboarding: onboarding && !annual, oneTime: one.total, promoCode: c.promo?.code ?? null, totalToday: c.totalToday })
+                      onChoose?.({ quote: q, entrances: one.entrances.length, onboarding: onboarding && !annual, oneTime: one.total, promoCode: c.promo?.code ?? null, totalToday: c.totalToday, cafe })
                     }
                     className="flex h-12 w-full items-center justify-center rounded-xl bg-white text-sm font-semibold text-[#2d1a6e] transition hover:bg-brand-50 disabled:opacity-60"
                   >

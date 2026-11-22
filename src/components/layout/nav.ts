@@ -6,7 +6,7 @@ import type { IconType } from "react-icons";
 import {
   LuLayoutDashboard, LuUsers, LuIdCard, LuClipboardList, LuUserPlus, LuScanFace, LuFingerprint, LuDumbbell,
   LuCalendarDays, LuTrophy, LuReceipt, LuBanknote, LuWallet, LuChartColumn, LuUserCog, LuSettings,
-  LuMessageCircle, LuHistory, LuBuilding2, LuCreditCard,
+  LuMessageCircle, LuHistory, LuBuilding2, LuCreditCard, LuCoffee,
 } from "react-icons/lu";
 import type { Module } from "@/lib/permissions";
 
@@ -48,6 +48,7 @@ export const NAV: NavSection[] = [
       { href: "/payments", label: "Payments", icon: LuReceipt, module: "payments" },
       { href: "/cash-sessions", label: "Cash Sessions", icon: LuBanknote, module: "cash" },
       { href: "/expenses", label: "Expenses", icon: LuWallet, module: "expenses" },
+      { href: "/cafe", label: "Café", icon: LuCoffee, module: "cafe" },
       { href: "/reports", label: "Reports", icon: LuChartColumn, module: "reports" },
     ],
   },

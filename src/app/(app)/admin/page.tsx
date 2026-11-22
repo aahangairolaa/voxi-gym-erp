@@ -2,7 +2,7 @@
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import { LuBuilding2, LuCopy, LuPencil, LuPlus, LuTicket, LuTrendingUp, LuUsers } from "react-icons/lu";
-import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, Modal, PageHeader, Segmented, Select, Skeleton, StatCard, Textarea, useToast } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, Modal, PageHeader, Segmented, Select, Skeleton, StatCard, Textarea, Toggle, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
 import { api, fieldErrors } from "@/lib/api-client";
 import { toDateInput } from "@/lib/dates";
@@ -104,7 +104,7 @@ export default function AdminPage() {
                           {STATUS_LABEL[g.status]}
                         </Badge>
                         <span className="text-xs text-muted">
-                          {g.status === "ACTIVE" ? planText(g.billingMonths, g.extraBranches) : g.status === "TRIAL" && g.trialEndsAt ? `ends ${formatDate(g.trialEndsAt)}` : ""}
+                          {g.status === "ACTIVE" ? `${planText(g.billingMonths, g.extraBranches)}${g.cafeEnabled ? " + Café" : ""}` : g.status === "TRIAL" && g.trialEndsAt ? `ends ${formatDate(g.trialEndsAt)}` : ""}
                           {g.status === "ACTIVE" && g.paidUntil && ` · until ${formatDate(g.paidUntil)}`}
                         </span>
                         {g.planRequest && <Badge tone="brand">Requested {planText(g.planRequest.months, g.planRequest.extraBranches)}</Badge>}
@@ -283,11 +283,12 @@ function CreateGymModal({ open, onClose, onDone }: { open: boolean; onClose: () 
 
 function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
-  const [form, setForm] = useState({ status: "TRIAL" as GymStatus, trialEndsAt: "", billingMonths: "12", extraBranches: "0", paidUntil: "", platformNotes: "" });
+  const [form, setForm] = useState({ status: "TRIAL" as GymStatus, trialEndsAt: "", billingMonths: "12", extraBranches: "0", cafeEnabled: false, paidUntil: "", platformNotes: "" });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (gym)
       setForm({
+        cafeEnabled: gym.cafeEnabled,
         status: gym.status,
         trialEndsAt: gym.trialEndsAt ? toDateInput(new Date(gym.trialEndsAt)) : "",
         billingMonths: String(gym.billingMonths),
@@ -319,13 +320,14 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
         trialEndsAt: form.trialEndsAt || null,
         billingMonths: Number(form.billingMonths),
         extraBranches: Number(form.extraBranches),
+        cafeEnabled: form.cafeEnabled,
         paidUntil: form.paidUntil || null,
         platformNotes: form.platformNotes || null,
       },
       `${gym?.name} updated`,
     );
 
-  const q = quote(Number(form.billingMonths), Number(form.extraBranches));
+  const q = quote(Number(form.billingMonths), Number(form.extraBranches), form.cafeEnabled);
   const req = gym?.planRequest;
 
   return (
@@ -344,7 +346,8 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
         <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-brand-300 bg-brand-50/60 p-4 dark:border-brand-500/40 dark:bg-brand-500/10">
           <div className="min-w-0 flex-1 text-sm">
             <p className="font-semibold text-ink">
-              Requested {planText(req.months, req.extraBranches)}, {qar(req.total)}
+              Requested {planText(req.months, req.extraBranches)}
+              {req.cafe ? " + VOXI Café" : ""}, {qar(req.total)}
             </p>
             {!!req.oneTime && (
               <p className="text-ink-soft">
@@ -403,6 +406,9 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
             ))}
           </Select>
         </Field>
+        <div className="sm:col-span-2 rounded-xl border border-line p-3">
+          <Toggle checked={form.cafeEnabled} onChange={(v) => setForm({ ...form, cafeEnabled: v })} label="VOXI Café unlocked (menu, café sales and team)" />
+        </div>
         <Field label="Internal notes" className="sm:col-span-2" hint="Only the VOXI team sees this">
           <Textarea rows={3} value={form.platformNotes} onChange={(e) => setForm({ ...form, platformNotes: e.target.value })} />
         </Field>

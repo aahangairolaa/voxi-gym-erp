@@ -16,8 +16,9 @@ type Billing = {
   trialEndsAt: string | null;
   billingMonths: number;
   extraBranches: number;
+  cafeEnabled: boolean;
   paidUntil: string | null;
-  planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; promoCode?: string | null; promoDiscount?: number; totalToday?: number; requestedAt: string; requestedBy: string } | null;
+  planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; promoCode?: string | null; promoDiscount?: number; totalToday?: number; cafe?: boolean; requestedAt: string; requestedBy: string } | null;
   branchesUsed: number;
   current: Quote | null;
 };
@@ -29,21 +30,23 @@ export default function BillingPage() {
   const toast = useToast();
   const confirm = useConfirm();
   const { data, error, reload } = useApi<Billing>("/api/billing");
+  // Came here from the café preview ("Unlock VOXI Café"): start with the add-on chosen
+  const [wantsCafe] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("addon") === "cafe");
   const [busy, setBusy] = useState(false);
 
   const checkPromo = (code: string, months: number) =>
     api.get<Promo>(`/api/billing/promo?code=${encodeURIComponent(code)}&months=${months}`);
 
-  const choose = async ({ quote: q, entrances, onboarding, oneTime, promoCode, totalToday }: PlanChoice) => {
+  const choose = async ({ quote: q, entrances, onboarding, oneTime, promoCode, totalToday, cafe }: PlanChoice) => {
     const ok = await confirm({
       title: "Request this plan?",
-      message: `VOXI for ${q.termLabel}${branchText(q.extraBranches)}: ${qar(q.total)}${oneTime ? `, plus ${qar(oneTime)} one-time setup` : ""}${promoCode ? `, with code ${promoCode}` : ""}. Your first invoice: ${qar(totalToday)}. The VOXI team will confirm and send your invoice. You can pay by bank transfer, card or Fawran.`,
+      message: `VOXI for ${q.termLabel}${branchText(q.extraBranches)}${cafe ? " with VOXI Café" : ""}: ${qar(q.total)}${oneTime ? `, plus ${qar(oneTime)} one-time setup` : ""}${promoCode ? `, with code ${promoCode}` : ""}. Your first invoice: ${qar(totalToday)}. The VOXI team will confirm and send your invoice. You can pay by bank transfer, card or Fawran.`,
       confirmLabel: "Send request",
     });
     if (!ok) return;
     setBusy(true);
     try {
-      await api.post("/api/billing", { months: q.months, extraBranches: q.extraBranches, entrances, onboarding, promoCode });
+      await api.post("/api/billing", { months: q.months, extraBranches: q.extraBranches, entrances, onboarding, promoCode, cafe });
       toast("success", "Request sent. We will be in touch within one business day.");
       // Reload so the sidebar and banner show the pending request
       window.location.reload();
@@ -115,7 +118,7 @@ export default function BillingPage() {
               <LuClock className="h-4 w-4" /> Plan
             </div>
             <p className="mt-3 font-display text-2xl font-semibold">
-              {data.current ? `${data.current.termLabel}` : "Not chosen yet"}
+              {data.current ? `${data.current.termLabel}${data.cafeEnabled ? " + VOXI Café" : ""}` : "Not chosen yet"}
             </p>
             <p className="mt-1 text-sm text-muted">{data.current ? `${qar(data.current.total)} per term` : "Pick a term and branches below"}</p>
           </Card>
@@ -164,6 +167,7 @@ export default function BillingPage() {
             mode="billing"
             initialMonths={req?.months ?? data.billingMonths}
             initialBranches={req?.extraBranches ?? data.extraBranches}
+            initialCafe={wantsCafe || (req ? !!req.cafe : data.cafeEnabled)}
             busy={busy}
             chooseLabel={req ? "Update request" : data.status === "ACTIVE" ? "Request this change" : "Choose this plan"}
             onChoose={choose}

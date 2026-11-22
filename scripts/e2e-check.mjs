@@ -334,6 +334,66 @@ await step("staff email check", async () => {
 });
 
 // ── Billing: plan requests, activation and branch limits ───────────────────
+await step("cafe add-on", async () => {
+  const O = { cookie: (await login("owner@voxi.qa")).cookie };
+  const R = { cookie: (await login("reception@voxi.qa")).cookie };
+  const T = { cookie: (await login("trainer@voxi.qa")).cookie };
+  const A = { cookie: (await login("admin@voxi.qa")).cookie };
+  const gyms = await call("GET", "/api/admin/gyms", A);
+  const voxi = gyms.json?.gyms?.find((g) => g.slug === "voxi-fitness");
+  await call("PUT", `/api/admin/gyms/${voxi?.id}`, { ...A, body: { cafeEnabled: false } });
+
+  const locked = await call("GET", "/api/cafe", O);
+  check("café is a locked preview until paid", locked.status === 200 && locked.json?.enabled === false && locked.json?.price === 8000, locked.text);
+  const tryAdd = await call("POST", "/api/cafe/items", { ...O, body: { name: "Flat White", category: "COFFEE", price: 18 } });
+  check("locked café refuses changes with 402", tryAdd.status === 402 && /Billing/.test(tryAdd.json?.error ?? ""), tryAdd.text);
+  check("trainers can't open the café", (await call("GET", "/api/cafe", T)).status === 403);
+
+  const on = await call("PUT", `/api/admin/gyms/${voxi?.id}`, { ...A, body: { cafeEnabled: true } });
+  check("VOXI admin unlocks the café", on.json?.cafeEnabled === true, on.text);
+  const open = await call("GET", "/api/cafe", O);
+  for (const it of open.json?.items ?? []) await call("DELETE", `/api/cafe/items/${it.id}`, O);
+
+  const bad = await call("POST", "/api/cafe/items", { ...O, body: { name: "", category: "TEA", price: 0 } });
+  check("café item rules (name, category, price)", bad.status === 400 && !!bad.json?.fields?.name && !!bad.json?.fields?.category && !!bad.json?.fields?.price, bad.text);
+  const shake = (await call("POST", "/api/cafe/items", { ...O, body: { name: "Whey Protein Shake", category: "SHAKE", price: 25, protein: 30, stock: 2 } })).json;
+  const coffee = (await call("POST", "/api/cafe/items", { ...O, body: { name: "Flat White", category: "COFFEE", price: 18 } })).json;
+  check("owner adds menu items", !!shake?.id && !!coffee?.id && shake.stock === 2);
+  const recAdd = await call("POST", "/api/cafe/items", { ...R, body: { name: "Sneaky Item", category: "SNACK", price: 5 } });
+  check("reception can't change the menu", recAdd.status === 403, recAdd.text);
+  for (let i = 3; i <= 14; i++) await call("POST", "/api/cafe/items", { ...O, body: { name: `Item ${String.fromCharCode(64 + i)}`, category: "SNACK", price: 10 } });
+  const fifteenth = await call("POST", "/api/cafe/items", { ...O, body: { name: "One Too Many", category: "SNACK", price: 10 } });
+  check("menu holds at most 14 items", fifteenth.status === 400 && /14/.test(fifteenth.json?.error ?? ""), fifteenth.text);
+
+  const sale = await call("POST", "/api/cafe/sales", { ...R, body: { items: [{ itemId: shake.id, qty: 2 }, { itemId: coffee.id, qty: 1 }], method: "CASH" } });
+  check("reception rings up a sale (prices from the menu)", sale.status === 200 && sale.json?.total === 2 * 25 + 18, sale.text);
+  const soldOut = await call("POST", "/api/cafe/sales", { ...R, body: { items: [{ itemId: shake.id, qty: 1 }], method: "CARD" } });
+  check("sold-out items can't be sold", soldOut.status === 400 && /sold out/i.test(soldOut.json?.error ?? ""), soldOut.text);
+  const after = (await call("GET", "/api/cafe", O)).json;
+  check("today's café takings add up", after?.today?.total >= 68 && after?.today?.cash >= 68 && after?.items?.find((i) => i.id === shake.id)?.stock === 0, JSON.stringify(after?.today));
+  check("reception can't void a sale", (await call("DELETE", `/api/cafe/sales/${sale.json?.id}`, R)).status === 403);
+  const voided = await call("DELETE", `/api/cafe/sales/${sale.json?.id}`, O);
+  const back = (await call("GET", "/api/cafe", O)).json;
+  check("voiding a sale puts the stock back", voided.status === 200 && back?.items?.find((i) => i.id === shake.id)?.stock === 2, voided.text);
+
+  const someone = back?.staff?.find((st) => st.role === "RECEPTION");
+  const role = await call("PUT", `/api/cafe/team/${someone?.id}`, { ...O, body: { cafeRole: "Barista" } });
+  const withTeam = (await call("GET", "/api/cafe", O)).json;
+  check("café team: give someone a café job", role.json?.cafeRole === "Barista" && withTeam?.team?.some((t) => t.id === someone?.id), role.text);
+  await call("PUT", `/api/cafe/team/${someone?.id}`, { ...O, body: { cafeRole: null } });
+
+  // Billing: the café add-on is priced into the plan
+  const q = await call("POST", "/api/billing", { ...O, body: { months: 12, extraBranches: 0, cafe: true } });
+  check("billing: VOXI Café adds QAR 8,000 a year", q.json?.quote?.total === 25000 + 8000 && q.json?.request?.cafe === true, q.text);
+  const q3 = await call("POST", "/api/billing", { ...O, body: { months: 3, extraBranches: 0, cafe: true } });
+  check("billing: VOXI Café is pro rata on 3 months", q3.json?.quote?.cafe === 3200, q3.text);
+  await call("DELETE", "/api/billing", O);
+
+  // Tidy up so the test can run again
+  for (const it of withTeam?.items ?? []) await call("DELETE", `/api/cafe/items/${it.id}`, O);
+  await call("PUT", `/api/admin/gyms/${voxi?.id}`, { ...A, body: { cafeEnabled: false } });
+});
+
 await step("billing", async () => {
   const b = await call("GET", "/api/billing", O);
   check("billing: active gym sees its plan", b.json?.status === "ACTIVE" && b.json?.current?.months === 12, b.text);

@@ -48,6 +48,7 @@ export async function listGyms() {
       trialEndsAt: true,
       billingMonths: true,
       extraBranches: true,
+      cafeEnabled: true,
       paidUntil: true,
       planRequest: true,
       platformNotes: true,
@@ -85,7 +86,7 @@ export async function listGyms() {
       suspended: rows.filter((g) => g.status === "SUSPENDED").length,
       members: rows.reduce((s, g) => s + g.members, 0),
       // Monthly recurring revenue: each paying gym's subscription spread over its term.
-      mrr: paying.reduce((s, g) => s + quote(g.billingMonths, g.extraBranches).perMonth, 0),
+      mrr: paying.reduce((s, g) => s + quote(g.billingMonths, g.extraBranches, g.cafeEnabled).perMonth, 0),
       requests: rows.filter((g) => g.planRequest).length,
     },
   };
@@ -136,7 +137,7 @@ export async function updateGym(id: string, input: z.infer<typeof updateGymSchem
   const gym = await db.gym.findUnique({ where: { id }, select: { id: true, status: true, planRequest: true } });
   if (!gym) throw new ApiError(404, "Gym not found.");
   // "Activate request": copy what the gym asked for on its Billing page.
-  const req = input.applyRequest ? (gym.planRequest as { months?: number; extraBranches?: number; promoCode?: string | null } | null) : null;
+  const req = input.applyRequest ? (gym.planRequest as { months?: number; extraBranches?: number; promoCode?: string | null; cafe?: boolean } | null) : null;
   if (input.applyRequest && !req) throw new ApiError(400, "This gym has no pending plan request.");
   if (req?.promoCode) await countPromoUse(req.promoCode);
   const months = req?.months ?? input.billingMonths;
@@ -150,8 +151,9 @@ export async function updateGym(id: string, input: z.infer<typeof updateGymSchem
       ...(months !== undefined ? { billingMonths: months } : {}),
       ...((req?.extraBranches ?? input.extraBranches) !== undefined ? { extraBranches: req?.extraBranches ?? input.extraBranches } : {}),
       ...(input.paidUntil !== undefined ? { paidUntil: input.paidUntil } : {}),
+      ...((req ? !!req.cafe : input.cafeEnabled) !== undefined ? { cafeEnabled: req ? !!req.cafe : input.cafeEnabled } : {}),
       ...(req ? { status: "ACTIVE" as GymStatus, paidUntil: addMonths(new Date(), months ?? 12), planRequest: Prisma.DbNull } : {}),
     },
-    select: { id: true, name: true, status: true, trialEndsAt: true, billingMonths: true, extraBranches: true, paidUntil: true, planRequest: true, platformNotes: true },
+    select: { id: true, name: true, status: true, trialEndsAt: true, billingMonths: true, extraBranches: true, cafeEnabled: true, paidUntil: true, planRequest: true, platformNotes: true },
   });
 }

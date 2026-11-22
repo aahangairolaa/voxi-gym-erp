@@ -22,6 +22,7 @@ export type Module =
   | "payments"
   | "cash"
   | "expenses"
+  | "cafe"
   | "reports"
   | "leads"
   | "messages"
@@ -52,6 +53,7 @@ export const ACCESS: Record<Module, Role[]> = {
   payments: FRONT_DESK,
   cash: FRONT_DESK,
   expenses: FRONT_DESK,
+  cafe: FRONT_DESK, // the menu and café team: owner/manager; selling: front desk too
   reports: FRONT_DESK,
   leads: FRONT_DESK,
   messages: FRONT_DESK,
