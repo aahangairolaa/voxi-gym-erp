@@ -47,7 +47,7 @@ export default function MessagesPage() {
         title="WhatsApp"
         subtitle={apiMode ? "Sent automatically through your WhatsApp Business number" : "Messages open in WhatsApp with the text ready. Connect the Business API to send automatically"}
         actions={
-          can(user.role, "settings") && (
+          can(user.role, "settings", user.gym?.rolePermissions) && (
             <Link href="/settings#whatsapp">
               <Button variant="secondary">
                 <LuSettings className="h-4 w-4" /> WhatsApp settings

@@ -79,6 +79,19 @@ export async function loginWithGoogle(profile: { sub: string; email: string }): 
   return sessionFor(staff);
 }
 
+export async function loginWithMicrosoft(profile: { sub: string; email: string }): Promise<Session | null> {
+  const staff =
+    (await db.staff.findUnique({ where: { microsoftId: profile.sub }, include: { gym: { select: { status: true } } } })) ??
+    (await db.staff.findUnique({ where: { email: profile.email }, include: { gym: { select: { status: true } } } }));
+  if (!staff) return null;
+  assertCanSignIn(staff);
+  await db.staff.update({
+    where: { id: staff.id },
+    data: { lastLoginAt: new Date(), failedLogins: 0, lockedUntil: null, ...(staff.microsoftId ? {} : { microsoftId: profile.sub }) },
+  });
+  return sessionFor(staff);
+}
+
 /** Self-service sign-up: a new gym on a 7-day trial, its owner account, and starter data. */
 export async function registerGym(input: {
   gymName: string;
@@ -87,9 +100,10 @@ export async function registerGym(input: {
   phone: string | null;
   password: string | null;
   googleId: string | null;
+  microsoftId?: string | null;
 }): Promise<Session> {
   if (process.env.ALLOW_SIGNUP === "false") throw new ApiError(403, "New sign-ups are closed. Please contact VOXI for a demo.");
-  if (!input.password && !input.googleId) throw new ApiError(400, "Choose a password (at least 8 characters).");
+  if (!input.password && !input.googleId && !input.microsoftId) throw new ApiError(400, "Choose a password (at least 8 characters).");
   const passwordHash = input.password ? await bcrypt.hash(input.password, 10) : NO_PASSWORD;
   const gym = await createGym({
     name: input.gymName,
@@ -107,6 +121,7 @@ export async function registerGym(input: {
     ownerEmail: input.email,
     ownerPasswordHash: passwordHash,
     ownerGoogleId: input.googleId,
+    ownerMicrosoftId: input.microsoftId ?? null,
   });
   const owner = await db.staff.findUniqueOrThrow({ where: { email: gym.ownerEmail } });
   await db.staff.update({ where: { id: owner.id }, data: { lastLoginAt: new Date() } });
@@ -161,17 +176,25 @@ export async function currentUser(session: Session) {
     session.gymId
       ? db.gym.findUnique({
           where: { id: session.gymId },
-          select: { id: true, name: true, logo: true, brandColor: true, status: true, plan: true, billingMonths: true, planRequest: true, whatsappEnabled: true, trialEndsAt: true },
+          select: { id: true, name: true, logo: true, brandColor: true, status: true, plan: true, billingMonths: true, planRequest: true, whatsappEnabled: true, trialEndsAt: true, rolePermissions: true },
         })
       : null,
-    db.staff.findUnique({ where: { id: session.staffId }, select: { googleId: true, passwordHash: true } }),
+    db.staff.findUnique({ where: { id: session.staffId }, select: { googleId: true, microsoftId: true, passwordHash: true, photoUpdatedAt: true } }),
   ]);
   return {
-    user: { ...session, hasGoogle: !!me?.googleId, hasPassword: me?.passwordHash !== NO_PASSWORD },
+    user: {
+      ...session,
+      hasGoogle: !!me?.googleId,
+      hasMicrosoft: !!me?.microsoftId,
+      hasPassword: me?.passwordHash !== NO_PASSWORD,
+      photoUrl: me?.photoUpdatedAt ? `/api/staff/${session.staffId}/photo?v=${me.photoUpdatedAt.getTime()}` : null,
+    },
     gym,
     googleEnabled: googleEnabled(),
   };
 }
+
+export { microsoftEnabled } from "../microsoft";
 
 export function googleEnabled() {
   return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);

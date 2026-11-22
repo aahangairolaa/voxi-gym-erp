@@ -6,11 +6,16 @@ import type { GymSession, Session } from "../auth";
 import type { staffSchema } from "../validators";
 import { ownedOr404 } from "./_shared";
 
+export function staffPhotoUrl(s: { id: string; photoUpdatedAt?: Date | null }) {
+  return s.photoUpdatedAt ? `/api/staff/${s.id}/photo?v=${s.photoUpdatedAt.getTime()}` : null;
+}
+const withPhoto = <T extends { id: string; photoUpdatedAt: Date | null }>({ photoUpdatedAt, ...s }: T) => ({ ...s, photoUrl: staffPhotoUrl({ id: s.id, photoUpdatedAt }) });
+
 type StaffInput = z.infer<typeof staffSchema>;
 
 const safeSelect = {
   id: true, name: true, email: true, phone: true, role: true, branchId: true, salary: true,
-  specialty: true, isActive: true, lastLoginAt: true, createdAt: true,
+  specialty: true, isActive: true, lastLoginAt: true, createdAt: true, photoUpdatedAt: true,
   branch: { select: { id: true, name: true } },
 } as const;
 
@@ -33,7 +38,7 @@ export async function listStaff(session: GymSession) {
     select: safeSelect,
   });
   // Only the owner sees salaries
-  return session.role === "OWNER" ? staff : staff.map((s) => ({ ...s, salary: null }));
+  return staff.map((s) => withPhoto(session.role === "OWNER" ? s : { ...s, salary: null }));
 }
 
 export async function listTrainers(gymId: string) {
@@ -52,20 +57,22 @@ export async function listAssignable(gymId: string, role?: string | null) {
 export async function createStaff(input: StaffInput, session: GymSession) {
   assertCanManage(session, input.role);
   await checkBranch(session.gymId, input.branchId);
-  const { password, ...data } = input;
+  const { password, photo, ...data } = input;
   const signsIn = data.role !== "HOUSEKEEPING";
   if (signsIn && !data.email) throw new ApiError(400, "Enter an email. It's how this person signs in.");
   if (signsIn && !password) throw new ApiError(400, "Set a password for the new account (min 8 characters).");
-  return db.staff.create({
+  const created = await db.staff.create({
     data: {
       ...data,
       email: data.email || null,
       gymId: session.gymId,
+      ...(photo ? { photo, photoUpdatedAt: new Date() } : {}),
       // Housekeeping staff are kept on the team list but don't get a VOXI login
       passwordHash: signsIn && password ? await bcrypt.hash(password, 10) : "!no-password",
     },
     select: safeSelect,
   });
+  return withPhoto(created);
 }
 
 export async function updateStaff(id: string, input: StaffInput, session: GymSession) {
@@ -76,18 +83,20 @@ export async function updateStaff(id: string, input: StaffInput, session: GymSes
   if (id === session.staffId && (!input.isActive || input.role !== existing.role)) {
     throw new ApiError(400, "You can't deactivate yourself or change your own role.");
   }
-  const { password, ...data } = input;
+  const { password, photo, ...data } = input;
   const signsIn = data.role !== "HOUSEKEEPING";
   if (signsIn && !data.email) throw new ApiError(400, "Enter an email. It's how this person signs in.");
   if (signsIn && !password && existing.passwordHash === "!no-password" && !existing.googleId) {
     throw new ApiError(400, "Set a password so this person can sign in (min 8 characters).");
   }
   const loginRemoved = !signsIn && existing.role !== "HOUSEKEEPING";
-  return db.staff.update({
+  const updated = await db.staff.update({
     where: { id },
     data: {
       ...data,
       email: data.email || null,
+      // photo: undefined = keep, null = remove, string = replace
+      ...(photo !== undefined ? { photo, photoUpdatedAt: photo ? new Date() : null } : {}),
       ...(signsIn && password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
       ...(!signsIn ? { passwordHash: "!no-password" } : {}),
       // A new password, deactivation or losing the login signs this person out on every device
@@ -95,6 +104,7 @@ export async function updateStaff(id: string, input: StaffInput, session: GymSes
     },
     select: safeSelect,
   });
+  return withPhoto(updated);
 }
 
 export async function changeOwnPassword(session: Session, currentPassword: string, newPassword: string) {
@@ -106,4 +116,13 @@ export async function changeOwnPassword(session: Session, currentPassword: strin
   }
   await db.staff.update({ where: { id: me.id }, data: { passwordHash: await bcrypt.hash(newPassword, 10) } });
   return { ok: true };
+}
+
+/** The raw photo for <img> tags. Returns null when the staff member has none. */
+export async function getStaffPhoto(gymId: string, id: string) {
+  const s = await db.staff.findFirst({ where: { id, gymId }, select: { photo: true } });
+  if (!s?.photo) return null;
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(s.photo);
+  if (!match) return null;
+  return { contentType: match[1]!, bytes: Buffer.from(match[2]!, "base64") };
 }

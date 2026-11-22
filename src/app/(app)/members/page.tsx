@@ -52,7 +52,7 @@ export default function MembersPage() {
         title="Members"
         subtitle={data ? `${data.counts.ALL} members${branchId ? "" : " across all branches"}` : "Everyone who trains with you"}
         actions={
-          can(user.role, "memberships") && (
+          can(user.role, "memberships", user.gym?.rolePermissions) && (
             <div className="flex gap-2">
               {canImport && (
                 <Button variant="secondary" onClick={() => setImporting(true)}>

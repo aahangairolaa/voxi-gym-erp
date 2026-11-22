@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { ADD_ONS } from "@/components/marketing/pricing-data";
 import { PricingTable } from "@/components/marketing/pricing-table";
 import { SiteFooter, SiteNav } from "@/components/marketing/site-nav";
-import { BRANCH_DISCOUNTS, MAX_EXTRA_BRANCHES, TERMS, TRIAL_DAYS, branchPrice } from "@/lib/pricing";
+import { BRANCH_DISCOUNTS, MAX_LOCATIONS, TERMS, TRIAL_DAYS, branchPrice } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -13,9 +12,9 @@ const fmt = (n: number) => n.toLocaleString("en");
 
 const FAQ = [
   ["How do I pay?", "After your trial, choose a term and branches on the Billing page inside VOXI. We send an invoice and you pay by bank transfer, card or Fawran. Your plan starts the day payment arrives."],
-  ["Can I add a branch later?", `Yes. Add up to ${MAX_EXTRA_BRANCHES} branches at any time from Billing. Each new branch is cheaper than the one before it.`],
+  ["Can I add a branch later?", `Yes. Run up to ${MAX_LOCATIONS} locations and add branches any time from Billing. Each new branch is cheaper than the one before it.`],
   ["What happens when my trial ends?", "Nothing is deleted. Choose a plan to keep going, and everything you set up during the trial stays exactly as it is."],
-  ["Is there a contract?", "Only the term you choose. Pick 1, 3, 6 or 12 months; longer terms cost less per month."],
+  ["Is there a contract?", "Only the term you choose. Pick 3, 6 or 12 months. Longer terms cost less per month."],
 ];
 
 export default function PricingPage() {
@@ -28,10 +27,10 @@ export default function PricingPage() {
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <p className="text-xs font-bold tracking-[0.25em] text-brand-600 uppercase">Pricing · Qatari Riyal</p>
             <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-              One plan. <span className="text-gradient">Every feature.</span>
+              Every feature. <span className="text-gradient">Your terms.</span>
             </h1>
             <p className="mt-4 text-muted">
-              Choose how long you want to commit and how many locations you run. Start with a {TRIAL_DAYS}-day free trial, no card needed.
+              Choose your plan, then tailor it with branches and setup services. Start with a {TRIAL_DAYS}-day free trial, no card needed.
             </p>
           </div>
           <PricingTable />
@@ -73,19 +72,6 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-5 pb-20">
-        <h2 className="mb-6 text-2xl font-semibold tracking-tight">One-time services</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {ADD_ONS.map((a) => (
-            <div key={a.name} className="card p-6">
-              <p className="font-semibold">{a.name}</p>
-              <p className="mt-3 font-display text-2xl font-semibold">{a.price}</p>
-              <p className="text-xs text-muted">{a.unit}</p>
-              <p className="mt-3 text-sm text-muted">{a.note}</p>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section className="mx-auto max-w-3xl px-5 pb-24">
         <h2 className="text-center text-2xl font-semibold tracking-tight">Billing questions</h2>

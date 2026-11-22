@@ -1,4 +1,5 @@
 "use client";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useRef, useState } from "react";
 import { LuImagePlus, LuStore, LuTrash2 } from "react-icons/lu";
 import { Button, Card, CardHeader, Field, Input, Skeleton, Textarea, useToast } from "@/components/ui";
@@ -132,7 +133,7 @@ export function GymProfileCard({ settings, editable, onSaved }: { settings: Sett
               <Input {...f("crNumber")} />
             </Field>
             <Field label="Phone">
-              <Input {...f("phone")} />
+              <PhoneInput value={form?.phone ?? ""} onChange={(v) => form && setForm({ ...form, phone: v })} />
             </Field>
             <Field label="Email">
               <Input {...f("email")} />

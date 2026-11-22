@@ -39,14 +39,14 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         </Link>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-          {can(user.role, "members") && <CommandSearch />}
+          {can(user.role, "members", user.gym?.rolePermissions) && <CommandSearch />}
           <span className="hidden rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-ink-soft sm:inline">
             {ROLE_LABEL[user.role]}
           </span>
           <ThemeToggle />
           <div className="relative" ref={menuRef}>
             <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 rounded-full p-0.5 pr-1.5 transition hover:bg-surface-2">
-              <Avatar name={user.name} size={34} />
+              <Avatar name={user.name} src={user.photoUrl} size={34} />
               <LuChevronDown className="hidden h-4 w-4 text-muted sm:block" />
             </button>
             {open && (
@@ -56,7 +56,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
                   <p className="truncate text-xs text-muted">{user.email}</p>
                 </div>
                 <div className="my-1 h-px bg-line" />
-                {can(user.role, "settings") && (
+                {can(user.role, "settings", user.gym?.rolePermissions) && (
                   <Link href="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink-soft hover:bg-surface-2">
                     <LuSettings className="h-4 w-4" /> Settings
                   </Link>

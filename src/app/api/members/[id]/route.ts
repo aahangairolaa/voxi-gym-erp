@@ -1,5 +1,6 @@
 import { route, readBody } from "@/server/http";
-import { requireGym, requireGymRole } from "@/server/auth";
+import { hasPermission, requireGym, requirePermission } from "@/server/auth";
+import { maskContacts } from "@/server/privacy";
 import { memberSchema } from "@/server/validators";
 import { deleteMember, getMember, updateMember } from "@/server/services/members.service";
 import { audit } from "@/server/services/audit.service";
@@ -9,7 +10,8 @@ type Params = { id: string };
 /** GET /api/members/:id → full profile with memberships, payments, visits */
 export const GET = route<Params>(async (_req, { id }) => {
   const s = await requireGym("members");
-  return getMember(s.gymId, id);
+  const m = await getMember(s.gymId, id);
+  return (await hasPermission(s, "contacts")) ? m : maskContacts(m);
 });
 
 /** PUT /api/members/:id  (photo: omit to keep, null to remove) */
@@ -20,9 +22,10 @@ export const PUT = route<Params>(async (req, { id }) => {
   return m;
 });
 
-/** DELETE /api/members/:id  (owner & manager only) */
+/** DELETE /api/members/:id  (roles with the "Refunds and deletions" permission) */
 export const DELETE = route<Params>(async (_req, { id }) => {
-  const s = await requireGymRole("OWNER", "MANAGER");
+  const s = await requireGym("memberships");
+  await requirePermission(s, "refunds");
   const m = await deleteMember(s.gymId, id);
   await audit(s, "member.delete", "Member", id, `Deleted member ${m.firstName} ${m.lastName} (${m.code})`);
   return { ok: true };

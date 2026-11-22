@@ -273,6 +273,8 @@ export const staffSchema = z.object({
   salary: money.optional().nullable(),
   specialty: optStr(80),
   isActive: z.boolean().default(true),
+  /** undefined = keep the current photo, null = remove it */
+  photo: imageDataUrl(400).nullable().optional(),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
@@ -375,7 +377,7 @@ export const createGymSchema = z.object({
   plan: subscription.default("PROFESSIONAL"),
   status: gymStatus.default("TRIAL"),
   trialDays: z.coerce.number().int().min(1).max(90).default(7),
-  billingMonths: z.coerce.number().int().refine((n) => [1, 3, 6, 12].includes(n), "Choose 1, 3, 6 or 12 months").default(12),
+  billingMonths: z.coerce.number().int().refine((n) => [3, 6, 12].includes(n), "Choose 3, 6 or 12 months").default(12),
   extraBranches: z.coerce.number().int().min(0).max(MAX_EXTRA_BRANCHES).default(0),
   ownerName: str(100).min(1, "Owner name is required"),
   ownerEmail: z.string().trim().toLowerCase().email("Enter the owner's email"),
@@ -393,7 +395,7 @@ export const updateGymSchema = z.object({
     .optional()
     .transform((v) => (v === undefined ? undefined : v ? (/^\d{4}-\d{2}-\d{2}$/.test(v) ? fromDateInput(v) : new Date(v)) : null)),
   platformNotes: z.string().trim().max(1000).nullable().optional(),
-  billingMonths: z.coerce.number().int().refine((n) => [1, 3, 6, 12].includes(n), "Choose 1, 3, 6 or 12 months").optional(),
+  billingMonths: z.coerce.number().int().refine((n) => [3, 6, 12].includes(n), "Choose 3, 6 or 12 months").optional(),
   extraBranches: z.coerce.number().int().min(0).max(MAX_EXTRA_BRANCHES).optional(),
   paidUntil: z
     .string()
@@ -406,6 +408,9 @@ export const updateGymSchema = z.object({
 
 /** A gym owner/manager asks to start or change their subscription from Billing. */
 export const planRequestSchema = z.object({
-  months: z.coerce.number().int().refine((n) => [1, 3, 6, 12].includes(n), "Choose 1, 3, 6 or 12 months"),
+  months: z.coerce.number().int().refine((n) => [3, 6, 12].includes(n), "Choose 3, 6 or 12 months"),
   extraBranches: z.coerce.number().int().min(0).max(MAX_EXTRA_BRANCHES),
+  /** One-time services: biometric entrances to install and data migration. */
+  entrances: z.coerce.number().int().min(0).max(20).default(0),
+  onboarding: z.boolean().default(false),
 });

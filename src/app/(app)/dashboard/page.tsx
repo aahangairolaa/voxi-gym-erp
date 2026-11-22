@@ -15,7 +15,7 @@ import { Avatar, Badge, Button, Card, CardHeader, CountUp, EmptyState, ErrorStat
 import { useApi } from "@/hooks/use-api";
 import { qatarParts } from "@/lib/dates";
 import { formatQAR, formatTime, humanize, timeAgo } from "@/lib/format";
-import { can } from "@/lib/permissions";
+import { allowed, can } from "@/lib/permissions";
 import type { DashboardData, SearchResult } from "@/types/api";
 
 function greeting() {
@@ -28,8 +28,8 @@ export default function DashboardPage() {
   const { data, error, loading, reload } = useApi<DashboardData>("/api/dashboard", { refreshMs: 60_000 });
   const [newMember, setNewMember] = useState(false);
   const [sell, setSell] = useState<{ open: boolean; member: SearchResult | null }>({ open: false, member: null });
-  const canSell = can(user.role, "memberships");
-  const canMoney = can(user.role, "payments");
+  const canSell = can(user.role, "memberships", user.gym?.rolePermissions);
+  const canMoney = allowed(user.role, "revenue", user.gym?.rolePermissions);
 
   if (error) return <ErrorState message={error} onRetry={reload} />;
 

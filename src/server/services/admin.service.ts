@@ -92,7 +92,7 @@ export async function listGyms() {
 
 /** Create a gym with its owner account, a first branch and starter data. */
 type CreateGymInput = Omit<z.infer<typeof createGymSchema>, "ownerPassword"> &
-  ({ ownerPassword: string } | { ownerPasswordHash: string; ownerGoogleId?: string | null });
+  ({ ownerPassword: string } | { ownerPasswordHash: string; ownerGoogleId?: string | null; ownerMicrosoftId?: string | null });
 
 export async function createGym(input: CreateGymInput) {
   const email = input.ownerEmail.toLowerCase();
@@ -102,6 +102,7 @@ export async function createGym(input: CreateGymInput) {
   const slug = await uniqueSlug(slugify(input.slug || input.name));
   const passwordHash = "ownerPassword" in input ? await bcrypt.hash(input.ownerPassword, 10) : input.ownerPasswordHash;
   const googleId = "ownerGoogleId" in input ? input.ownerGoogleId ?? null : null;
+  const microsoftId = "ownerMicrosoftId" in input ? input.ownerMicrosoftId ?? null : null;
 
   return db.$transaction(async (tx) => {
     const gym = await tx.gym.create({
@@ -122,7 +123,7 @@ export async function createGym(input: CreateGymInput) {
     });
     await tx.branch.create({ data: { gymId: gym.id, name: input.branchName || "Main branch", address: input.address, phone: input.phone } });
     await tx.staff.create({
-      data: { gymId: gym.id, name: input.ownerName, email, passwordHash, googleId, role: "OWNER", branchId: null, phone: input.phone },
+      data: { gymId: gym.id, name: input.ownerName, email, passwordHash, googleId, microsoftId, role: "OWNER", branchId: null, phone: input.phone },
     });
     await tx.plan.createMany({ data: STARTER_PLANS.map((p) => ({ ...p, gymId: gym.id })) });
     await tx.exercise.createMany({ data: EXERCISE_LIBRARY.map(([name, muscleGroup, equipment]) => ({ gymId: gym.id, name, muscleGroup, equipment })) });

@@ -44,7 +44,7 @@ export function BottomNav({ onMenu }: { onMenu: () => void }) {
           </span>
           Check-in
         </Link>
-        {can(user.role, "payments") ? tab("/payments", "Payments", LuReceipt) : tab("/leaderboard", "Ranks", LuReceipt)}
+        {can(user.role, "payments", user.gym?.rolePermissions) ? tab("/payments", "Payments", LuReceipt) : tab("/leaderboard", "Ranks", LuReceipt)}
         <button onClick={onMenu} className="flex flex-1 flex-col items-center gap-1 py-2 text-[10.5px] font-semibold text-muted">
           <LuMenu className="h-5 w-5" />
           More

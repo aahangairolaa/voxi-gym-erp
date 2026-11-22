@@ -5,11 +5,22 @@
  */
 import { Prisma } from "@prisma/client";
 import type { z } from "zod";
-import { quote } from "@/lib/pricing";
+import { addonsTotal, quote } from "@/lib/pricing";
 import { db } from "../db";
 import type { planRequestSchema } from "../validators";
 
-export type PlanRequest = { months: number; extraBranches: number; total: number; requestedAt: string; requestedBy: string };
+export type PlanRequest = {
+  months: number;
+  extraBranches: number;
+  /** Subscription for the term (plan + branches). */
+  total: number;
+  entrances?: number;
+  onboarding?: boolean;
+  /** One-time services (biometric entrances, onboarding). */
+  oneTime?: number;
+  requestedAt: string;
+  requestedBy: string;
+};
 
 export async function getBilling(gymId: string) {
   const [gym, branches] = await Promise.all([
@@ -29,9 +40,19 @@ export async function getBilling(gymId: string) {
 
 export async function requestPlan(gymId: string, by: string, input: z.infer<typeof planRequestSchema>) {
   const q = quote(input.months, input.extraBranches);
-  const request: PlanRequest = { months: q.months, extraBranches: q.extraBranches, total: q.total, requestedAt: new Date().toISOString(), requestedBy: by };
+  const one = addonsTotal(q.months, input.entrances, input.onboarding);
+  const request: PlanRequest = {
+    months: q.months,
+    extraBranches: q.extraBranches,
+    total: q.total,
+    entrances: input.entrances,
+    onboarding: input.onboarding && q.months !== 12,
+    oneTime: one.total,
+    requestedAt: new Date().toISOString(),
+    requestedBy: by,
+  };
   await db.gym.update({ where: { id: gymId }, data: { planRequest: request as unknown as Prisma.InputJsonValue } });
-  return { request, quote: q };
+  return { request, quote: q, oneTime: one.total };
 }
 
 export async function cancelPlanRequest(gymId: string) {

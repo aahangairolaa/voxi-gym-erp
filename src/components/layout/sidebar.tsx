@@ -43,7 +43,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               {user.gym.status === "TRIAL" ? "Free trial" : user.gym.status === "SUSPENDED" ? "Suspended" : `VOXI · ${user.gym.billingMonths} month${user.gym.billingMonths === 1 ? "" : "s"}`}
             </p>
           </div>
-          {user.gym.status !== "ACTIVE" && can(user.role, "billing") && (
+          {user.gym.status !== "ACTIVE" && can(user.role, "billing", user.gym?.rolePermissions) && (
             <Link
               href="/billing"
               onClick={onNavigate}
@@ -57,7 +57,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 pt-3 pb-6 scrollbar-thin">
         {NAV.map((section) => {
-          const items = section.items.filter((i) => can(user.role, i.module));
+          const items = section.items.filter((i) => can(user.role, i.module, user.gym?.rolePermissions));
           if (!items.length) return null;
           return (
             <div key={section.title}>
@@ -100,7 +100,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="border-t border-line p-3">
         <div className="flex items-center gap-3 rounded-xl p-2">
-          <Avatar name={user.name} size={36} />
+          <Avatar name={user.name} src={user.photoUrl} size={36} />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
             <p className="truncate text-xs text-muted">{ROLE_LABEL[user.role]}</p>

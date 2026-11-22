@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LuArrowRight, LuEye, LuEyeOff, LuLock, LuMail } from "react-icons/lu";
-import { AUTH_ERRORS, AuthShell, Divider, GoogleButton, useAuthConfig } from "@/components/auth/auth-shell";
+import { AUTH_ERRORS, AuthShell, Divider, SocialButtons, useAuthConfig } from "@/components/auth/auth-shell";
 import { VoxiOrb } from "@/components/brand/logo";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api-client";
@@ -59,13 +59,13 @@ export default function LoginPage() {
               VOXI is getting ready. Sign-in opens very soon. Want a demo? <Link href="/#contact" className="font-semibold underline">Contact us</Link>.
             </p>
           )}
-          {cfg?.google && (
+          {(cfg?.google || cfg?.microsoft) && (
             <div className="mt-8">
-              <GoogleButton intent="login" label="Continue with Google" />
+              <SocialButtons cfg={cfg} intent="login" />
               <Divider text="or sign in with email" />
             </div>
           )}
-          <form onSubmit={submit} className={cfg?.google ? "space-y-4" : "mt-8 space-y-4"}>
+          <form onSubmit={submit} className={cfg?.google || cfg?.microsoft ? "space-y-4" : "mt-8 space-y-4"}>
             <label className="block">
               <span className="label">Email</span>
               <div className="relative">

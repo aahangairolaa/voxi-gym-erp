@@ -1,4 +1,5 @@
 "use client";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LuPhone, LuPlus, LuUserCheck, LuTrash2, LuMessageCircle, LuCalendar } from "react-icons/lu";
@@ -185,7 +186,7 @@ export default function LeadsPage() {
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
           <Field label="Mobile" required>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
           </Field>
           <Field label="Email">
             <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />

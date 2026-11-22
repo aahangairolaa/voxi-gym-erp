@@ -15,7 +15,7 @@ export function Celebrations() {
   const send = useWhatsApp();
   const { data, reload } = useApi<CelebrationsResponse>("/api/celebrations", { refreshMs: 300_000 });
   const [busy, setBusy] = useState<string | null>(null);
-  const canMessage = can(user.role, "messages");
+  const canMessage = can(user.role, "messages", user.gym?.rolePermissions);
 
   const greet = async (key: string, memberId: string, type: "BIRTHDAY" | "MILESTONE", visits?: number) => {
     setBusy(key);

@@ -1,4 +1,5 @@
 "use client";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import { Button, Field, Input, Modal, Select, Textarea, useToast } from "@/components/ui";
 import { invalidate } from "@/hooks/use-api";
@@ -6,6 +7,7 @@ import { useForm } from "@/hooks/use-form";
 import { useBranches, usePlans } from "@/hooks/use-lookups";
 import { api } from "@/lib/api-client";
 import { NATIONALITIES } from "@/lib/constants";
+import { toDateInput } from "@/lib/dates";
 import { formatQAR } from "@/lib/format";
 import type { MemberDetail } from "@/types/api";
 import { PaymentMethodPicker } from "./payment-fields";
@@ -51,7 +53,7 @@ export function MemberFormModal({
     if (member) {
       form.reset({
         firstName: member.firstName, lastName: member.lastName, phone: member.phone, email: member.email ?? "",
-        gender: member.gender ?? "", dateOfBirth: member.dateOfBirth?.slice(0, 10) ?? "", qid: member.qid ?? "",
+        gender: member.gender ?? "", dateOfBirth: member.dateOfBirth ? toDateInput(new Date(member.dateOfBirth)) : "", qid: member.qid ?? "",
         nationality: member.nationality ?? "", emergencyName: member.emergencyName ?? "", emergencyPhone: member.emergencyPhone ?? "",
         notes: member.notes ?? "", branchId: member.branchId ?? "",
       });
@@ -137,7 +139,7 @@ export function MemberFormModal({
               <Input {...form.bind("lastName")} />
             </Field>
             <Field label="Mobile" required>
-              <Input {...form.bind("phone")} inputMode="tel" />
+              <PhoneInput value={form.values.phone} onChange={(v) => form.set("phone", v)} />
             </Field>
             <Field label="Email">
               <Input type="email" {...form.bind("email")} />
@@ -182,7 +184,7 @@ export function MemberFormModal({
               <Input {...form.bind("emergencyName")} />
             </Field>
             <Field label="Emergency phone">
-              <Input {...form.bind("emergencyPhone")} inputMode="tel" />
+              <PhoneInput value={form.values.emergencyPhone} onChange={(v) => form.set("emergencyPhone", v)} />
             </Field>
             <Field label="Notes" className="sm:col-span-2" hint="Injuries, preferences, corporate deal…">
               <Textarea rows={2} {...form.bind("notes")} />

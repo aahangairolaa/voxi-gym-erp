@@ -40,13 +40,13 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
   );
 }
 
-export type AuthConfig = { google: boolean; signup: boolean; passwordReset: boolean; database: boolean };
+export type AuthConfig = { google: boolean; microsoft: boolean; signup: boolean; passwordReset: boolean; database: boolean };
 
 /** Which sign-in options this deployment has turned on. */
 export function useAuthConfig() {
   const [cfg, setCfg] = useState<AuthConfig | null>(null);
   useEffect(() => {
-    api.get<AuthConfig>("/api/auth/config").then(setCfg).catch(() => setCfg({ google: false, signup: true, passwordReset: false, database: false }));
+    api.get<AuthConfig>("/api/auth/config").then(setCfg).catch(() => setCfg({ google: false, microsoft: false, signup: true, passwordReset: false, database: false }));
   }, []);
   return cfg;
 }
@@ -68,6 +68,35 @@ export function GoogleButton({ intent, label }: { intent: "login" | "register"; 
   );
 }
 
+export function MicrosoftButton({ intent, label }: { intent: "login" | "register"; label: string }) {
+  return (
+    <a
+      href={`/api/auth/microsoft?intent=${intent}`}
+      className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-line bg-surface text-sm font-semibold text-ink shadow-sm transition hover:border-brand-200 hover:bg-surface-2"
+    >
+      <svg viewBox="0 0 21 21" className="h-[18px] w-[18px]" aria-hidden>
+        <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+        <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+        <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+        <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+      </svg>
+      {label}
+    </a>
+  );
+}
+
+/** Google and/or Microsoft buttons, whichever are switched on. */
+export function SocialButtons({ cfg, intent }: { cfg: AuthConfig | null; intent: "login" | "register" }) {
+  if (!cfg?.google && !cfg?.microsoft) return null;
+  const verb = intent === "login" ? "Continue" : "Sign up";
+  return (
+    <div className="space-y-3">
+      {cfg.google && <GoogleButton intent={intent} label={`${verb} with Google`} />}
+      {cfg.microsoft && <MicrosoftButton intent={intent} label={`${verb} with Microsoft`} />}
+    </div>
+  );
+}
+
 export function Divider({ text = "or" }: { text?: string }) {
   return (
     <div className="my-6 flex items-center gap-3 text-xs text-muted">
@@ -83,5 +112,9 @@ export const AUTH_ERRORS: Record<string, string> = {
   google_cancelled: "Google sign-in was cancelled.",
   google_state: "That sign-in link expired. Please try again.",
   google_failed: "Google sign-in didn't work. Please try again or use your password.",
+  microsoft_off: "Microsoft sign-in isn't set up yet. Use your email and password.",
+  microsoft_cancelled: "Microsoft sign-in was cancelled.",
+  microsoft_state: "That sign-in link expired. Please try again.",
+  microsoft_failed: "Microsoft sign-in didn't work. Please try again or use your password.",
   account_paused: "This account is deactivated or the gym is suspended. Contact your gym owner or VOXI.",
 };

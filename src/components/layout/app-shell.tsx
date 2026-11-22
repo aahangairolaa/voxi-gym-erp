@@ -5,6 +5,7 @@ import { VoxiOrb } from "@/components/brand/logo";
 import { ConfirmProvider, ToastProvider } from "@/components/ui";
 import { api } from "@/lib/api-client";
 import { can, homeFor, moduleForPath } from "@/lib/permissions";
+import { gymLocked } from "@/lib/pricing";
 import { BottomNav } from "./bottom-nav";
 import { TrialBanner } from "./trial-banner";
 import { SessionContext, type CurrentGym, type CurrentUser, type SessionValue } from "./session-context";
@@ -30,14 +31,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Send people away from pages their role can't use (e.g. a trainer opening /payments)
   const mod = moduleForPath(pathname);
   // (/settings is open to everyone for "change my password"; only owners can edit the gym there)
+  // When the free trial is over, the gym is locked: owners and managers can only choose a plan.
+  const locked = !!user?.gym && gymLocked(user.gym);
+  const canBill = !!user && can(user.role, "billing");
   const blocked =
-    !!user && (mod ? !can(user.role, mod) : pathname !== "/settings" && user.role === "SUPER_ADMIN");
+    !!user &&
+    ((locked && canBill && pathname !== "/billing") ||
+      (mod ? !can(user.role, mod, user.gym?.rolePermissions) : pathname !== "/settings" && user.role === "SUPER_ADMIN"));
   useEffect(() => {
-    if (user && blocked) router.replace(homeFor(user.role));
-  }, [user, blocked, router]);
+    if (user && blocked) router.replace(locked && canBill ? "/billing" : homeFor(user.role));
+  }, [user, blocked, locked, canBill, router]);
 
   // Each gym's own brand colour tints the accent glow
   const glow = user?.gym?.brandColor ? ({ "--glow": `${user.gym.brandColor}33` } as React.CSSProperties) : undefined;
+
+  // Staff who can't pay see a calm "paused" screen instead of the app
+  if (user && locked && !canBill) {
+    return (
+      <div className="grid min-h-dvh place-items-center px-6">
+        <div className="max-w-md text-center">
+          <VoxiOrb size={56} className="mx-auto drop-shadow-[0_10px_30px_rgba(124,92,255,0.6)]" />
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight text-ink">{user.gym?.name}&apos;s free trial has ended</h1>
+          <p className="mt-2 text-sm text-muted">VOXI is paused until your gym owner chooses a plan. Nothing has been deleted.</p>
+          <button
+            type="button"
+            onClick={async () => {
+              await api.post("/api/auth/logout").catch(() => {});
+              window.location.href = "/login";
+            }}
+            className="mt-6 inline-flex h-11 items-center rounded-xl border border-line px-5 text-sm font-semibold text-ink hover:bg-surface-2"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!user || blocked) {
     return (

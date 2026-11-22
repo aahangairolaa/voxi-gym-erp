@@ -1,4 +1,5 @@
 "use client";
+import type { RolePermissions } from "@/lib/permissions";
 import { createContext, useContext } from "react";
 import type { Role } from "@/lib/permissions";
 
@@ -11,6 +12,8 @@ export type CurrentUser = {
   gymId: string | null;
   hasGoogle: boolean;
   hasPassword: boolean;
+  hasMicrosoft: boolean;
+  photoUrl: string | null;
 };
 
 /** The gym the signed-in person works at (null for VOXI admins). */
@@ -26,6 +29,8 @@ export type CurrentGym = {
   planRequest: unknown;
   whatsappEnabled: boolean;
   trialEndsAt: string | null;
+  /** The owner's choices for confidential features (see lib/permissions.ts). */
+  rolePermissions: RolePermissions | null;
 } | null;
 
 export type SessionValue = CurrentUser & { gym: CurrentGym };

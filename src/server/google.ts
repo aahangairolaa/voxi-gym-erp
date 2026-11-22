@@ -26,7 +26,8 @@ export function googleAuthUrl(origin: string, state: string) {
   return u.toString();
 }
 
-export type GoogleProfile = { sub: string; email: string; name: string };
+/** An account from Google or Microsoft, waiting to sign in or finish signing up. */
+export type GoogleProfile = { sub: string; email: string; name: string; provider?: "google" | "microsoft" };
 
 /** Swap the one-time code for Google's signed ID token and verify it. */
 export async function exchangeCode(code: string, origin: string): Promise<GoogleProfile> {
@@ -48,7 +49,7 @@ export async function exchangeCode(code: string, origin: string): Promise<Google
     audience: process.env.GOOGLE_CLIENT_ID!,
   });
   if (!payload.email || payload.email_verified !== true) throw new Error("Your Google email isn't verified");
-  return { sub: String(payload.sub), email: String(payload.email).toLowerCase(), name: String(payload.name ?? payload.email) };
+  return { sub: String(payload.sub), email: String(payload.email).toLowerCase(), name: String(payload.name ?? payload.email), provider: "google" };
 }
 
 function key() {
@@ -62,7 +63,7 @@ export async function readSignup(token: string | undefined): Promise<GoogleProfi
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, key());
-    return { sub: String(payload.sub), email: String(payload.email), name: String(payload.name) };
+    return { sub: String(payload.sub), email: String(payload.email), name: String(payload.name), provider: payload.provider === "microsoft" ? "microsoft" : "google" };
   } catch {
     return null;
   }

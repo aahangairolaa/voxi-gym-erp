@@ -85,7 +85,7 @@ export type MemberDetail = {
   status: MemberStatus;
   currentMembership: MembershipDetail | null;
   memberships: MembershipDetail[];
-  payments: { id: string; invoiceNo: string; amount: number; method: string; status: string; description: string | null; paidAt: ISODate; receivedBy: { name: string } | null }[];
+  payments: { id: string; invoiceNo: string; amount: number; method: string; status: string; description: string | null; paidAt: ISODate; membershipId: string | null; receivedBy: { name: string } | null }[];
   attendance: { id: string; checkInAt: ISODate; checkOutAt: ISODate | null; source: string; branch: { name: string } | null }[];
   workoutPlans: { id: string; name: string; goal: string | null; level: string | null; trainer: { name: string } | null; _count: { items: number } }[];
   workoutLogs: { id: string; durationMin: number; calories: number | null; loggedAt: ISODate }[];
@@ -299,6 +299,7 @@ export type StaffMember = {
   isActive: boolean;
   lastLoginAt: ISODate | null;
   createdAt: ISODate;
+  photoUrl: string | null;
 };
 
 export type Settings = {
@@ -343,7 +344,7 @@ export type AdminGym = {
   billingMonths: number;
   extraBranches: number;
   paidUntil: ISODate | null;
-  planRequest: { months: number; extraBranches: number; total: number; requestedAt: ISODate; requestedBy: string } | null;
+  planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; requestedAt: ISODate; requestedBy: string } | null;
   platformNotes: string | null;
   createdAt: ISODate;
   owner: { name: string; email: string; lastLoginAt: ISODate | null } | null;

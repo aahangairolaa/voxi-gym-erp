@@ -20,7 +20,7 @@ import { invalidate, useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
 import { daysBetween } from "@/lib/dates";
 import { formatDate, formatDateTime, formatQAR, formatTime, humanize, timeAgo } from "@/lib/format";
-import { can } from "@/lib/permissions";
+import { allowed, can } from "@/lib/permissions";
 import { MESSAGE_TYPES } from "@/lib/whatsapp-templates";
 import type { AccessResult, MemberDetail, SearchResult } from "@/types/api";
 
@@ -57,9 +57,9 @@ export default function MemberProfilePage() {
   const cur = m.currentMembership;
   const totalDays = cur ? Math.max(1, daysBetween(new Date(cur.startDate), new Date(cur.endDate)) + 1) : 1;
   const usedDays = cur ? Math.min(totalDays, Math.max(0, daysBetween(new Date(cur.startDate), new Date()))) : 0;
-  const canSell = can(user.role, "memberships");
-  const canPay = can(user.role, "payments");
-  const canMessage = can(user.role, "messages");
+  const canSell = can(user.role, "memberships", user.gym?.rolePermissions);
+  const canPay = can(user.role, "payments", user.gym?.rolePermissions);
+  const canMessage = can(user.role, "messages", user.gym?.rolePermissions);
 
   const checkIn = async () => {
     setBusy("checkin");
@@ -178,7 +178,7 @@ export default function MemberProfilePage() {
                 <LuPencil className="h-4 w-4" />
               </Button>
             )}
-            {(user.role === "OWNER" || user.role === "MANAGER") && (
+            {allowed(user.role, "refunds", user.gym?.rolePermissions) && (
               <Button variant="ghost" size="icon" onClick={remove} aria-label="Delete" className="hover:text-rose-600">
                 <LuTrash2 className="h-4 w-4" />
               </Button>
@@ -289,6 +289,7 @@ export default function MemberProfilePage() {
                         <th className="text-right">Price</th>
                         <th className="text-right">Balance</th>
                         <th>Status</th>
+                        <th />
                       </tr>
                     </thead>
                     <tbody>
@@ -305,6 +306,29 @@ export default function MemberProfilePage() {
                           <td className={`text-right tabular-nums ${ms.balance > 0 ? "font-semibold text-amber-600" : "text-muted"}`}>{ms.balance > 0 ? formatQAR(ms.balance) : "–"}</td>
                           <td>
                             <StatusBadge status={ms.status === "CANCELLED" ? "CANCELLED" : ms.effectiveStatus} />
+                          </td>
+                          <td className="text-right whitespace-nowrap">
+                            {(() => {
+                              const paid = m.payments.find((p) => p.membershipId === ms.id);
+                              return (
+                                <span className="inline-flex gap-1.5">
+                                  {paid && (
+                                    <Link href={`/invoice/${paid.id}`} target="_blank" className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-semibold text-ink hover:bg-surface-2">
+                                      <LuPrinter className="h-3.5 w-3.5" /> Invoice
+                                    </Link>
+                                  )}
+                                  {ms.balance > 0 && canPay && ms.status !== "CANCELLED" && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPaying({ open: true, membershipId: ms.id, amount: ms.balance, description: `${ms.plan.name} ${paid ? "balance" : "membership"}` })}
+                                      className="rounded-lg bg-brand-600 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-700"
+                                    >
+                                      {paid ? "Collect balance" : "Take payment"}
+                                    </button>
+                                  )}
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}
@@ -337,8 +361,8 @@ export default function MemberProfilePage() {
                             {formatQAR(p.amount)} {p.status !== "PAID" && <PaymentStatusBadge status={p.status} />}
                           </td>
                           <td className="text-right">
-                            <Link href={`/invoice/${p.id}`} target="_blank" className="inline-flex rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-ink" aria-label="Print invoice">
-                              <LuPrinter className="h-4 w-4" />
+                            <Link href={`/invoice/${p.id}`} target="_blank" className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-semibold text-ink hover:bg-surface-2">
+                              <LuPrinter className="h-3.5 w-3.5" /> Invoice
                             </Link>
                           </td>
                         </tr>
@@ -346,7 +370,7 @@ export default function MemberProfilePage() {
                     </tbody>
                   </table>
                 ) : (
-                  <EmptyState title="No payments yet" />
+                  <EmptyState title="No payments yet" message="An invoice is created every time you take a payment. Use Take payment on a membership, or Record payment above." />
                 ))}
               {tab === "visits" &&
                 (m.attendance.length ? (

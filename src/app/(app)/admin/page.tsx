@@ -1,4 +1,5 @@
 "use client";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import { LuBuilding2, LuCopy, LuPencil, LuPlus, LuTrendingUp, LuUsers } from "react-icons/lu";
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, Modal, PageHeader, Segmented, Select, Skeleton, StatCard, Textarea, useToast } from "@/components/ui";
@@ -221,7 +222,7 @@ function CreateGymModal({ open, onClose, onDone }: { open: boolean; onClose: () 
               <Input value={form.branchName} onChange={set("branchName")} />
             </Field>
             <Field label="Phone">
-              <Input value={form.phone} onChange={set("phone")} inputMode="tel" />
+              <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
             </Field>
             <Field label="Gym email">
               <Input type="email" value={form.email} onChange={set("email")} />
@@ -343,6 +344,13 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
             <p className="font-semibold text-ink">
               Requested {planText(req.months, req.extraBranches)}, {qar(req.total)}
             </p>
+            {!!req.oneTime && (
+              <p className="text-ink-soft">
+                One-time: {req.entrances ? `${req.entrances} biometric entrance${req.entrances === 1 ? "" : "s"}` : ""}
+                {req.entrances && req.onboarding ? " + " : ""}
+                {req.onboarding ? "onboarding" : ""} ({qar(req.oneTime)})
+              </p>
+            )}
             <p className="text-muted">
               By {req.requestedBy} on {formatDate(req.requestedAt)}. Activate once the invoice is paid.
             </p>

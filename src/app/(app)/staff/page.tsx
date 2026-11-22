@@ -5,6 +5,8 @@ import { useUser } from "@/components/layout/session-context";
 import { Avatar, Badge, Button, Card, EmptyState, Field, Input, Modal, PageHeader, Select, Skeleton, Toggle, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
 import { useBranches } from "@/hooks/use-lookups";
+import { PhotoInput } from "@/components/members/photo-input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { api } from "@/lib/api-client";
 import { formatQAR, timeAgo } from "@/lib/format";
 import { ROLE_LABEL, ROLES, type Role } from "@/lib/permissions";
@@ -13,8 +15,8 @@ import type { StaffMember } from "@/types/api";
 const ROLE_TONE: Record<Role, "brand" | "blue" | "green" | "amber" | "gray"> = { SUPER_ADMIN: "brand", OWNER: "brand", MANAGER: "blue", RECEPTION: "green", TRAINER: "amber", HOUSEKEEPING: "gray" };
 const ROLE_HELP: Record<Role, string> = {
   OWNER: "Everything, including settings and salaries",
-  MANAGER: "All operations, reports, staff (except owners/managers)",
-  RECEPTION: "Members, sales, payments, cash drawer, check-in",
+  MANAGER: "Day-to-day operations. Confidential areas follow Settings, Roles and access",
+  RECEPTION: "Members, sales and check-in. Payments and more follow Settings, Roles and access",
   TRAINER: "Members (view), check-in, workouts, classes",
   HOUSEKEEPING: "Cleaning team, kept on your staff list (branch, phone, salary). No VOXI login needed.",
   SUPER_ADMIN: "VOXI platform team",
@@ -30,11 +32,16 @@ export default function StaffPage() {
   const [form, setForm] = useState(blank);
   const signsIn = form.role !== "HOUSEKEEPING"; // housekeeping staff don't get a VOXI login
   const [saving, setSaving] = useState(false);
+  // photo: shown value (URL or new data URL); photoChange: what to send (undefined = keep)
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoChange, setPhotoChange] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const allowedRoles = me.role === "OWNER" ? ROLES : (["RECEPTION", "TRAINER", "HOUSEKEEPING"] as Role[]);
 
   useEffect(() => {
     setError(null);
+    setPhoto(editing && editing !== "new" ? editing.photoUrl : null);
+    setPhotoChange(undefined);
     if (editing === "new") setForm(blank);
     else if (editing)
       setForm({
@@ -47,7 +54,7 @@ export default function StaffPage() {
     setSaving(true);
     setError(null);
     try {
-      const body = { ...form, email: form.email || null, password: signsIn ? form.password : "", phone: form.phone || null, branchId: form.branchId || null, salary: form.salary === "" ? null : form.salary, specialty: form.specialty || null };
+      const body = { ...form, email: form.email || null, password: signsIn ? form.password : "", phone: form.phone || null, branchId: form.branchId || null, salary: form.salary === "" ? null : form.salary, specialty: form.specialty || null, ...(photoChange !== undefined ? { photo: photoChange } : {}) };
       if (editing === "new") await api.post("/api/staff", body);
       else if (editing) await api.put(`/api/staff/${editing.id}`, body);
       toast("success", "Staff saved");
@@ -80,7 +87,7 @@ export default function StaffPage() {
         {staff.map((s) => (
           <Card key={s.id} hover className={`p-5 ${s.isActive ? "" : "opacity-55"}`}>
             <div className="flex items-start gap-3">
-              <Avatar name={s.name} size={46} />
+              <Avatar name={s.name} src={s.photoUrl} size={46} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{s.name}</p>
                 <p className="truncate text-xs text-muted">{s.role === "HOUSEKEEPING" ? s.email || "No VOXI login" : s.email}</p>
@@ -128,6 +135,17 @@ export default function StaffPage() {
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <PhotoInput
+              name={form.name || "New staff"}
+              hint="Shown on the team list and next to everything this person does in VOXI."
+              value={photo}
+              onChange={(v) => {
+                setPhoto(v);
+                setPhotoChange(v);
+              }}
+            />
+          </div>
           <Field label="Full name" required>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
@@ -154,7 +172,7 @@ export default function StaffPage() {
             </Select>
           </Field>
           <Field label="Phone">
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <PhoneInput value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
           </Field>
           {me.role === "OWNER" && (
             <Field label="Monthly salary (QAR)">

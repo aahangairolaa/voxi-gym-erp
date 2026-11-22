@@ -1,14 +1,14 @@
 "use client";
 import { useState } from "react";
 import { LuCalendarCheck, LuClock, LuMapPin, LuMessageCircle } from "react-icons/lu";
-import { PricingTable } from "@/components/marketing/pricing-table";
+import { PricingTable, type PlanChoice } from "@/components/marketing/pricing-table";
 import { useUser } from "@/components/layout/session-context";
 import { Badge, Button, Card, ErrorState, PageHeader, Skeleton, useConfirm, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
 import { CONTACT } from "@/lib/contact";
 import { formatDate } from "@/lib/format";
-import { quote, qar, termFor, type Quote } from "@/lib/pricing";
+import { MAX_LOCATIONS, quote, qar, termFor, type Quote } from "@/lib/pricing";
 
 type Billing = {
   name: string;
@@ -17,7 +17,7 @@ type Billing = {
   billingMonths: number;
   extraBranches: number;
   paidUntil: string | null;
-  planRequest: { months: number; extraBranches: number; total: number; requestedAt: string; requestedBy: string } | null;
+  planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; requestedAt: string; requestedBy: string } | null;
   branchesUsed: number;
   current: Quote | null;
 };
@@ -31,16 +31,16 @@ export default function BillingPage() {
   const { data, error, reload } = useApi<Billing>("/api/billing");
   const [busy, setBusy] = useState(false);
 
-  const choose = async (q: Quote) => {
+  const choose = async ({ quote: q, entrances, onboarding, oneTime }: PlanChoice) => {
     const ok = await confirm({
       title: "Request this plan?",
-      message: `VOXI for ${q.termLabel}${branchText(q.extraBranches)}: ${qar(q.total)}. The VOXI team will confirm and send your invoice. You can pay by bank transfer, card or Fawran.`,
+      message: `VOXI for ${q.termLabel}${branchText(q.extraBranches)}: ${qar(q.total)}${oneTime ? `, plus ${qar(oneTime)} one-time setup` : ""}. The VOXI team will confirm and send your invoice. You can pay by bank transfer, card or Fawran.`,
       confirmLabel: "Send request",
     });
     if (!ok) return;
     setBusy(true);
     try {
-      await api.post("/api/billing", { months: q.months, extraBranches: q.extraBranches });
+      await api.post("/api/billing", { months: q.months, extraBranches: q.extraBranches, entrances, onboarding });
       toast("success", "Request sent. We will be in touch within one business day.");
       // Reload so the sidebar and banner show the pending request
       window.location.reload();
@@ -73,6 +73,17 @@ export default function BillingPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Billing" subtitle="Your VOXI subscription, branches and plan" />
+
+      {data?.status === "TRIAL" && days !== null && days <= 0 && !req && (
+        <div className="relative overflow-hidden rounded-3xl bg-[#120c30] p-6 text-white sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_90%_0%,rgba(124,92,255,0.45),transparent_70%)]" />
+          <p className="relative text-xs font-semibold tracking-[0.2em] text-white/60 uppercase">Free trial ended</p>
+          <p className="relative mt-2 text-2xl font-semibold tracking-tight">Choose a plan to unlock VOXI</p>
+          <p className="relative mt-1 max-w-2xl text-sm text-white/70">
+            Your members, plans and settings are all saved. VOXI is paused for your team until a plan is chosen and confirmed.
+          </p>
+        </div>
+      )}
 
       {!data ? (
         <Skeleton className="h-36" />
@@ -110,7 +121,7 @@ export default function BillingPage() {
               <LuMapPin className="h-4 w-4" /> Locations
             </div>
             <p className="mt-3 font-display text-2xl font-semibold tabular-nums">
-              {data.branchesUsed} <span className="text-base font-medium text-muted">of {data.status === "TRIAL" ? "6 during trial" : 1 + data.extraBranches}</span>
+              {data.branchesUsed} <span className="text-base font-medium text-muted">of {data.status === "TRIAL" ? `${MAX_LOCATIONS} during trial` : 1 + data.extraBranches}</span>
             </p>
             <p className="mt-1 text-sm text-muted">Main location plus {data.extraBranches} paid branch{data.extraBranches === 1 ? "" : "es"}</p>
           </Card>
@@ -123,6 +134,7 @@ export default function BillingPage() {
             <p className="font-semibold text-ink">
               Requested: VOXI for {reqQuote.termLabel}
               {branchText(reqQuote.extraBranches)}, {qar(reqQuote.total)}
+              {req.oneTime ? `, plus ${qar(req.oneTime)} one-time setup` : ""}
             </p>
             <p className="mt-0.5 text-sm text-muted">
               Sent by {req.requestedBy} on {formatDate(req.requestedAt)}. We will confirm and send your invoice within one business day.
@@ -142,9 +154,7 @@ export default function BillingPage() {
       )}
 
       {data && (
-        <div>
-          <h2 className="mb-1 text-lg font-semibold text-ink">{data.status === "ACTIVE" ? "Change your plan" : "Choose your plan"}</h2>
-          <p className="mb-5 text-sm text-muted">One plan with every feature. Longer terms and more branches cost less.</p>
+        <div className="pt-4">
           <PricingTable
             mode="billing"
             initialMonths={req?.months ?? data.billingMonths}

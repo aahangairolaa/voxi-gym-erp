@@ -24,7 +24,9 @@ function parseDate(v?: string): Date | null {
   if (m) return fromDateInput(`${m[1]}-${m[2]!.padStart(2, "0")}-${m[3]!.padStart(2, "0")}`);
   m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/); // Qatar style: day/month/year
   if (m) {
-    const y = m[3]!.length === 2 ? `20${m[3]}` : m[3]!;
+    // 2-digit years: "05" → 2005, "90" → 1990 (dates of birth are in the past)
+    const yy = Number(m[3]);
+    const y = m[3]!.length === 2 ? String(yy <= new Date().getFullYear() % 100 ? 2000 + yy : 1900 + yy) : m[3]!;
     const d = fromDateInput(`${y}-${m[2]!.padStart(2, "0")}-${m[1]!.padStart(2, "0")}`);
     return Number.isNaN(d.getTime()) ? null : d;
   }

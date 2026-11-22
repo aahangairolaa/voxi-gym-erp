@@ -1,9 +1,10 @@
 "use client";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LuArrowRight, LuCircleCheck } from "react-icons/lu";
-import { AuthShell, Divider, GoogleButton, useAuthConfig } from "@/components/auth/auth-shell";
+import { AuthShell, Divider, SocialButtons, useAuthConfig } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api-client";
 
@@ -84,13 +85,13 @@ export default function RegisterPage() {
           There’s no VOXI account for {google.email} yet. If you work at a gym that uses VOXI, ask the owner to add you. Otherwise, create your gym below.
         </p>
       )}
-      {cfg?.google && !google && (
+      {(cfg?.google || cfg?.microsoft) && !google && (
         <div className="mt-8">
-          <GoogleButton intent="register" label="Sign up with Google" />
+          <SocialButtons cfg={cfg} intent="register" />
           <Divider text="or with email" />
         </div>
       )}
-      <form onSubmit={submit} className={cfg?.google && !google ? "space-y-4" : "mt-8 space-y-4"}>
+      <form onSubmit={submit} className={(cfg?.google || cfg?.microsoft) && !google ? "space-y-4" : "mt-8 space-y-4"}>
         <label className="block">
           <span className="label">Gym name</span>
           <input className="input h-12" required value={form.gymName} onChange={set("gymName")} placeholder="e.g. Pearl Strength Club" autoFocus />
@@ -105,7 +106,7 @@ export default function RegisterPage() {
         </label>
         <label className="block">
           <span className="label">Mobile (optional)</span>
-          <input className="input h-12" type="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="+974 5555 1234" />
+          <PhoneInput className="[&_input]:h-12 [&_select]:h-12" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
         </label>
         {!google && (
           <label className="block">

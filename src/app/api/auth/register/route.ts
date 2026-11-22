@@ -9,13 +9,15 @@ import { audit } from "@/server/services/audit.service";
 /**
  * POST /api/auth/register (public) — start a 7-day free trial:
  * { gymName, ownerName, email, phone?, password?, acceptTerms: true }
- * After "Continue with Google", password may be left out (the Google account is linked instead).
+ * After "Continue with Google/Microsoft", password may be left out (that account is linked instead).
  */
 export const POST = route(async (req) => {
   const input = await readBody(req, registerSchema);
   const store = await cookies();
   const google = await readSignup(store.get(GOOGLE_SIGNUP_COOKIE)?.value);
-  const viaGoogle = google && google.email === input.email ? google : null;
+  const via = google && google.email === input.email ? google : null;
+  const viaGoogle = via?.provider !== "microsoft" ? via : null;
+  const viaMicrosoft = via?.provider === "microsoft" ? via : null;
   const session = await registerGym({
     gymName: input.gymName,
     ownerName: input.ownerName,
@@ -23,9 +25,10 @@ export const POST = route(async (req) => {
     phone: input.phone ?? null,
     password: input.password ?? null,
     googleId: viaGoogle?.sub ?? null,
+    microsoftId: viaMicrosoft?.sub ?? null,
   });
   if (google) store.delete(GOOGLE_SIGNUP_COOKIE);
   await setSessionCookie(session);
-  await audit(session as typeof session & { gymId: string }, "settings.signup", "Gym", session.gymId, `Created the gym account (${viaGoogle ? "Google" : "email"} sign-up)`);
+  await audit(session as typeof session & { gymId: string }, "settings.signup", "Gym", session.gymId, `Created the gym account (${viaGoogle ? "Google" : viaMicrosoft ? "Microsoft" : "email"} sign-up)`);
   return { user: session, home: "/dashboard?welcome=1" };
 });

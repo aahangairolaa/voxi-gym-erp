@@ -5,11 +5,21 @@ import { Avatar, Button } from "@/components/ui";
 import { compressImage } from "@/lib/image";
 
 /**
- * Member photo picker: upload a picture or take one with the webcam / phone camera.
+ * Photo picker for members and staff: upload a picture or take one with the webcam / phone camera.
  * value: current photo URL or data URL (null = no photo).
  * onChange(dataUrl | null) is called with a small JPEG data URL, or null to remove.
  */
-export function PhotoInput({ name, value, onChange }: { name: string; value: string | null; onChange: (v: string | null) => void }) {
+export function PhotoInput({
+  name,
+  value,
+  onChange,
+  hint = "Shown at check-in so reception can recognise the member.",
+}: {
+  name: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+  hint?: string;
+}) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [camera, setCamera] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +49,7 @@ export function PhotoInput({ name, value, onChange }: { name: string; value: str
       </div>
       <div className="min-w-0 space-y-2">
         <p className="text-sm font-semibold text-ink">Profile photo</p>
-        <p className="text-xs text-muted">Shown at check-in so reception can recognise the member.</p>
+        <p className="text-xs text-muted">{hint}</p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" variant="secondary" onClick={() => fileRef.current?.click()}>
             <LuImagePlus className="h-4 w-4" /> Upload

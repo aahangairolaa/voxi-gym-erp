@@ -1,4 +1,5 @@
 "use client";
+import { allowed } from "@/lib/permissions";
 import { useState } from "react";
 import Link from "next/link";
 import { LuPlus, LuPrinter, LuSearch, LuUndo2, LuBanknote, LuCreditCard, LuSmartphone, LuBuilding2, LuGlobe } from "react-icons/lu";
@@ -28,7 +29,7 @@ export default function PaymentsPage() {
   const q = useDebounce(search, 250);
   const { data, error, loading, reload } = useApi<PaymentsResponse>(withQuery("/api/payments", { from, to, method, search: q }));
   const page = useLimit(data?.payments);
-  const canRefund = user.role === "OWNER" || user.role === "MANAGER";
+  const canRefund = allowed(user.role, "refunds", user.gym?.rolePermissions);
 
   const preset = (days: number | "month") => {
     setTo(toDateInput());

@@ -28,11 +28,11 @@ export function SiteNav({ dark = false }: { dark?: boolean }) {
           <Link href="/#faq" className="transition hover:text-brand-500">FAQ</Link>
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Link href="/login" className={cn("rounded-xl px-3 py-2 text-sm font-semibold transition", onDark ? "text-white hover:bg-white/10" : "text-ink hover:bg-surface-2")}>
+          <Link href="/login" className={cn("rounded-xl border px-4 py-2 text-sm font-semibold transition", onDark ? "border-white/20 text-white hover:bg-white/10" : "border-line text-ink hover:bg-surface-2")}>
             Sign in
           </Link>
-          <Link href="/register" className="hidden items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white brand-gradient shadow-[0_6px_20px_-6px_rgba(106,68,242,0.7)] transition hover:brightness-110 sm:inline-flex">
-            Start free trial <LuArrowRight className="h-4 w-4" />
+          <Link href="/register" className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white brand-gradient shadow-[0_6px_20px_-6px_rgba(106,68,242,0.7)] transition hover:brightness-110">
+            Sign up <LuArrowRight className="hidden h-4 w-4 sm:block" />
           </Link>
         </div>
       </div>
@@ -51,7 +51,7 @@ export function SiteFooter() {
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
           <Link href="/pricing" className="hover:text-ink">Pricing</Link>
           <Link href="/login" className="hover:text-ink">Sign in</Link>
-          <Link href="/register" className="hover:text-ink">Free trial</Link>
+          <Link href="/register" className="hover:text-ink">Sign up</Link>
           <Link href="/privacy" className="hover:text-ink">Privacy</Link>
           <Link href="/terms" className="hover:text-ink">Terms</Link>
           <a href={`mailto:${CONTACT.email}`} className="hover:text-ink">{CONTACT.email}</a>

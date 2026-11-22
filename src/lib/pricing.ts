@@ -6,10 +6,9 @@
 
 /** Billing terms. 12 months is the reference price; shorter terms cost more per month. */
 export const TERMS = [
-  { months: 1, price: 2_500, label: "1 month" },
-  { months: 3, price: 7_000, label: "3 months" },
-  { months: 6, price: 13_500, label: "6 months" },
-  { months: 12, price: 25_000, label: "12 months" },
+  { months: 3, price: 10_000, label: "3 months", name: "Quarterly", tagline: "Try VOXI properly, with room to grow." },
+  { months: 6, price: 15_000, label: "6 months", name: "Half-year", tagline: "For gyms settling into a smarter routine." },
+  { months: 12, price: 25_000, label: "12 months", name: "Annual", tagline: "The best value for gyms that are here to stay." },
 ] as const;
 
 export type TermMonths = (typeof TERMS)[number]["months"];
@@ -17,10 +16,11 @@ export const DEFAULT_TERM: TermMonths = 12;
 
 /** Extra branch, per branch, for a 12-month term. */
 export const BRANCH_PRICE_YEAR = 14_000;
-/** How many branches a gym can add on top of its main location. */
-export const MAX_EXTRA_BRANCHES = 5;
+/** Locations per gym: the main one plus up to 4 added branches (5 in total). */
+export const MAX_LOCATIONS = 5;
+export const MAX_EXTRA_BRANCHES = MAX_LOCATIONS - 1;
 /** Discount on the 1st, 2nd, 3rd... added branch. Every new branch costs less. */
-export const BRANCH_DISCOUNTS = [0, 0.05, 0.1, 0.15, 0.2] as const;
+export const BRANCH_DISCOUNTS = [0, 0.05, 0.1, 0.15] as const;
 
 const round10 = (n: number) => Math.round(n / 10) * 10;
 
@@ -44,7 +44,7 @@ export type Quote = {
   branchTotal: number;
   total: number;
   perMonth: number;
-  /** Saving compared with paying month by month for the same period. */
+  /** Saving compared with renewing the shortest term for the same period. */
   saving: number;
 };
 
@@ -58,8 +58,9 @@ export function quote(months: number, extraBranches: number): Quote {
   }));
   const branchTotal = branches.reduce((s, b) => s + b.price, 0);
   const total = term.price + branchTotal;
-  const monthly = TERMS[0];
-  const monthlyEquivalent = monthly.price * term.months + branches.reduce((s, b) => s + branchPrice(b.n, 1) * term.months, 0);
+  const short = TERMS[0];
+  const times = term.months / short.months;
+  const shortEquivalent = short.price * times + branches.reduce((s, b) => s + branchPrice(b.n, short.months) * times, 0);
   return {
     months: term.months,
     termLabel: term.label,
@@ -69,7 +70,7 @@ export function quote(months: number, extraBranches: number): Quote {
     branchTotal,
     total,
     perMonth: Math.round(total / term.months),
-    saving: Math.max(0, monthlyEquivalent - total),
+    saving: Math.max(0, Math.round(shortEquivalent - total)),
   };
 }
 
@@ -91,3 +92,23 @@ export const INCLUDED = [
 ];
 
 export const TRIAL_DAYS = 7;
+
+/** One-time services that can be added at checkout. */
+export const ONE_TIME_ADDONS = [
+  { id: "biometric", name: "Biometric entrance", price: 2_900, unit: "per entrance", note: "Face or fingerprint terminal, turnstile wiring and member enrolment.", perUnit: true },
+  { id: "onboarding", name: "Onboarding and data migration", price: 1_500, unit: "one-time", note: "We import your members, plans and balances. Free with the annual plan.", freeOnAnnual: true },
+] as const;
+export type AddonId = (typeof ONE_TIME_ADDONS)[number]["id"];
+
+/** Price of the one-time services chosen (onboarding is free on 12 months). */
+export function addonsTotal(months: number, entrances: number, onboarding: boolean) {
+  const bio = ONE_TIME_ADDONS[0].price * Math.max(0, Math.min(20, Math.floor(entrances)));
+  const onb = onboarding && months !== 12 ? ONE_TIME_ADDONS[1].price : 0;
+  return { biometric: bio, onboarding: onb, total: bio + onb };
+}
+
+/** A gym is locked when VOXI suspended it or its free trial has run out without a plan. */
+export function gymLocked(gym: { status: string; trialEndsAt?: Date | string | null }) {
+  if (gym.status === "SUSPENDED") return true;
+  return gym.status === "TRIAL" && !!gym.trialEndsAt && new Date(gym.trialEndsAt).getTime() <= Date.now();
+}

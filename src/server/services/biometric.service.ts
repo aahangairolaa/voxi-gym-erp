@@ -16,6 +16,7 @@
  * See docs/BIOMETRIC.md for setup steps.
  */
 import { createHash, randomBytes } from "node:crypto";
+import { gymLocked } from "@/lib/pricing";
 import type { z } from "zod";
 import { db } from "../db";
 import { ApiError } from "../http";
@@ -141,10 +142,10 @@ export async function authenticateDevice(headers: Headers) {
   const auth = headers.get("authorization");
   const key = headers.get("x-device-key") ?? (auth?.startsWith("Bearer ") ? auth.slice(7) : null);
   if (!key) throw new ApiError(401, "Missing device key.");
-  const device = await db.biometricDevice.findFirst({ where: { apiKeyHash: hashKey(key) }, include: { gym: { select: { status: true } } } });
+  const device = await db.biometricDevice.findFirst({ where: { apiKeyHash: hashKey(key) }, include: { gym: { select: { status: true, trialEndsAt: true } } } });
   if (!device) throw new ApiError(401, "Unknown device key.");
   if (!device.isActive) throw new ApiError(403, "This device is disabled in VOXI.");
-  if (device.gym.status === "SUSPENDED") throw new ApiError(403, "This gym's VOXI account is suspended.");
+  if (gymLocked(device.gym)) throw new ApiError(403, "This gym's VOXI account is paused.");
   return device;
 }
 
@@ -208,8 +209,8 @@ export async function handleScan(opts: {
 
 export async function findDeviceBySerial(sn: string | null) {
   if (!sn) throw new ApiError(400, "Missing SN");
-  const device = await db.biometricDevice.findUnique({ where: { serialNumber: sn }, include: { gym: { select: { status: true } } } });
-  if (!device || !device.isActive || device.gym.status === "SUSPENDED") throw new ApiError(403, "Device not registered in VOXI");
+  const device = await db.biometricDevice.findUnique({ where: { serialNumber: sn }, include: { gym: { select: { status: true, trialEndsAt: true } } } });
+  if (!device || !device.isActive || gymLocked(device.gym)) throw new ApiError(403, "Device not registered in VOXI");
   await db.biometricDevice.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
   return device;
 }

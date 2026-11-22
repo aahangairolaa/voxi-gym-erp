@@ -4,6 +4,7 @@
  * can issue a new one at any time (old links stop working).
  */
 import { db } from "../db";
+import { gymLocked } from "@/lib/pricing";
 import { ApiError } from "../http";
 import { effectiveStatus, getWarnDays } from "./_shared";
 
@@ -18,7 +19,7 @@ export async function getCard(token: string) {
       lastName: true,
       photoUpdatedAt: true,
       qrToken: true,
-      gym: { select: { name: true, logo: true, brandColor: true, status: true, phone: true } },
+      gym: { select: { name: true, logo: true, brandColor: true, status: true, trialEndsAt: true, phone: true } },
       memberships: {
         where: { status: { not: "CANCELLED" } },
         orderBy: { endDate: "desc" },
@@ -27,7 +28,7 @@ export async function getCard(token: string) {
       },
     },
   });
-  if (!m || m.gym.status === "SUSPENDED") throw new ApiError(404, "This card link isn't valid any more. Ask reception for a new one.");
+  if (!m || gymLocked(m.gym)) throw new ApiError(404, "This card link isn't valid any more. Ask reception for a new one.");
   const ms = m.memberships[0] ?? null;
   return {
     name: `${m.firstName} ${m.lastName}`.trim(),

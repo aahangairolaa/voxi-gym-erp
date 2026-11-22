@@ -180,6 +180,7 @@ model Gym {
   extraBranches  Int              @default(0)  // paid branch add-ons on top of the main location
   paidUntil      DateTime?
   planRequest    Json? // { months, extraBranches, total, requestedAt, requestedBy } sent from Billing
+  rolePermissions Json? // owner's choices per role, e.g. { RECEPTION: { revenue: true } } (see lib/permissions.ts)
   platformNotes  String?
   // WhatsApp Business (Meta Cloud API). Secrets are stored encrypted.
   whatsappEnabled           Boolean @default(false)
@@ -266,9 +267,12 @@ model Staff {
 
   // Sign-in security
   googleId       String?   @unique // set when the person links / signs up with Google
+  microsoftId    String?   @unique // same for "Continue with Microsoft"
   failedLogins   Int       @default(0) // wrong passwords in a row
   lockedUntil    DateTime? // locked for 15 min after 5 wrong passwords
   sessionVersion Int       @default(0) // bump to sign this person out on every device
+  photo          String? // small JPEG as a data: URL (served by /api/staff/:id/photo)
+  photoUpdatedAt DateTime?
   passwordResets PasswordReset[]
 
   paymentsReceived  Payment[]         @relation("ReceivedBy")

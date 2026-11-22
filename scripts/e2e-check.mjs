@@ -197,6 +197,57 @@ await step("admin", async () => {
   check("gym owner can't open admin (403)", own.status === 403, own.status);
 });
 
+// ── Roles and access (owner-controlled confidential areas) ─────────────────
+await step("roles and access", async () => {
+  const mgr = await login("manager@voxi.qa");
+  const rec = await login("reception@voxi.qa");
+  const tr = await login("trainer@voxi.qa");
+  const M = { cookie: mgr.cookie }, R = { cookie: rec.cookie }, T = { cookie: tr.cookie };
+  check("activity log: owner only (manager 403)", (await call("GET", "/api/activity", M)).status === 403);
+  check("activity log: owner can open it", (await call("GET", "/api/activity", O)).status === 200);
+  const dR = await call("GET", "/api/dashboard", R);
+  check("reception dashboard hides revenue by default", dR.status === 200 && dR.json?.kpis?.revenueThisMonth === 0 && dR.json?.revenueByMonth?.length === 0, dR.text?.slice(0, 120));
+  check("reception can't open reports by default", (await call("GET", "/api/reports", R)).status === 403);
+  check("reception can't refund by default", (await call("POST", "/api/payments/x/refund", R)).status === 403);
+  check("non-owner can't change role access", (await call("PUT", "/api/settings/permissions", { ...M, body: { permissions: {} } })).status === 403);
+
+  // Owner: let reception see revenue and reports, hide member contacts from trainers, take payments away from reception
+  const put = await call("PUT", "/api/settings/permissions", {
+    ...O,
+    body: { permissions: { RECEPTION: { revenue: true, reports: true, payments: false }, TRAINER: { contacts: false } } },
+  });
+  check("owner saves role access", put.status === 200 && put.json?.permissions?.RECEPTION?.revenue === true, put.text);
+  const dR2 = await call("GET", "/api/dashboard", R);
+  check("reception now sees revenue", dR2.json?.kpis?.revenueThisMonth > 0, dR2.json?.kpis?.revenueThisMonth);
+  check("reception now opens reports", (await call("GET", "/api/reports", R)).status === 200);
+  check("reception lost payments", (await call("GET", "/api/payments", R)).status === 403);
+  const mT = await call("GET", "/api/members", T);
+  const phone = mT.json?.members?.[0]?.phone ?? "";
+  check("trainer sees masked member phones", phone.includes("••••"), phone);
+  const mO = await call("GET", "/api/members", O);
+  check("owner still sees full phones", !(mO.json?.members?.[0]?.phone ?? "").includes("•"), mO.json?.members?.[0]?.phone);
+  const me = await call("GET", "/api/auth/me", R);
+  check("session carries role access for the app", me.json?.gym?.rolePermissions?.RECEPTION?.revenue === true, me.text?.slice(0, 160));
+  // Back to defaults
+  await call("PUT", "/api/settings/permissions", { ...O, body: { permissions: {} } });
+  check("defaults restored", (await call("GET", "/api/payments", R)).status === 200);
+});
+
+// ── Staff photos ───────────────────────────────────────────────────────────
+await step("staff photo", async () => {
+  const list = await call("GET", "/api/staff", O);
+  const st = list.json?.staff?.find((x) => x.email === "trainer@voxi.qa");
+  const body = { name: st.name, email: st.email, phone: st.phone, role: st.role, branchId: st.branchId, salary: st.salary, specialty: st.specialty, isActive: true, password: "", photo: PNG };
+  const up = await call("PUT", `/api/staff/${st.id}`, { ...O, body });
+  check("upload staff photo", up.status === 200 && !!up.json?.photoUrl, up.text?.slice(0, 160));
+  const img = up.json?.photoUrl ? await fetch(BASE + up.json.photoUrl, { headers: { Cookie: owner.cookie } }) : null;
+  check("staff photo served as image", img?.status === 200 && (img.headers.get("content-type") || "").startsWith("image/"));
+  const me = await call("GET", "/api/auth/me", { cookie: (await login("trainer@voxi.qa")).cookie });
+  check("own photo shown in the app", !!me.json?.user?.photoUrl, me.json?.user?.photoUrl);
+  const del = await call("PUT", `/api/staff/${st.id}`, { ...O, body: { ...body, photo: null } });
+  check("remove staff photo", del.status === 200 && del.json?.photoUrl === null);
+});
+
 // ── Billing: plan requests, activation and branch limits ───────────────────
 await step("billing", async () => {
   const b = await call("GET", "/api/billing", O);
@@ -209,8 +260,13 @@ await step("billing", async () => {
   const P = { cookie: pulse.cookie };
   const req = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 2 } });
   check("billing: trial gym requests 12 months + 2 branches", req.status === 200 && req.json?.quote?.total === 25000 + 14000 + 13300, req.text);
-  const tooMany = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 6 } });
-  check("billing: more than 5 extra branches refused", tooMany.status === 400, tooMany.status);
+  const one = await call("POST", "/api/billing", { ...P, body: { months: 3, extraBranches: 0, entrances: 2, onboarding: true } });
+  check("billing: one-time add-ons priced (2 entrances + onboarding)", one.json?.oneTime === 2 * 2900 + 1500 && one.json?.quote?.total === 10000, one.text);
+  const noMonthly = await call("POST", "/api/billing", { ...P, body: { months: 1, extraBranches: 0 } });
+  check("billing: no 1-month plan", noMonthly.status === 400, noMonthly.status);
+  await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 2 } });
+  const tooMany = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 5 } });
+  check("billing: more than 5 locations refused", tooMany.status === 400, tooMany.status);
   const rec = await call("GET", "/api/billing", { cookie: (await login("pulse.reception@voxi.qa")).cookie });
   check("billing: reception can't open billing", rec.status === 403, rec.status);
 
@@ -223,12 +279,26 @@ await step("billing", async () => {
   check("admin activates the request", act.json?.status === "ACTIVE" && act.json?.extraBranches === 2 && act.json?.planRequest === null && !!act.json?.paidUntil, act.text);
   const after = await call("GET", "/api/billing", P);
   check("billing: gym now active with 3 locations", after.json?.status === "ACTIVE" && after.json?.current?.extraBranches === 2, after.text);
+
+  // Trial lock: put Pulse back on a trial that ended yesterday
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  await call("PUT", `/api/admin/gyms/${pg?.id}`, { ...A, body: { status: "TRIAL", trialEndsAt: yesterday } });
+  const P2 = { cookie: (await login("pulse@voxi.qa")).cookie };
+  const locked = await call("GET", "/api/members", P2);
+  check("trial ended: app is locked", locked.status === 402, locked.status);
+  check("trial ended: billing still opens", (await call("GET", "/api/billing", P2)).status === 200);
+  check("trial ended: session still loads", (await call("GET", "/api/auth/me", P2)).status === 200);
+  check("trial ended: refunds locked too", (await call("POST", "/api/payments/x/refund", P2)).status === 402);
+  await call("PUT", `/api/admin/gyms/${pg?.id}`, { ...A, body: { applyRequest: false, status: "ACTIVE" } });
+  check("activating unlocks straight away", (await call("GET", "/api/members", P2)).status === 200);
 });
 
 // ── Accounts: sign-up, lockout, password reset, sign out everywhere ─────────
 await step("accounts", async () => {
   const cfg = await call("GET", "/api/auth/config");
-  check("auth config (public)", cfg.status === 200 && cfg.json?.signup === true, cfg.text);
+  check("auth config (public)", cfg.status === 200 && cfg.json?.signup === true && cfg.json?.microsoft === false, cfg.text);
+  const ms = await fetch(BASE + "/api/auth/microsoft?intent=login", { redirect: "manual" });
+  check("Microsoft sign-in off until keys are added", ms.status >= 300 && ms.status < 400 && (ms.headers.get("location") || "").includes("microsoft_off"), ms.headers.get("location"));
   const email = `e2e-${Date.now()}@example.com`;
   const bad = await call("POST", "/api/auth/register", { body: { gymName: "E2E Gym", ownerName: "Test Owner", email, password: "longpassword1", acceptTerms: false } });
   check("sign-up requires accepting terms", bad.status === 400, bad.text);

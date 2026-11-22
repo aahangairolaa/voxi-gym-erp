@@ -1,9 +1,11 @@
 "use client";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import { LuBuilding2, LuKey, LuPlus } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
 import { GymProfileCard } from "@/components/settings/gym-profile-card";
 import { WhatsAppSettingsCard } from "@/components/settings/whatsapp-settings-card";
+import { RolesAccessCard } from "@/components/settings/roles-access-card";
 import { Button, Card, CardHeader, Field, Input, Modal, PageHeader, Toggle, useConfirm, useToast } from "@/components/ui";
 import { invalidate, useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
@@ -14,7 +16,7 @@ export default function SettingsPage() {
   const user = useUser();
   const confirm = useConfirm();
   const toast = useToast();
-  const isOwner = can(user.role, "settings");
+  const isOwner = can(user.role, "settings", user.gym?.rolePermissions);
   // VOXI admins only use this page to change their password
   const gymStaff = !!user.gymId;
   const settings = useApi<Settings>(gymStaff ? "/api/settings" : null);
@@ -74,6 +76,7 @@ export default function SettingsPage() {
         {gymStaff && (
           <div className="space-y-5 lg:col-span-2">
             <GymProfileCard settings={settings.data} editable={isOwner} onSaved={settings.reload} />
+            {isOwner && <RolesAccessCard />}
             {isOwner && <WhatsAppSettingsCard />}
           </div>
         )}
@@ -144,7 +147,7 @@ export default function SettingsPage() {
             <Input value={branchForm.address} onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })} />
           </Field>
           <Field label="Phone">
-            <Input value={branchForm.phone} onChange={(e) => setBranchForm({ ...branchForm, phone: e.target.value })} />
+            <PhoneInput value={branchForm.phone} onChange={(v) => setBranchForm({ ...branchForm, phone: v })} />
           </Field>
           <Toggle checked={branchForm.isActive} onChange={(v) => setBranchForm({ ...branchForm, isActive: v })} label="Active" />
         </div>

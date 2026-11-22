@@ -23,8 +23,8 @@ export function RenewalReminders({ onRenew }: { onRenew: (m: SearchResult) => vo
   const { data, reload } = useApi<RemindersResponse>("/api/reminders", { refreshMs: 120_000 });
   const [tab, setTab] = useState<"expiring" | "expired">("expiring");
   const [busy, setBusy] = useState<string | null>(null);
-  const canMessage = can(user.role, "messages");
-  const canSell = can(user.role, "memberships");
+  const canMessage = can(user.role, "messages", user.gym?.rolePermissions);
+  const canSell = can(user.role, "memberships", user.gym?.rolePermissions);
   const apiMode = !!user.gym?.whatsappEnabled;
 
   const list = data ? data[tab] : [];
