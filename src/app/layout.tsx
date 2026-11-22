@@ -12,12 +12,12 @@ const description = "VOXI is the premium all-in-one ERP for gyms in Qatar: membe
 
 export const metadata: Metadata = {
   metadataBase: new URL(CONTACT.site),
-  title: { default: "VOXI | Gym Management for Qatar", template: "%s · VOXI" },
+  title: { default: "VOXI | Run Your Gym, Not the Chaos", template: "%s · VOXI" },
   description,
   applicationName: "VOXI",
   appleWebApp: { capable: true, title: "VOXI", statusBarStyle: "default" },
-  openGraph: { type: "website", siteName: "VOXI", title: "VOXI | Gym Management for Qatar", description, locale: "en_QA" },
-  twitter: { card: "summary_large_image", title: "VOXI | Gym Management for Qatar", description },
+  openGraph: { type: "website", siteName: "VOXI", title: "VOXI | Run Your Gym, Not the Chaos", description, locale: "en_QA" },
+  twitter: { card: "summary_large_image", title: "VOXI | Run Your Gym, Not the Chaos", description },
 };
 
 export const viewport: Viewport = {

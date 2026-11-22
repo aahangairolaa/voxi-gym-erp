@@ -46,7 +46,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-10 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Logo />
-          <p className="mt-2 text-sm text-muted">The premium gym ERP, made for Qatar.</p>
+          <p className="mt-2 text-sm text-muted">Run Your Gym, Not the Chaos.</p>
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
           <Link href="/pricing" className="hover:text-ink">Pricing</Link>

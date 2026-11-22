@@ -14,11 +14,11 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
         <div className="absolute inset-0 bg-gradient-to-t from-[#0b0718] via-[#0b0718]/30 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-12 text-white">
           <p className="font-display text-4xl leading-tight font-semibold">
-            Your gym.
+            Run Your Gym,
             <br />
-            <span className="bg-gradient-to-r from-[#c9b8ff] to-[#e5a3ff] bg-clip-text text-transparent">Your business.</span>
+            <span className="bg-gradient-to-r from-[#c9b8ff] to-[#e5a3ff] bg-clip-text text-transparent">Not the Chaos</span>
           </p>
-          <p className="mt-3 max-w-md text-white/65">Members, memberships, biometric access and payments in QAR. One premium system built for gyms in Qatar.</p>
+          <p className="mt-3 max-w-md text-white/65">Members, memberships, biometric access and payments in QAR. One premium system for your whole gym.</p>
         </div>
       </div>
       <div className="relative flex items-center justify-center px-6 py-12">
