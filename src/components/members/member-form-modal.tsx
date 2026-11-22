@@ -135,7 +135,7 @@ export function MemberFormModal({
             <Field label="First name" required>
               <Input {...form.bind("firstName")} autoFocus={!editing} />
             </Field>
-            <Field label="Last name" required>
+            <Field label="Last name (optional)">
               <Input {...form.bind("lastName")} />
             </Field>
             <Field label="Mobile" required>
@@ -151,8 +151,8 @@ export function MemberFormModal({
                 <option value="FEMALE">Female</option>
               </Select>
             </Field>
-            <Field label="Date of birth">
-              <Input type="date" {...form.bind("dateOfBirth")} />
+            <Field label="Date of birth" hint="Members must be 10 or older">
+              <Input type="date" {...form.bind("dateOfBirth")} max={toDateInput(new Date(Date.now() - 10 * 365.25 * 86_400_000))} min="1900-01-01" />
             </Field>
             <Field label="QID number" hint="Qatar ID, 11 digits">
               <Input {...form.bind("qid")} inputMode="numeric" maxLength={11} />

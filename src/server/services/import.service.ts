@@ -100,7 +100,7 @@ export async function importMembers(session: GymSession, rows: ImportRow[], opts
     ok.push({
       member: {
         firstName: first.slice(0, 60),
-        lastName: (last || "-").slice(0, 60),
+        lastName: last.slice(0, 60),
         phone: phone.slice(0, 20),
         email,
         gender: parseGender(r.gender),

@@ -1,3 +1,4 @@
+import { EXERCISE_LIBRARY } from "../gym-defaults";
 import type { z } from "zod";
 import { db } from "../db";
 import { ApiError } from "../http";
@@ -18,6 +19,13 @@ function shape<T extends { member: { firstName: string; lastName: string; id: st
 }
 
 export async function listExercises(gymId: string) {
+  // Gyms created before the library grew get the new exercises added once (their own ones are kept)
+  if ((await db.exercise.count({ where: { gymId } })) < EXERCISE_LIBRARY.length) {
+    await db.exercise.createMany({
+      data: EXERCISE_LIBRARY.map(([name, muscleGroup, equipment]) => ({ gymId, name, muscleGroup, equipment })),
+      skipDuplicates: true,
+    });
+  }
   return db.exercise.findMany({ where: { gymId }, orderBy: [{ muscleGroup: "asc" }, { name: "asc" }] });
 }
 

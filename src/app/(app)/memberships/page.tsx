@@ -37,7 +37,25 @@ export default function MembershipsPage() {
   const page = useLimit(data?.memberships);
 
   const act = async (row: MembershipRow, action: "freeze" | "unfreeze" | "cancel") => {
-    if (action === "cancel" && !(await confirm({ title: `Cancel ${row.member.name}'s ${row.plan.name}?`, confirmLabel: "Cancel membership", danger: true }))) return;
+    if (
+      action === "freeze" &&
+      !(await confirm({
+        title: `Freeze ${row.member.name}'s ${row.plan.name}?`,
+        message: "While it's frozen they can't check in. When you resume it, the frozen days are added to the end date.",
+        confirmLabel: "Freeze membership",
+      }))
+    )
+      return;
+    if (
+      action === "cancel" &&
+      !(await confirm({
+        title: `Cancel ${row.member.name}'s ${row.plan.name}?`,
+        message: "They lose access straight away and this can't be undone. Payments stay on record; any refund is done separately from Payments.",
+        confirmLabel: "Cancel membership",
+        danger: true,
+      }))
+    )
+      return;
     try {
       await api.post(`/api/memberships/${row.id}`, { action });
       invalidate("/api/");

@@ -62,9 +62,16 @@ export const loginSchema = z.object({
 });
 
 // ── Members ──────────────────────────────────────────────────────────────────
+export const MIN_MEMBER_AGE = 10;
+/** Latest allowed date of birth: today, 10 years ago. */
+function minAgeDate() {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() - MIN_MEMBER_AGE);
+  return d;
+}
 export const memberSchema = z.object({
   firstName: str(60).min(1, "First name is required"),
-  lastName: str(60).min(1, "Last name is required"),
+  lastName: z.string().trim().max(60).optional().nullable().transform((v) => v ?? ""),
   phone,
   email: z
     .string()
@@ -75,7 +82,7 @@ export const memberSchema = z.object({
     .nullable()
     .or(z.literal("").transform(() => null)),
   gender: z.enum(["MALE", "FEMALE"]).optional().nullable(),
-  dateOfBirth: optDate,
+  dateOfBirth: optDate.refine((d) => !d || d <= minAgeDate(), `Members must be at least ${MIN_MEMBER_AGE} years old. Check the date of birth.`).refine((d) => !d || d.getFullYear() >= 1900, "Check the date of birth."),
   qid: optStr(20),
   nationality: optStr(60),
   emergencyName: optStr(80),

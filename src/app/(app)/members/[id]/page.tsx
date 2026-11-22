@@ -76,7 +76,26 @@ export default function MemberProfilePage() {
   };
 
   const action = async (membershipId: string, act: "freeze" | "unfreeze" | "cancel") => {
-    if (act === "cancel" && !(await confirm({ title: "Cancel this membership?", message: "The member will lose access immediately. Payments stay on record.", confirmLabel: "Cancel membership", danger: true })))
+    const ms = m?.memberships.find((x) => x.id === membershipId);
+    const left = ms ? ms.plan.freezeDays - ms.freezeDaysUsed : 0;
+    if (
+      act === "freeze" &&
+      !(await confirm({
+        title: "Freeze this membership?",
+        message: `While it's frozen, ${m?.firstName ?? "the member"} can't check in. When you resume it, the frozen days are added to the end date (${left} freeze day${left === 1 ? "" : "s"} left on this plan).`,
+        confirmLabel: "Freeze membership",
+      }))
+    )
+      return;
+    if (
+      act === "cancel" &&
+      !(await confirm({
+        title: "Cancel this membership?",
+        message: `${m?.firstName ?? "The member"} loses access straight away and this can't be undone. Payments stay on record; any refund is done separately from Payments.`,
+        confirmLabel: "Cancel membership",
+        danger: true,
+      }))
+    )
       return;
     setBusy(act);
     try {

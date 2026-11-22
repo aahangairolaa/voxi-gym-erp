@@ -135,6 +135,36 @@ export async function findMemberForCheckIn(gymId: string, code: string) {
   return { id: member.id, via: "MANUAL" as const };
 }
 
+/**
+ * Stricter look-up for the self check-in screen, where members type their own details:
+ * the member number (M-1001 or 1001), their full phone number, or their QR card.
+ * Partial numbers aren't accepted, so nobody can check someone else in by guessing.
+ */
+export async function findMemberForKiosk(gymId: string, code: string) {
+  const c = code.trim();
+  const token = /\/c\/([A-Za-z0-9_-]{10,})/.exec(c)?.[1] ?? (/^[A-Za-z0-9_-]{20,}$/.test(c) ? c : null);
+  if (token) {
+    const byQr = await db.member.findFirst({ where: { gymId, qrToken: token }, select: { id: true } });
+    if (byQr) return { id: byQr.id, via: "QR" as const };
+  }
+  const byCode = await db.member.findFirst({
+    where: { gymId, OR: [{ code: { equals: c, mode: "insensitive" } }, { code: { equals: `M-${c}`, mode: "insensitive" } }] },
+    select: { id: true },
+  });
+  if (byCode) return { id: byCode.id, via: "MANUAL" as const };
+  const digits = c.replace(/\D/g, "");
+  if (digits.length >= 8) {
+    const last4 = digits.slice(-4);
+    const candidates = await db.member.findMany({ where: { gymId, phone: { contains: last4 } }, select: { id: true, phone: true }, take: 50 });
+    const hits = candidates.filter((m) => {
+      const p = m.phone.replace(/\D/g, "");
+      return p === digits || p.endsWith(digits) || digits.endsWith(p);
+    });
+    if (hits.length === 1) return { id: hits[0]!.id, via: "MANUAL" as const };
+  }
+  throw new ApiError(404, "We couldn't find you. Check your member number or ask reception.");
+}
+
 export async function listAttendance(gymId: string, opts: { date?: Date | null; branchId?: string | null }) {
   const day = opts.date ?? new Date();
   const visits = await db.attendance.findMany({

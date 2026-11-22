@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { LuCircleCheck, LuCircleX, LuDoorOpen, LuFingerprint, LuLogOut, LuQrCode, LuScanFace, LuTimer, LuUsers } from "react-icons/lu";
+import { LuCircleCheck, LuCircleX, LuDoorOpen, LuFingerprint, LuLogOut, LuMonitor, LuQrCode, LuScanFace, LuTimer, LuUsers } from "react-icons/lu";
 import { QrScanner } from "@/components/attendance/qr-scanner";
 import { BarChart } from "@/components/charts";
 import { useUser } from "@/components/layout/session-context";
@@ -67,7 +67,16 @@ export default function AttendancePage() {
       <PageHeader
         title="Attendance"
         subtitle={isToday ? "Live, refreshes every 15 seconds" : formatDate(date)}
-        actions={<Input type="date" value={date} max={toDateInput()} onChange={(e) => setDate(e.target.value)} className="w-44" />}
+        actions={
+          <div className="flex gap-2">
+            <Link href="/kiosk">
+              <Button variant="secondary">
+                <LuMonitor className="h-4 w-4" /> Self check-in screen
+              </Button>
+            </Link>
+            <Input type="date" value={date} max={toDateInput()} onChange={(e) => setDate(e.target.value)} className="w-44" />
+          </div>
+        }
       />
 
       <div className="grid gap-5 xl:grid-cols-5">

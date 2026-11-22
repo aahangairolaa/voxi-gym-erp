@@ -50,7 +50,7 @@ export async function convertLead(gymId: string, id: string, branchId: string | 
         qrToken: randomToken(),
         code: `M-${n}`,
         firstName: firstName ?? lead.name,
-        lastName: rest.join(" ") || "-",
+        lastName: rest.join(" "),
         phone: lead.phone,
         email: lead.email,
         branchId,

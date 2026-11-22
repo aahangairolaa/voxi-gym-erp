@@ -20,7 +20,16 @@ export function canScanQr() {
  * Desks with a USB/Bluetooth QR scanner don't need this — the scanner "types"
  * the code into the check-in box and presses Enter.
  */
-export function QrScanner({ onScan, onClose }: { onScan: (text: string) => void; onClose: () => void }) {
+export function QrScanner({
+  onScan,
+  onClose,
+  facing = "environment",
+}: {
+  onScan: (text: string) => void;
+  onClose: () => void;
+  /** "user" = the screen-side camera (self check-in tablets) */
+  facing?: "environment" | "user";
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const done = useRef(false);
@@ -37,7 +46,7 @@ export function QrScanner({ onScan, onClose }: { onScan: (text: string) => void;
     const detector = new Detector({ formats: ["qr_code"] });
 
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+      .getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false })
       .then(async (s) => {
         if (stopped) return s.getTracks().forEach((t) => t.stop());
         stream = s;

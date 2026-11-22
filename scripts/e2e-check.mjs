@@ -128,6 +128,36 @@ await step("card", async () => {
   check("unknown card token → 404", bad.status === 404);
 });
 
+await step("self check-in screen", async () => {
+  const k = await call("GET", "/api/kiosk", O);
+  check("kiosk opens for the gym", k.status === 200 && k.json?.gym?.name === "VOXI Fitness Club", k.text);
+  const qr = (await call("GET", `/api/members/${voxiMemberId}`, O)).json?.qrToken;
+  const a = await call("POST", "/api/kiosk", { ...O, body: { code: qr } });
+  check("kiosk: member scans their QR card", a.status === 200 && ["IN", "OUT", "DENIED"].includes(a.json?.action) && !!a.json?.member?.firstName, a.text);
+  check("kiosk: shares only the first name and status", a.json?.member && !("phone" in a.json.member) && !("code" in a.json.member));
+  const again = await call("POST", "/api/kiosk", { ...O, body: { code: qr } });
+  check("kiosk: second scan toggles in/out", a.json?.action === "DENIED" || again.json?.action !== a.json?.action, `${a.json?.action} → ${again.json?.action}`);
+  const partial = await call("POST", "/api/kiosk", { ...O, body: { code: "3456" } });
+  check("kiosk: partial phone numbers are refused", partial.status === 404, partial.status);
+  const tr = await login("trainer@voxi.qa");
+  check("kiosk needs a signed-in staff device", (await call("GET", "/api/kiosk")).status === 401);
+  check("trainers can run the kiosk (attendance access)", (await call("GET", "/api/kiosk", { cookie: tr.cookie })).status === 200);
+});
+
+await step("member rules", async () => {
+  const young = new Date(Date.now() - 5 * 365 * 86_400_000).toISOString().slice(0, 10);
+  const kid = await call("POST", "/api/members", { ...O, body: { firstName: "Tiny", lastName: "", phone: "+974 5000 0001", dateOfBirth: young } });
+  check("members must be 10 or older", kid.status === 400 && /10 years/.test(kid.json?.error ?? ""), kid.text);
+  const noLast = await call("POST", "/api/members", { ...O, body: { firstName: "Mononym", phone: "+974 5000 0002", dateOfBirth: "1995-06-15" } });
+  check("last name is optional", noLast.status === 200 && noLast.json?.lastName === "", noLast.text);
+  const got = noLast.json?.id ? (await call("GET", `/api/members/${noLast.json.id}`, O)).json : null;
+  const dob = got?.dateOfBirth ? new Date(new Date(got.dateOfBirth).getTime() + 3 * 3600_000).toISOString().slice(0, 10) : null;
+  check("date of birth saved as entered (Doha date)", dob === "1995-06-15", got?.dateOfBirth);
+  if (noLast.json?.id) await call("DELETE", `/api/members/${noLast.json.id}`, O);
+  const ex = await call("GET", "/api/workouts/exercises", O);
+  check("exercise library has 150+ exercises", (ex.json?.exercises?.length ?? 0) >= 150, ex.json?.exercises?.length);
+});
+
 await step("check-in", async () => {
   const a = await call("POST", "/api/attendance", { ...O, body: { code: "M-1001", override: true } });
   check("front-desk check-in by code", a.json?.allowed === true, a.text);
