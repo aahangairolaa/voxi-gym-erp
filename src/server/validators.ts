@@ -59,6 +59,8 @@ const imageDataUrl = (maxKb: number) =>
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email"),
   password: z.string().min(1, "Enter your password"),
+  /** 6-digit code from the email, the first time this account signs in with a password */
+  code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code").optional(),
 });
 
 // ── Members ──────────────────────────────────────────────────────────────────
@@ -329,6 +331,8 @@ export const registerSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters").max(200).optional().nullable(),
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "Please accept the terms and privacy policy" }) }),
   website: z.string().max(0).optional(), // honeypot: real people leave this empty
+  /** 6-digit code from the email (second step of email sign-up) */
+  code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code").optional(),
 });
 export const forgotPasswordSchema = z.object({ email });
 export const resetPasswordSchema = z.object({

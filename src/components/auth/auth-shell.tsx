@@ -118,3 +118,83 @@ export const AUTH_ERRORS: Record<string, string> = {
   microsoft_failed: "Microsoft sign-in didn't work. Please try again or use your password.",
   account_paused: "This account is deactivated or the gym is suspended. Contact your gym owner or VOXI.",
 };
+
+/** Second step of sign-up / first sign-in: type the 6-digit code we emailed. */
+export function CodeStep({
+  email,
+  onVerify,
+  onResend,
+  onBack,
+  error,
+  loading,
+  submitLabel = "Verify and continue",
+}: {
+  email: string;
+  onVerify: (code: string) => void;
+  onResend: () => Promise<void>;
+  onBack: () => void;
+  error: string | null;
+  loading: boolean;
+  submitLabel?: string;
+}) {
+  const [code, setCode] = useState("");
+  const [wait, setWait] = useState(30);
+  const [sent, setSent] = useState(false);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (code.length === 6) onVerify(code);
+      }}
+      className="mt-8 space-y-5"
+    >
+      <div className="rounded-2xl border border-line bg-surface-2/60 px-4 py-3 text-sm text-ink-soft">
+        We sent a 6-digit code to <span className="font-semibold text-ink">{email}</span>. Check your inbox (and spam).
+      </div>
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-ink-soft">Verification code</span>
+        <input
+          className="input h-14 text-center font-display text-2xl font-semibold tracking-[0.5em]"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoFocus
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="••••••"
+          aria-label="6-digit code"
+        />
+      </label>
+      {error && <p className="animate-scale-in rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{error}</p>}
+      <button
+        type="submit"
+        disabled={code.length !== 6 || loading}
+        className="flex h-12 w-full items-center justify-center rounded-xl text-sm font-semibold text-white brand-gradient shadow-[0_8px_24px_-8px_rgba(106,68,242,0.7)] transition hover:brightness-110 disabled:opacity-50"
+      >
+        {loading ? "Checking..." : submitLabel}
+      </button>
+      <div className="flex items-center justify-between text-sm">
+        <button type="button" onClick={onBack} className="font-medium text-muted hover:text-ink">
+          Use a different email
+        </button>
+        <button
+          type="button"
+          disabled={wait > 0}
+          onClick={async () => {
+            await onResend();
+            setSent(true);
+            setWait(30);
+          }}
+          className="font-semibold text-brand-600 hover:underline disabled:text-muted disabled:no-underline dark:text-brand-300"
+        >
+          {wait > 0 ? `Resend in ${wait}s` : sent ? "Send again" : "Resend code"}
+        </button>
+      </div>
+    </form>
+  );
+}

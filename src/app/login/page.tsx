@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LuArrowRight, LuEye, LuEyeOff, LuLock, LuMail } from "react-icons/lu";
-import { AUTH_ERRORS, AuthShell, Divider, SocialButtons, useAuthConfig } from "@/components/auth/auth-shell";
+import { AUTH_ERRORS, AuthShell, CodeStep, Divider, SocialButtons, useAuthConfig } from "@/components/auth/auth-shell";
 import { VoxiOrb } from "@/components/brand/logo";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api-client";
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [codeFor, setCodeFor] = useState<string | null>(null);
   const cfg = useAuthConfig();
 
   useEffect(() => {
@@ -24,12 +25,18 @@ export default function LoginPage() {
     if (code) setError(AUTH_ERRORS[code] ?? "Sign-in failed. Please try again.");
   }, []);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (e: React.FormEvent | null, code?: string) => {
+    e?.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const r = await api.post<{ home: string }>("/api/auth/login", { email, password });
+      const r = await api.post<{ home: string; needsCode?: boolean; email?: string }>("/api/auth/login", { email, password, ...(code ? { code } : {}) });
+      if (r.needsCode) {
+        // First time signing in with a password: confirm the email with a code
+        setCodeFor(r.email ?? email);
+        setLoading(false);
+        return;
+      }
       const next = new URLSearchParams(window.location.search).get("next");
       // Only follow ?next= for normal gym roles (VOXI admins have their own home page)
       router.replace(next && next.startsWith("/") && !next.startsWith("//") && r.home === "/dashboard" ? next : r.home);
@@ -38,6 +45,28 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  if (codeFor) {
+    return (
+      <AuthShell title="Confirm it's you" subtitle="First time signing in? We just need to check your email.">
+        <CodeStep
+          email={codeFor}
+          loading={loading}
+          error={error}
+          submitLabel="Sign in"
+          onVerify={(c) => submit(null, c)}
+          onResend={async () => {
+            setError(null);
+            await api.post("/api/auth/login", { email, password }).catch((e: Error) => setError(e.message));
+          }}
+          onBack={() => {
+            setCodeFor(null);
+            setError(null);
+          }}
+        />
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell

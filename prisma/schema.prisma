@@ -268,6 +268,7 @@ model Staff {
   // Sign-in security
   googleId       String?   @unique // set when the person links / signs up with Google
   microsoftId    String?   @unique // same for "Continue with Microsoft"
+  emailVerifiedAt DateTime? // set once this person proves they own the email (code, Google or Microsoft)
   failedLogins   Int       @default(0) // wrong passwords in a row
   lockedUntil    DateTime? // locked for 15 min after 5 wrong passwords
   sessionVersion Int       @default(0) // bump to sign this person out on every device
@@ -696,4 +697,18 @@ model PasswordReset {
   createdAt DateTime  @default(now())
 
   @@index([staffId])
+}
+
+/** One-time 6-digit codes emailed to prove someone owns an address (sign-up, first sign-in). */
+model EmailCode {
+  id        String    @id @default(cuid())
+  email     String
+  purpose   String // "signup" | "login"
+  codeHash  String // HMAC of the code; the code itself is never stored
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, purpose, createdAt])
 }

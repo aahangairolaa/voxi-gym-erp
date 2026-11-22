@@ -69,6 +69,9 @@ async function main() {
   });
   console.log("  ✓ VOXI admin account");
 
+  // Demo accounts count as already confirmed (no email codes needed to try VOXI locally)
+  await db.staff.updateMany({ data: { emailVerifiedAt: new Date() } });
+
   console.log(`
 Done! Sign in at http://localhost:3000/login (password for all: ${password})
 

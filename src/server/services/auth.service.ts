@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import { TRIAL_DAYS } from "@/lib/pricing";
+import { checkCode, sendCode } from "./verify.service";
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "../db";
-import { sendEmail, emailEnabled } from "../email";
+import { emailLayout, sendEmail, emailEnabled } from "../email";
 import { ApiError } from "../http";
 import type { Session } from "../session-token";
 import { createGym } from "./admin.service";
@@ -42,7 +43,13 @@ function assertCanSignIn(staff: { isActive: boolean; role: string; gymId: string
   if (staff.gym?.status === "SUSPENDED") throw new ApiError(403, "Your gym's VOXI account is suspended. Please contact VOXI.");
 }
 
-export async function login(email: string, password: string): Promise<Session> {
+export type LoginResult = Session | { needsCode: true; email: string };
+
+/**
+ * Email + password sign-in. The first time an account signs in this way, VOXI emails a
+ * 6-digit code to prove the address is theirs (call again with `code`).
+ */
+export async function login(email: string, password: string, code?: string): Promise<LoginResult> {
   const staff = await db.staff.findUnique({ where: { email }, include: { gym: { select: { status: true } } } });
   if (staff?.lockedUntil && staff.lockedUntil > new Date()) {
     const mins = Math.ceil((staff.lockedUntil.getTime() - Date.now()) / 60_000);
@@ -61,7 +68,18 @@ export async function login(email: string, password: string): Promise<Session> {
     throw new ApiError(401, staff?.passwordHash === NO_PASSWORD ? "This account uses Google sign-in. Click “Continue with Google”." : "Email or password is incorrect.");
   }
   assertCanSignIn(staff);
-  await db.staff.update({ where: { id: staff.id }, data: { lastLoginAt: new Date(), failedLogins: 0, lockedUntil: null } });
+  const verify = emailEnabled() && !staff.emailVerifiedAt && staff.role !== "SUPER_ADMIN";
+  if (verify) {
+    if (!code) {
+      await sendCode(staff.email!, "login", staff.name);
+      return { needsCode: true, email: staff.email! };
+    }
+    await checkCode(staff.email!, "login", code);
+  }
+  await db.staff.update({
+    where: { id: staff.id },
+    data: { lastLoginAt: new Date(), failedLogins: 0, lockedUntil: null, ...(verify ? { emailVerifiedAt: new Date() } : {}) },
+  });
   return sessionFor(staff);
 }
 
@@ -74,7 +92,13 @@ export async function loginWithGoogle(profile: { sub: string; email: string }): 
   assertCanSignIn(staff);
   await db.staff.update({
     where: { id: staff.id },
-    data: { lastLoginAt: new Date(), failedLogins: 0, lockedUntil: null, ...(staff.googleId ? {} : { googleId: profile.sub }) },
+    data: {
+      lastLoginAt: new Date(),
+      failedLogins: 0,
+      lockedUntil: null,
+      emailVerifiedAt: staff.emailVerifiedAt ?? new Date(), // Google confirms the address
+      ...(staff.googleId ? {} : { googleId: profile.sub }),
+    },
   });
   return sessionFor(staff);
 }
@@ -87,7 +111,13 @@ export async function loginWithMicrosoft(profile: { sub: string; email: string }
   assertCanSignIn(staff);
   await db.staff.update({
     where: { id: staff.id },
-    data: { lastLoginAt: new Date(), failedLogins: 0, lockedUntil: null, ...(staff.microsoftId ? {} : { microsoftId: profile.sub }) },
+    data: {
+      lastLoginAt: new Date(),
+      failedLogins: 0,
+      lockedUntil: null,
+      emailVerifiedAt: staff.emailVerifiedAt ?? new Date(),
+      ...(staff.microsoftId ? {} : { microsoftId: profile.sub }),
+    },
   });
   return sessionFor(staff);
 }
@@ -101,6 +131,8 @@ export async function registerGym(input: {
   password: string | null;
   googleId: string | null;
   microsoftId?: string | null;
+  /** true when the owner proved the email (code, Google or Microsoft) */
+  emailVerified?: boolean;
 }): Promise<Session> {
   if (process.env.ALLOW_SIGNUP === "false") throw new ApiError(403, "New sign-ups are closed. Please contact VOXI for a demo.");
   if (!input.password && !input.googleId && !input.microsoftId) throw new ApiError(400, "Choose a password (at least 8 characters).");
@@ -124,7 +156,7 @@ export async function registerGym(input: {
     ownerMicrosoftId: input.microsoftId ?? null,
   });
   const owner = await db.staff.findUniqueOrThrow({ where: { email: gym.ownerEmail } });
-  await db.staff.update({ where: { id: owner.id }, data: { lastLoginAt: new Date() } });
+  await db.staff.update({ where: { id: owner.id }, data: { lastLoginAt: new Date(), ...(input.emailVerified ? { emailVerifiedAt: new Date() } : {}) } });
   return sessionFor(owner);
 }
 
@@ -145,6 +177,12 @@ export async function requestPasswordReset(email: string, origin: string) {
         to: staff.email,
         subject: "Reset your VOXI password",
         text: `Hi ${staff.name.split(" ")[0]},\n\nSomeone (hopefully you) asked to reset your VOXI password. Open this link within 1 hour to choose a new one:\n\n${link}\n\nIf it wasn't you, you can ignore this email. Your password stays the same.\n\nThe VOXI team`,
+        html: emailLayout({
+          heading: "Reset your password",
+          intro: `Hi ${staff.name.split(" ")[0]}, someone (hopefully you) asked to reset your VOXI password. The link works for 1 hour.`,
+          button: { label: "Choose a new password", url: link },
+          footer: "If it wasn't you, you can ignore this email. Your password stays the same.",
+        }),
       });
     }
   }
@@ -157,7 +195,8 @@ export async function resetPassword(token: string, password: string) {
   await db.$transaction([
     db.staff.update({
       where: { id: row.staffId },
-      data: { passwordHash: await bcrypt.hash(password, 10), failedLogins: 0, lockedUntil: null, sessionVersion: { increment: 1 } },
+      // Opening the emailed link also proves they own the address
+      data: { passwordHash: await bcrypt.hash(password, 10), failedLogins: 0, lockedUntil: null, sessionVersion: { increment: 1 }, emailVerifiedAt: new Date() },
     }),
     db.passwordReset.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
   ]);

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LuArrowRight, LuCircleCheck } from "react-icons/lu";
-import { AuthShell, Divider, SocialButtons, useAuthConfig } from "@/components/auth/auth-shell";
+import { AuthShell, CodeStep, Divider, SocialButtons, useAuthConfig } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api-client";
 
@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [accept, setAccept] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [codeFor, setCodeFor] = useState<string | null>(null); // email we sent a code to
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -34,23 +35,54 @@ export default function RegisterPage() {
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const send = (code?: string) =>
+    api.post<{ home?: string; needsCode?: boolean; email?: string }>("/api/auth/register", {
+      ...form,
+      phone: form.phone || null,
+      password: google ? null : form.password,
+      acceptTerms: accept,
+      ...(code ? { code } : {}),
+    });
+
+  const submit = async (e: React.FormEvent | null, code?: string) => {
+    e?.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const r = await api.post<{ home: string }>("/api/auth/register", {
-        ...form,
-        phone: form.phone || null,
-        password: google ? null : form.password,
-        acceptTerms: accept,
-      });
-      router.replace(r.home);
+      const r = await send(code);
+      if (r.needsCode) {
+        setCodeFor(r.email ?? form.email);
+        setLoading(false);
+        return;
+      }
+      router.replace(r.home ?? "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-up failed");
       setLoading(false);
     }
   };
+
+  if (codeFor) {
+    return (
+      <AuthShell title="Check your email" subtitle="One last step to confirm it's really you.">
+        <CodeStep
+          email={codeFor}
+          loading={loading}
+          error={error}
+          submitLabel="Create my gym"
+          onVerify={(c) => submit(null, c)}
+          onResend={async () => {
+            setError(null);
+            await send().catch((e: Error) => setError(e.message));
+          }}
+          onBack={() => {
+            setCodeFor(null);
+            setError(null);
+          }}
+        />
+      </AuthShell>
+    );
+  }
 
   if (cfg && !cfg.signup) {
     return (

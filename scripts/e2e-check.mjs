@@ -44,6 +44,15 @@ function sessionCookie(res) {
   return (all.find((c) => c.startsWith("voxi_session=")) || "").split(";")[0];
 }
 
+/** Read the last emailed code for an address from the server log (EMAIL_DEV_LOG=1 test mode). */
+async function codeFor(email) {
+  const { readFile } = await import("node:fs/promises");
+  const log = await readFile(process.env.EMAIL_LOG_FILE ?? "server.log", "utf8").catch(() => "");
+  const hits = [...log.matchAll(new RegExp(`\\[email-dev\\] to=${email.replace(/[.+]/g, "\\$&")} subject=(\\d{6}) is your VOXI code`, "g"))];
+  return hits.at(-1)?.[1] ?? null;
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function login(email) {
   const res = await fetch(BASE + "/api/auth/login", {
     method: "POST",
@@ -278,6 +287,24 @@ await step("staff photo", async () => {
   check("remove staff photo", del.status === 200 && del.json?.photoUrl === null);
 });
 
+// ── New staff confirm their email on first sign-in ─────────────────────────
+await step("staff email check", async () => {
+  const em = `new-staff-${Date.now()}@example.com`;
+  const add = await call("POST", "/api/staff", { ...O, body: { name: "New Receptionist", email: em, phone: null, role: "RECEPTION", branchId: null, salary: null, specialty: null, isActive: true, password: "longpassword1" } });
+  check("owner adds a staff login", add.status === 200, add.text?.slice(0, 120));
+  const first = await call("POST", "/api/auth/login", { body: { email: em, password: "longpassword1" } });
+  check("first sign-in asks for an email code", first.json?.needsCode === true, first.text);
+  await sleep(300);
+  const code = await codeFor(em);
+  const ok = await fetch(BASE + "/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: em, password: "longpassword1", code }) });
+  const okJson = await ok.json().catch(() => ({}));
+  check("right code signs them in", ok.ok && okJson.user?.role === "RECEPTION", JSON.stringify(okJson).slice(0, 120));
+  const next = await call("POST", "/api/auth/login", { body: { email: em, password: "longpassword1" } });
+  check("no code needed after that", next.status === 200 && !next.json?.needsCode, next.text?.slice(0, 80));
+  const wrongPw = await call("POST", "/api/auth/login", { body: { email: em, password: "wrongpassword" } });
+  check("wrong password never sends a code", wrongPw.status === 401, wrongPw.status);
+});
+
 // ── Billing: plan requests, activation and branch limits ───────────────────
 await step("billing", async () => {
   const b = await call("GET", "/api/billing", O);
@@ -332,10 +359,20 @@ await step("accounts", async () => {
   const email = `e2e-${Date.now()}@example.com`;
   const bad = await call("POST", "/api/auth/register", { body: { gymName: "E2E Gym", ownerName: "Test Owner", email, password: "longpassword1", acceptTerms: false } });
   check("sign-up requires accepting terms", bad.status === 400, bad.text);
+  const form = { gymName: "E2E Gym", ownerName: "Test Owner", email, phone: "5555 1234", password: "longpassword1", acceptTerms: true };
+  const step1 = await call("POST", "/api/auth/register", { body: form });
+  check("email sign-up sends a code first (no gym yet)", step1.json?.needsCode === true && !sessionCookie({ headers: step1.headers }), step1.text);
+  await sleep(300);
+  const code = await codeFor(email);
+  check("code email was sent", /^\d{6}$/.test(code ?? ""), code);
+  const wrong = await call("POST", "/api/auth/register", { body: { ...form, code: code === "000000" ? "111111" : "000000" } });
+  check("wrong code is refused", wrong.status === 400 && /isn't right/.test(wrong.json?.error ?? ""), wrong.text);
+  const taken = await call("POST", "/api/auth/register", { body: { ...form, email: "owner@voxi.qa" } });
+  check("existing email can't sign up again (no code sent)", taken.status === 409, taken.status);
   const reg = await fetch(BASE + "/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ gymName: "E2E Gym", ownerName: "Test Owner", email, phone: "5555 1234", password: "longpassword1", acceptTerms: true }),
+    body: JSON.stringify({ ...form, code }),
   });
   const regJson = await reg.json().catch(() => ({}));
   const R = { cookie: sessionCookie(reg) };
