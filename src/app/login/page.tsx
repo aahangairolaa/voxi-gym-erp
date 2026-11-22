@@ -59,13 +59,7 @@ export default function LoginPage() {
               VOXI is getting ready. Sign-in opens very soon. Want a demo? <Link href="/#contact" className="font-semibold underline">Contact us</Link>.
             </p>
           )}
-          {(cfg?.google || cfg?.microsoft) && (
-            <div className="mt-8">
-              <SocialButtons cfg={cfg} intent="login" />
-              <Divider text="or sign in with email" />
-            </div>
-          )}
-          <form onSubmit={submit} className={cfg?.google || cfg?.microsoft ? "space-y-4" : "mt-8 space-y-4"}>
+          <form onSubmit={submit} className="mt-8 space-y-4">
             <label className="block">
               <span className="label">Email</span>
               <div className="relative">
@@ -101,6 +95,12 @@ export default function LoginPage() {
               Sign in <LuArrowRight className="h-4 w-4" />
             </Button>
           </form>
+          {(cfg?.google || cfg?.microsoft) && (
+            <div>
+              <Divider text="or" />
+              <SocialButtons cfg={cfg} intent="login" />
+            </div>
+          )}
 
           {/* Demo logins: shown on your computer, hidden on the live site unless NEXT_PUBLIC_SHOW_DEMO_LOGINS=true */}
           {SHOW_DEMO && (

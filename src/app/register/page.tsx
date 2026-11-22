@@ -85,13 +85,7 @@ export default function RegisterPage() {
           There’s no VOXI account for {google.email} yet. If you work at a gym that uses VOXI, ask the owner to add you. Otherwise, create your gym below.
         </p>
       )}
-      {(cfg?.google || cfg?.microsoft) && !google && (
-        <div className="mt-8">
-          <SocialButtons cfg={cfg} intent="register" />
-          <Divider text="or with email" />
-        </div>
-      )}
-      <form onSubmit={submit} className={(cfg?.google || cfg?.microsoft) && !google ? "space-y-4" : "mt-8 space-y-4"}>
+      <form onSubmit={submit} className="mt-8 space-y-4">
         <label className="block">
           <span className="label">Gym name</span>
           <input className="input h-12" required value={form.gymName} onChange={set("gymName")} placeholder="e.g. Pearl Strength Club" autoFocus />
@@ -128,6 +122,12 @@ export default function RegisterPage() {
         <Button type="submit" size="lg" className="w-full" loading={loading} disabled={!accept}>
           Create my gym <LuArrowRight className="h-4 w-4" />
         </Button>
+        {(cfg?.google || cfg?.microsoft) && !google && (
+          <div>
+            <Divider text="or" />
+            <SocialButtons cfg={cfg} intent="register" />
+          </div>
+        )}
         <ul className="space-y-1.5 pt-2 text-xs text-muted">
           {["Starter plans in QAR and an exercise library ready to go", "Add your team, import members, connect WhatsApp", "Your data stays yours. Export it anytime"].map((t) => (
             <li key={t} className="flex items-center gap-2">
