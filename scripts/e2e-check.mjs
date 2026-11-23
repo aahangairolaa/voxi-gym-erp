@@ -562,7 +562,7 @@ await step("accounts", async () => {
 });
 
 await step("public pages", async () => {
-  for (const p of ["/register", "/forgot-password", "/reset-password?token=abc", "/privacy", "/terms", "/robots.txt", "/sitemap.xml", "/manifest.webmanifest"]) {
+  for (const p of ["/register", "/forgot-password", "/reset-password?token=abc", "/privacy", "/terms", "/help", "/robots.txt", "/sitemap.xml", "/manifest.webmanifest"]) {
     const r = await call("GET", p);
     check(`public page ${p}`, r.status === 200, r.status);
   }

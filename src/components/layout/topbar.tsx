@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LuLogOut, LuMenu, LuSettings, LuChevronDown } from "react-icons/lu";
+import { LuLogOut, LuMenu, LuSettings, LuChevronDown, LuLifeBuoy } from "react-icons/lu";
 import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui";
 import { api } from "@/lib/api-client";
@@ -56,6 +56,9 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
                   <p className="truncate text-xs text-muted">{user.email}</p>
                 </div>
                 <div className="my-1 h-px bg-line" />
+                <Link href="/help" target="_blank" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink-soft hover:bg-surface-2">
+                  <LuLifeBuoy className="h-4 w-4" /> Help Centre
+                </Link>
                 {can(user.role, "settings", user.gym?.rolePermissions) && (
                   <Link href="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-ink-soft hover:bg-surface-2">
                     <LuSettings className="h-4 w-4" /> Settings

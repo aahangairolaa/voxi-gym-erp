@@ -25,7 +25,7 @@ export function SiteNav({ dark = false }: { dark?: boolean }) {
           <Link href="/#features" className="transition hover:text-brand-500">Features</Link>
           <Link href="/#biometric" className="transition hover:text-brand-500">Biometric</Link>
           <Link href="/pricing" className="transition hover:text-brand-500">Pricing</Link>
-          <Link href="/#faq" className="transition hover:text-brand-500">FAQ</Link>
+          <Link href="/help" className="transition hover:text-brand-500">Help</Link>
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <Link href="/login" className={cn("rounded-xl border px-4 py-2 text-sm font-semibold transition", onDark ? "border-white/20 text-white hover:bg-white/10" : "border-line text-ink hover:bg-surface-2")}>
@@ -50,6 +50,7 @@ export function SiteFooter() {
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
           <Link href="/pricing" className="hover:text-ink">Pricing</Link>
+          <Link href="/help" className="hover:text-ink">Help Centre</Link>
           <Link href="/login" className="hover:text-ink">Sign in</Link>
           <Link href="/register" className="hover:text-ink">Sign up</Link>
           <Link href="/privacy" className="hover:text-ink">Privacy</Link>

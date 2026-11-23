@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/server/session-token";
 import { homeFor } from "@/lib/permissions";
 
-const PUBLIC_PAGES = ["/", "/pricing", "/login", "/register", "/forgot-password", "/reset-password", "/privacy", "/terms"];
+const PUBLIC_PAGES = ["/", "/pricing", "/login", "/register", "/forgot-password", "/reset-password", "/privacy", "/terms", "/help"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
