@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 /**
  * Phone number with a country code picker (every country, Qatar first).
  * Only digits can be typed, and no more than the chosen country's numbers have
- * (Qatar 8, India 10 ...). value / onChange use one string like "+974 55123456".
+ * (up to 15). value / onChange use one string like "+974 55123456".
  */
 export function PhoneInput({
   value,
@@ -42,8 +42,8 @@ export function PhoneInput({
   }, [value]);
 
   const [, max] = phoneDigitsFor(dial);
-  // A leading 0 (local trunk prefix) is allowed one extra digit outside Qatar
-  const limit = number.startsWith("0") && dial !== "974" ? max + 1 : max;
+  // Up to 15 digits for every country
+  const limit = max;
 
   return (
     <div
@@ -59,7 +59,7 @@ export function PhoneInput({
         onChange={(e) => {
           const d = e.target.value;
           const [, m] = phoneDigitsFor(d);
-          const n = number.slice(0, m + 1);
+          const n = number.slice(0, m);
           setDial(d);
           setNumber(n);
           onChange(joinPhone(d, n));
@@ -91,7 +91,7 @@ export function PhoneInput({
             raw = rest;
           }
           const digits = raw.replace(/\D/g, "");
-          const n = digits.slice(0, digits.startsWith("0") && dial !== "974" ? max + 1 : max);
+          const n = digits.slice(0, max);
           setNumber(n);
           onChange(joinPhone(dial, n));
         }}

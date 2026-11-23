@@ -5,7 +5,7 @@
 import { splitPhone } from "@/lib/countries";
 
 // ── Phone ────────────────────────────────────────────────────────────────────
-/** Digits after the country code: [min, max]. Countries not listed use a general rule. */
+/** Digits after the country code: [min, usual max]. The minimum is enforced; any number may have up to 15 digits. */
 export const PHONE_DIGITS: Record<string, [number, number]> = {
   "974": [8, 8], // Qatar
   "966": [9, 9], // Saudi Arabia
@@ -28,16 +28,19 @@ export const PHONE_DIGITS: Record<string, [number, number]> = {
   "33": [9, 9], // France
   "49": [10, 11], // Germany
 };
-const GENERAL_DIGITS: [number, number] = [6, 13];
+const GENERAL_DIGITS: [number, number] = [6, 15];
+/** Every phone field takes up to 15 digits, whatever the country. */
+export const MAX_PHONE_DIGITS = 15;
 
+/** [fewest digits for this country, 15] */
 export function phoneDigitsFor(dial: string): [number, number] {
-  return PHONE_DIGITS[dial] ?? GENERAL_DIGITS;
+  return [(PHONE_DIGITS[dial] ?? GENERAL_DIGITS)[0], MAX_PHONE_DIGITS];
 }
 
-/** "8 digits" or "9 to 10 digits" */
+/** "8 to 15 digits" */
 export function phoneDigitsLabel(dial: string) {
   const [min, max] = phoneDigitsFor(dial);
-  return min === max ? `${min} digits` : `${min} to ${max} digits`;
+  return `${min} to ${max} digits`;
 }
 
 /** value is what PhoneInput stores, e.g. "+974 5512 3456". */

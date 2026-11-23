@@ -163,6 +163,7 @@ await step("member rules", async () => {
     ["letters in phone are refused", { phone: "+974 5512abcd" }, "phone"],
     ["Qatar numbers need 8 digits", { phone: "+974 5512345" }, "phone"],
     ["long phone numbers are refused", { phone: "+974 55123456789012345678" }, "phone"],
+    ["16 digits is one too many", { phone: "+974 5512345678901234" }, "phone"],
     ["India numbers need 10 digits", { phone: "+91 98765 4321" }, "phone"],
     ["a sentence is not an email", { email: "this is not an email" }, "email"],
     ["email without a domain is refused", { email: "name@gmail" }, "email"],
@@ -182,6 +183,9 @@ await step("member rules", async () => {
   check("valid member saves (phone tidied, email lower-cased)", noLast.status === 200 && noLast.json?.lastName === "Tester", noLast.text);
   const gotM = noLast.json?.id ? (await call("GET", `/api/members/${noLast.json.id}`, O)).json : null;
   check("phone saved as +974 50000002", gotM?.phone === "+974 50000002" && gotM?.email === "rule.tester@example.com" && gotM?.emergencyPhone == null, JSON.stringify([gotM?.phone, gotM?.email, gotM?.emergencyPhone]));
+  const fifteen = await call("POST", "/api/members", { ...O, body: { ...good, firstName: "Fifteen", phone: "+974 551234567890123" } });
+  check("phone numbers can have up to 15 digits", fifteen.status === 200, fifteen.text);
+  if (fifteen.json?.id) await call("DELETE", `/api/members/${fifteen.json.id}`, O);
   const india = await call("POST", "/api/members", { ...O, body: { ...good, firstName: "Arjun", phone: "+91 98765 43210" } });
   check("10-digit Indian mobile accepted", india.status === 200, india.text);
   if (india.json?.id) await call("DELETE", `/api/members/${india.json.id}`, O);
