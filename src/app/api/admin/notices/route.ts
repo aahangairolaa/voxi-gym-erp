@@ -3,6 +3,7 @@ import { route, readBody } from "@/server/http";
 import { requireRole } from "@/server/auth";
 import { fromDateInput, endOfDay } from "@/lib/dates";
 import { createNotice, listNotices } from "@/server/services/platform.service";
+import { logAdmin } from "@/server/services/admin-log.service";
 
 const schema = z.object({
   message: z.string().trim().min(3, "Write a message").max(280, "Keep it under 280 characters"),
@@ -31,6 +32,9 @@ export const GET = route(async () => {
 
 /** POST /api/admin/notices { message, tone, audience, link?, endsAt? } → shows it to gyms (replaces the current one) */
 export const POST = route(async (req) => {
-  await requireRole("SUPER_ADMIN");
-  return createNotice(await readBody(req, schema));
+  const s = await requireRole("SUPER_ADMIN");
+  const input = await readBody(req, schema);
+  const n = await createNotice(input);
+  await logAdmin(s.name, "notice.create", `Posted an announcement: "${input.message.slice(0, 80)}${input.message.length > 80 ? "…" : ""}"`);
+  return n;
 });

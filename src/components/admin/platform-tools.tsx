@@ -26,15 +26,46 @@ export function formatBytes(n: number) {
 }
 
 const DAY = 86_400_000;
-const daysUntil = (iso: string | null) => (iso ? Math.ceil((new Date(iso).getTime() - Date.now()) / DAY) : null);
+export const daysUntil = (iso: string | null) => (iso ? Math.ceil((new Date(iso).getTime() - Date.now()) / DAY) : null);
+
+/** Quick changes to a gym from lists (mark paid, extend trial…), with a toast. */
+export function useGymActions(onChanged: () => void) {
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  const act = async (g: AdminGym, body: object, msg: string) => {
+    setBusy(g.id);
+    try {
+      await api.put(`/api/admin/gyms/${g.id}`, body);
+      toast("success", msg);
+      onChanged();
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+  return {
+    busy,
+    act,
+    extendTrial: (g: AdminGym) => {
+      const base = g.trialEndsAt && new Date(g.trialEndsAt).getTime() > Date.now() ? new Date(g.trialEndsAt) : new Date();
+      return act(g, { status: "TRIAL", trialEndsAt: toDateInput(addDays(base, 7)) }, `${g.name}: trial extended by 7 days`);
+    },
+    markPaid: (g: AdminGym) => {
+      const base = g.paidUntil && new Date(g.paidUntil).getTime() > Date.now() ? new Date(g.paidUntil) : new Date();
+      return act(g, { status: "ACTIVE", paidUntil: toDateInput(addMonths(base, g.billingMonths)) }, `${g.name}: paid for another ${termFor(g.billingMonths).label}`);
+    },
+    activate: (g: AdminGym) => act(g, { applyRequest: true }, `${g.name} is now active`),
+    decline: (g: AdminGym) => act(g, { declineRequest: true }, `${g.name}'s request was declined`),
+  };
+}
 
 // ── Needs attention ──────────────────────────────────────────────────────────
 type Item = { gym: AdminGym; kind: "request" | "trial" | "renewal" | "quiet"; text: string };
 
 /** Gyms that need the VOXI team: plan requests, trials ending, payments due, gyms gone quiet. */
 export function NeedsAttention({ gyms, onOpen, onChanged }: { gyms: AdminGym[]; onOpen: (g: AdminGym) => void; onChanged: () => void }) {
-  const toast = useToast();
-  const [busy, setBusy] = useState<string | null>(null);
+  const { busy, extendTrial, markPaid } = useGymActions(onChanged);
   const items: Item[] = [];
   for (const g of gyms) {
     if (g.status === "SUSPENDED") continue;
@@ -49,26 +80,6 @@ export function NeedsAttention({ gyms, onOpen, onChanged }: { gyms: AdminGym[]; 
   const order = { request: 0, renewal: 1, trial: 2, quiet: 3 };
   items.sort((a, b) => order[a.kind] - order[b.kind]);
 
-  const act = async (g: AdminGym, body: object, msg: string) => {
-    setBusy(g.id);
-    try {
-      await api.put(`/api/admin/gyms/${g.id}`, body);
-      toast("success", msg);
-      onChanged();
-    } catch (e) {
-      toast("error", e instanceof Error ? e.message : "Failed");
-    } finally {
-      setBusy(null);
-    }
-  };
-  const extendTrial = (g: AdminGym) => {
-    const base = g.trialEndsAt && new Date(g.trialEndsAt).getTime() > Date.now() ? new Date(g.trialEndsAt) : new Date();
-    return act(g, { status: "TRIAL", trialEndsAt: toDateInput(addDays(base, 7)) }, `${g.name}: trial extended by 7 days`);
-  };
-  const markPaid = (g: AdminGym) => {
-    const base = g.paidUntil && new Date(g.paidUntil).getTime() > Date.now() ? new Date(g.paidUntil) : new Date();
-    return act(g, { status: "ACTIVE", paidUntil: toDateInput(addMonths(base, g.billingMonths)) }, `${g.name}: paid for another ${termFor(g.billingMonths).label}`);
-  };
 
   const ICON = { request: LuBell, trial: LuHourglass, renewal: LuCalendarClock, quiet: LuMoon };
   const TONE = { request: "text-brand-600 bg-brand-50 dark:bg-brand-500/15 dark:text-brand-300", trial: "text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-300", renewal: "text-rose-700 bg-rose-50 dark:bg-rose-500/10 dark:text-rose-300", quiet: "text-muted bg-surface-2" };

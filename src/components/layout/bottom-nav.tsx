@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LuLayoutDashboard, LuUsers, LuScanFace, LuReceipt, LuMenu, LuBuilding2, LuBicepsFlexed } from "react-icons/lu";
+import { LuLayoutDashboard, LuUsers, LuScanFace, LuReceipt, LuMenu, LuBuilding2, LuBicepsFlexed, LuBell } from "react-icons/lu";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useUser } from "./session-context";
@@ -11,7 +11,7 @@ export function BottomNav({ onMenu }: { onMenu: () => void }) {
   const pathname = usePathname();
   const user = useUser();
   const tab = (href: string, label: string, Icon: typeof LuUsers) => {
-    const active = pathname.startsWith(href);
+    const active = href === "/admin" ? pathname === href : pathname.startsWith(href);
     return (
       <Link href={href} className={cn("flex flex-1 flex-col items-center gap-1 py-2 text-[10.5px] font-semibold", active ? "text-brand-600 dark:text-brand-300" : "text-muted")}>
         <Icon className="h-5 w-5" />
@@ -24,7 +24,9 @@ export function BottomNav({ onMenu }: { onMenu: () => void }) {
     return (
       <nav className="glass fixed inset-x-0 bottom-0 z-30 border-t border-line pb-[env(safe-area-inset-bottom)] lg:hidden">
         <div className="flex items-end px-2">
-          {tab("/admin", "Gyms", LuBuilding2)}
+          {tab("/admin", "Home", LuLayoutDashboard)}
+          {tab("/admin/gyms", "Gyms", LuBuilding2)}
+          {tab("/admin/requests", "Requests", LuBell)}
           <button onClick={onMenu} className="flex flex-1 flex-col items-center gap-1 py-2 text-[10.5px] font-semibold text-muted">
             <LuMenu className="h-5 w-5" />
             More

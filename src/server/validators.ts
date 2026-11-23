@@ -466,6 +466,8 @@ export const createGymSchema = z.object({
 /** Only the fields that are sent are changed (no defaults here on purpose). */
 export const updateGymSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
+  /** Clear the gym's pending plan request without activating it */
+  declineRequest: z.boolean().optional(),
   plan: subscription.optional(),
   status: gymStatus.optional(),
   trialEndsAt: z

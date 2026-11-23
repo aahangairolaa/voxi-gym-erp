@@ -354,7 +354,7 @@ export type AdminGym = {
   planRequest: { months: number; extraBranches: number; total: number; entrances?: number; onboarding?: boolean; oneTime?: number; promoCode?: string | null; promoDiscount?: number; totalToday?: number; cafe?: boolean; requestedAt: ISODate; requestedBy: string } | null;
   platformNotes: string | null;
   createdAt: ISODate;
-  owner: { name: string; email: string; lastLoginAt: ISODate | null } | null;
+  owner: { name: string; email: string; phone: string | null; lastLoginAt: ISODate | null; signIn: "Google" | "Microsoft" | "Email" } | null;
   members: number;
   staffCount: number;
   branches: number;
@@ -364,7 +364,10 @@ export type AdminGym = {
 };
 export type AdminGymsResponse = {
   gyms: AdminGym[];
-  stats: { total: number; active: number; trial: number; suspended: number; members: number; mrr: number; requests: number };
+  stats: {
+    total: number; active: number; trial: number; suspended: number; members: number; mrr: number; requests: number;
+    checkinsToday: number; checkinsWeek: number; processed30d: number; newThisMonth: number;
+  };
 };
 
 // ── Engagement (dashboard) ──────────────────────────────────────────────────

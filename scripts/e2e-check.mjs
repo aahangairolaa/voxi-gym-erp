@@ -520,6 +520,11 @@ await step("admin: storage, export, announcements, delete gym", async () => {
   const gone = await call("GET", "/api/admin/deleted", A);
   check("deleted gyms list keeps just the name", gone.json?.gyms?.some((x) => x.name === `Delete Me ${stamp}` && x.ownerEmail === `temp${stamp}@example.com`), gone.text?.slice(0, 200));
   check("only VOXI admins see deleted gyms", (await call("GET", "/api/admin/deleted", O)).status === 403);
+  const log = await call("GET", "/api/admin/activity", A);
+  check("admin activity logs create and delete", ["gym.create", "gym.delete"].every((a) => log.json?.entries?.some((e) => e.action === a && e.gymName === `Delete Me ${stamp}`)), log.text?.slice(0, 200));
+  check("only VOXI admins see admin activity", (await call("GET", "/api/admin/activity", O)).status === 403);
+  const gl = await call("GET", "/api/admin/gyms", A);
+  check("platform stats: check-ins and money taken", typeof gl.json?.stats?.checkinsToday === "number" && typeof gl.json?.stats?.processed30d === "number" && "phone" in (gl.json?.gyms?.[0]?.owner ?? {}), JSON.stringify(gl.json?.stats));
 });
 
 await step("expense categories", async () => {
@@ -620,6 +625,13 @@ await step("billing", async () => {
 
   const ad = await login("admin@voxi.qa");
   const A = { cookie: ad.cookie };
+
+  // Declining a request clears it; the gym can ask again
+  const pulseId = (await call("GET", "/api/admin/gyms", A)).json?.gyms?.find((g) => g.slug === "pulse-ladies")?.id;
+  const dec = await call("PUT", `/api/admin/gyms/${pulseId}`, { ...A, body: { declineRequest: true } });
+  check("admin declines a plan request", dec.status === 200 && dec.json?.planRequest === null && dec.json?.status === "TRIAL", dec.text);
+  const again = await call("POST", "/api/billing", { ...P, body: { months: 3, extraBranches: 0, entrances: 2, onboarding: true } });
+  check("gym can request again after a decline", again.status === 200, again.text);
 
   // Promo codes: VOXI creates them, gyms apply them on Billing
   const code = `E2E${Date.now().toString().slice(-6)}`;

@@ -5,7 +5,7 @@
 import bcrypt from "bcryptjs";
 import { Prisma, type GymStatus, type SubscriptionPlan } from "@prisma/client";
 import type { z } from "zod";
-import { addDays, addMonths } from "@/lib/dates";
+import { addDays, addMonths, startOfDay, startOfMonth } from "@/lib/dates";
 import { db } from "../db";
 import { countPromoUse } from "./promo.service";
 import { ApiError } from "../http";
@@ -54,13 +54,15 @@ export async function listGyms() {
       platformNotes: true,
       createdAt: true,
       _count: { select: { members: true, staff: true, branches: true } },
-      staff: { where: { role: "OWNER" }, select: { name: true, email: true, lastLoginAt: true }, take: 1 },
+      staff: { where: { role: "OWNER" }, orderBy: { createdAt: "asc" }, select: { name: true, email: true, phone: true, lastLoginAt: true, googleId: true, microsoftId: true }, take: 1 },
     },
   });
-  const [revenue, active, lastLogins] = await Promise.all([
+  const [revenue, active, lastLogins, checkinsToday, checkinsWeek] = await Promise.all([
     db.payment.groupBy({ by: ["gymId"], where: { status: "PAID", paidAt: { gte: since } }, _sum: { amount: true } }),
     db.membership.groupBy({ by: ["gymId"], where: { status: "ACTIVE", endDate: { gte: new Date() } }, _count: { _all: true } }),
     db.staff.groupBy({ by: ["gymId"], where: { gymId: { not: null } }, _max: { lastLoginAt: true } }),
+    db.attendance.count({ where: { checkInAt: { gte: startOfDay() } } }),
+    db.attendance.count({ where: { checkInAt: { gte: addDays(new Date(), -7) } } }),
   ]);
   const rev = new Map(revenue.map((r) => [r.gymId, r._sum.amount ?? 0]));
   const act = new Map(active.map((a) => [a.gymId, a._count._all]));
@@ -68,7 +70,9 @@ export async function listGyms() {
 
   const rows = gyms.map(({ _count, staff, ...g }) => ({
     ...g,
-    owner: staff[0] ?? null,
+    owner: staff[0]
+      ? { name: staff[0].name, email: staff[0].email, phone: staff[0].phone, lastLoginAt: staff[0].lastLoginAt, signIn: staff[0].googleId ? "Google" : staff[0].microsoftId ? "Microsoft" : "Email" }
+      : null,
     members: _count.members,
     staffCount: _count.staff,
     branches: _count.branches,
@@ -88,6 +92,11 @@ export async function listGyms() {
       // Monthly recurring revenue: each paying gym's subscription spread over its term.
       mrr: paying.reduce((s, g) => s + quote(g.billingMonths, g.extraBranches, g.cafeEnabled).perMonth, 0),
       requests: rows.filter((g) => g.planRequest).length,
+      // Platform-wide activity (totals only, never member details)
+      checkinsToday,
+      checkinsWeek,
+      processed30d: rows.reduce((s, g) => s + g.revenue30d, 0),
+      newThisMonth: rows.filter((g) => g.createdAt >= startOfMonth()).length,
     },
   };
 }
@@ -153,6 +162,7 @@ export async function updateGym(id: string, input: z.infer<typeof updateGymSchem
       ...(input.paidUntil !== undefined ? { paidUntil: input.paidUntil } : {}),
       ...((req ? !!req.cafe : input.cafeEnabled) !== undefined ? { cafeEnabled: req ? !!req.cafe : input.cafeEnabled } : {}),
       ...(req ? { status: "ACTIVE" as GymStatus, paidUntil: addMonths(new Date(), months ?? 12), planRequest: Prisma.DbNull } : {}),
+      ...(input.declineRequest && !req ? { planRequest: Prisma.DbNull } : {}),
     },
     select: { id: true, name: true, status: true, trialEndsAt: true, billingMonths: true, extraBranches: true, cafeEnabled: true, paidUntil: true, planRequest: true, platformNotes: true },
   });

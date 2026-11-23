@@ -64,7 +64,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               <p className="mb-1.5 px-3 text-[10.5px] font-bold tracking-[0.14em] text-muted/80 uppercase">{section.title}</p>
               <ul className="space-y-0.5">
                 {items.map((item) => {
-                  const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                  const active = pathname === item.href || (!item.exact && pathname.startsWith(item.href + "/"));
                   const Icon = item.icon;
                   return (
                     <li key={item.href}>

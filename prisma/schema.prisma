@@ -910,3 +910,15 @@ model DeletedGym {
   deletedBy  String?
   deletedAt  DateTime @default(now())
 }
+
+/// What the VOXI team did in the admin panel (created, suspended, activated, deleted a gym…)
+model AdminLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  gymName   String?
+  summary   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
