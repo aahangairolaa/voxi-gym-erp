@@ -75,9 +75,14 @@ export function toCsv(rows: Record<string, unknown>[]): string {
 }
 
 /** "Sold by" must be someone on this gym's staff. Returns the id, or null for none. */
-export async function checkSeller(gymId: string, staffId: string | null | undefined): Promise<string | null> {
+export async function checkSeller(
+  gymId: string,
+  staffId: string | null | undefined,
+  /** Pass the transaction when called inside one */
+  client: Pick<typeof db, "staff"> = db,
+): Promise<string | null> {
   if (!staffId) return null;
-  const s = await db.staff.findFirst({ where: { id: staffId, gymId }, select: { id: true } });
+  const s = await client.staff.findFirst({ where: { id: staffId, gymId }, select: { id: true } });
   if (!s) throw new ApiError(400, "Choose someone from your staff for “Sold by”.");
   return s.id;
 }

@@ -344,8 +344,10 @@ await step("sales, PT, extras and lead import", async () => {
   const R = { cookie: (await login("reception@voxi.qa")).cookie };
   const T = { cookie: (await login("trainer@voxi.qa")).cookie };
   const sellers = (await call("GET", "/api/staff/sellers", R)).json?.staff ?? [];
-  const rec = sellers.find((x) => x.role === "RECEPTION");
-  const trainer = sellers.find((x) => x.role === "TRAINER");
+  const recId = (await call("GET", "/api/auth/me", R)).json?.user?.staffId;
+  const trainerId = (await call("GET", "/api/auth/me", T)).json?.user?.staffId;
+  const rec = sellers.find((x) => x.id === recId);
+  const trainer = sellers.find((x) => x.id === trainerId);
   check("Sold by list is synced with staff", !!rec && !!trainer && sellers.every((x) => x.name), JSON.stringify(sellers.slice(0, 3)));
 
   const before = (await call("GET", "/api/sales?period=day", O)).json;

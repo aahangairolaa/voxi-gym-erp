@@ -33,7 +33,7 @@ export async function sellMembershipTx(tx: Tx, input: SellInput, session: GymSes
   const due = plan.price - input.discount;
   if (input.amountPaid > due) throw new ApiError(400, `Amount paid is more than the amount due (QAR ${due}).`);
 
-  const soldById = await checkSeller(session.gymId, input.soldById);
+  const soldById = await checkSeller(session.gymId, input.soldById, tx);
   const membership = await tx.membership.create({
     data: {
       gymId: session.gymId,
