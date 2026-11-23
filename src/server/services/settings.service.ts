@@ -58,9 +58,9 @@ export async function listBranches(gymId: string) {
   });
 }
 
-/** How many locations a gym may have: the main one plus its paid branch add-ons (trials can try all of them). */
+/** How many locations a gym may have: the main one plus its paid branch add-ons. A trial is for one location only. */
 export function branchLimit(gym: { status: string; extraBranches: number }) {
-  return 1 + (gym.status === "TRIAL" ? MAX_EXTRA_BRANCHES : gym.extraBranches);
+  return 1 + (gym.status === "TRIAL" ? 0 : gym.extraBranches);
 }
 
 export async function createBranch(gymId: string, input: z.infer<typeof branchSchema>) {
@@ -74,7 +74,9 @@ export async function createBranch(gymId: string, input: z.infer<typeof branchSc
       403,
       limit >= 1 + MAX_EXTRA_BRANCHES
         ? `VOXI supports up to ${1 + MAX_EXTRA_BRANCHES} locations per gym for now. Contact us if you need more.`
-        : `Your plan includes ${limit} location${limit === 1 ? "" : "s"}. Add a branch from Billing to open another one.`,
+        : gym.status === "TRIAL"
+          ? "The free trial is for one location. Choose a plan with extra branches in Billing to add another."
+          : `Your plan includes ${limit} location${limit === 1 ? "" : "s"}. Add a branch from Billing to open another one.`,
     );
   }
   return db.branch.create({ data: { ...input, gymId } });

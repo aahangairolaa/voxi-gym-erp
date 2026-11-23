@@ -14,16 +14,36 @@ const devLog = () => process.env.EMAIL_DEV_LOG === "1" && !process.env.VERCEL;
 const FROM = () => process.env.EMAIL_FROM || "VOXI <no-reply@voxiai.co>";
 const REPLY_TO = () => process.env.EMAIL_REPLY_TO || process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@voxiai.co";
 
-export async function sendEmail({ to, subject, text, html }: { to: string; subject: string; text: string; html?: string }) {
+export type EmailAttachment = { filename: string; content: string /* base64 */ };
+
+export async function sendEmail({
+  to,
+  subject,
+  text,
+  html,
+  attachments,
+  fromName,
+  replyTo,
+}: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  attachments?: EmailAttachment[];
+  /** Shown as the sender's name, e.g. "Pulse Fitness via VOXI" (the address stays VOXI's) */
+  fromName?: string;
+  replyTo?: string | null;
+}) {
   if (!emailEnabled()) return false;
   if (!process.env.RESEND_API_KEY && devLog()) {
-    console.log(`[email-dev] to=${to} subject=${subject}`);
+    console.log(`[email-dev] to=${to} subject=${subject} attachments=${attachments?.map((a) => a.filename).join(",") ?? ""}`);
     return true;
   }
+  const from = fromName ? `${fromName.replace(/[<>"\r\n]/g, "").slice(0, 60)} <${/<([^>]+)>/.exec(FROM())?.[1] ?? FROM()}>` : FROM();
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: FROM(), to: [to], reply_to: REPLY_TO(), subject, text, ...(html ? { html } : {}) }),
+    body: JSON.stringify({ from, to: [to], reply_to: replyTo || REPLY_TO(), subject, text, ...(html ? { html } : {}), ...(attachments?.length ? { attachments } : {}) }),
   }).catch(() => null);
   if (!res?.ok) console.error("[email] sending failed", res?.status, await res?.text().catch(() => ""));
   return !!res?.ok;

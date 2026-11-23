@@ -32,6 +32,8 @@ export default function BillingPage() {
   const { data, error, reload } = useApi<Billing>("/api/billing");
   // Came here from the café preview ("Unlock VOXI Café"): start with the add-on chosen
   const [wantsCafe] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("addon") === "cafe");
+  // Came here from "Add branch" in Settings: start with one extra branch chosen
+  const [wantsBranch] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("addon") === "branch");
   const [busy, setBusy] = useState(false);
 
   const checkPromo = (code: string, months: number) =>
@@ -166,7 +168,7 @@ export default function BillingPage() {
           <PricingTable
             mode="billing"
             initialMonths={req?.months ?? data.billingMonths}
-            initialBranches={req?.extraBranches ?? data.extraBranches}
+            initialBranches={Math.max(req?.extraBranches ?? data.extraBranches, wantsBranch ? (data.status === "ACTIVE" ? data.extraBranches + 1 : 1) : 0)}
             initialCafe={wantsCafe || (req ? !!req.cafe : data.cafeEnabled)}
             busy={busy}
             chooseLabel={req ? "Update request" : data.status === "ACTIVE" ? "Request this change" : "Choose this plan"}

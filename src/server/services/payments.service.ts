@@ -1,6 +1,7 @@
 import type { PaymentMethod, Prisma } from "@prisma/client";
 import type { z } from "zod";
 import { db, type Tx } from "../db";
+import { signDoc, verifyDoc } from "../doc-links";
 import { ApiError } from "../http";
 import type { GymSession } from "../auth";
 import type { paymentSchema } from "../validators";
@@ -142,23 +143,33 @@ export async function listPayments(gymId: string, opts: {
 }
 
 /** Everything needed to print an invoice. */
+const INVOICE_INCLUDE = {
+  member: { select: { id: true, code: true, firstName: true, lastName: true, phone: true, email: true, qid: true } },
+  membership: { include: { plan: true } },
+  receivedBy: { select: { name: true } },
+  ptPackage: { select: { name: true, sessionsTotal: true, trainer: { select: { name: true } } } },
+  extraItem: { select: { name: true, price: true } },
+} as const;
+const INVOICE_GYM = { name: true, legalName: true, crNumber: true, phone: true, email: true, address: true, website: true, logo: true, brandColor: true, invoiceFooter: true } as const;
+
 export async function getInvoice(gymId: string, id: string) {
   const [payment, gym] = await Promise.all([
-    db.payment.findFirst({
-      where: { id, gymId },
-      include: {
-        member: { select: { code: true, firstName: true, lastName: true, phone: true, email: true, qid: true } },
-        membership: { include: { plan: true } },
-        receivedBy: { select: { name: true } },
-      },
-    }),
-    db.gym.findUnique({
-      where: { id: gymId },
-      select: { name: true, legalName: true, crNumber: true, phone: true, email: true, address: true, website: true, logo: true, brandColor: true, invoiceFooter: true },
-    }),
+    db.payment.findFirst({ where: { id, gymId }, include: INVOICE_INCLUDE }),
+    db.gym.findUnique({ where: { id: gymId }, select: INVOICE_GYM }),
   ]);
   if (!payment) throw new ApiError(404, "Payment not found.");
-  return { payment, settings: gym, gym };
+  return { payment, settings: gym, gym, shareToken: signDoc("inv", payment.id) };
+}
+
+/** An invoice opened from a shared link (no sign-in). Staff-only details are left out. */
+export async function getPublicInvoice(token: string) {
+  const id = verifyDoc("inv", token);
+  const payment = id ? await db.payment.findUnique({ where: { id }, include: INVOICE_INCLUDE }) : null;
+  if (!payment) throw new ApiError(404, "This invoice link isn't valid. Ask the gym to send it again.");
+  const gym = await db.gym.findUnique({ where: { id: payment.gymId }, select: { ...INVOICE_GYM, status: true } });
+  if (!gym || gym.status === "SUSPENDED") throw new ApiError(404, "This invoice link isn't valid. Ask the gym to send it again.");
+  const { status: _s, ...settings } = gym;
+  return { payment: { ...payment, cashSessionId: null, receivedById: null, soldById: null }, settings, shareToken: token };
 }
 
 export async function refundPayment(gymId: string, id: string) {

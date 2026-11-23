@@ -190,7 +190,7 @@ export default function MembersPage() {
           reload();
         }}
       />
-      <MemberFormModal open={creating} onClose={() => setCreating(false)} onSaved={(id) => router.push(`/members/${id}`)} />
+      <MemberFormModal open={creating} onClose={() => setCreating(false)} onSaved={(id) => router.push(`/members/${id}?welcome=1`)} />
     </>
   );
 }

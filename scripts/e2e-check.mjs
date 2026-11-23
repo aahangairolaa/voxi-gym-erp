@@ -214,6 +214,29 @@ await step("whatsapp", async () => {
   check("webhook rejects a wrong verify token", wh.status === 403, wh.status);
 });
 
+await step("send invoice and card to a member", async () => {
+  const p = await call("POST", "/api/payments", { ...O, body: { memberId: voxiMemberId, amount: 250, method: "CARD", description: "E2E invoice to share" } });
+  check("invoice payment recorded", !!p.json?.id, p.text);
+  const inv = await call("GET", `/api/payments/${p.json?.id}`, O);
+  check("invoice carries a share link token", typeof inv.json?.shareToken === "string" && inv.json.shareToken.startsWith(p.json?.id), inv.text);
+  const pub = await call("GET", `/api/public/invoice/${inv.json?.shareToken}`);
+  check("shared invoice opens without signing in", pub.status === 200 && pub.json?.payment?.invoiceNo === p.json?.invoiceNo && pub.json?.payment?.cashSessionId === null, pub.text);
+  const fake = await call("GET", `/api/public/invoice/${p.json?.id}.AAAAAAAAAAAAAAAAAAAAAA`);
+  check("a forged invoice link is refused", fake.status === 404, fake.status);
+  const page = await fetch(`${BASE}/r/${inv.json?.shareToken}`, { redirect: "manual" });
+  check("shared invoice page is public", page.status === 200, page.status);
+  const pdf = Buffer.from("%PDF-1.4\n%%EOF\n").toString("base64");
+  const wa = await call("POST", `/api/members/${voxiMemberId}/send`, { ...O, body: { channel: "WHATSAPP", text: "Hi", attachments: [{ name: "x.pdf", type: "application/pdf", data: pdf }] } });
+  check("WhatsApp files need the Business API (link mode shares from the phone)", wa.status === 400 && /Business API/.test(wa.json?.error ?? ""), wa.text);
+  const bad = await call("POST", `/api/members/${voxiMemberId}/send`, { ...O, body: { channel: "EMAIL", text: "Hi", attachments: [{ name: "x.exe", type: "application/x-msdownload", data: pdf }] } });
+  check("only PDF and image attachments", bad.status === 400, bad.text);
+  const em = await call("POST", `/api/members/${voxiMemberId}/send`, { ...O, body: { channel: "EMAIL", subject: "Your invoice", text: "Hi, here is your invoice.", attachments: [{ name: `${p.json?.invoiceNo}.pdf`, type: "application/pdf", data: pdf }] } });
+  check("email with the invoice attached", em.status === 200 || (em.status === 400 && /no email/.test(em.json?.error ?? "")), em.text);
+  const other = await call("POST", "/api/members/does-not-exist/send", { ...O, body: { channel: "EMAIL", text: "Hi" } });
+  check("can't send to a member of another gym", other.status === 404, other.status);
+  await call("POST", `/api/payments/${p.json?.id}/refund`, O);
+});
+
 await step("activity", async () => {
   const act = await call("GET", "/api/activity", O);
   const actions = (act.json?.activity ?? []).map((a) => a.action);
@@ -230,6 +253,8 @@ await step("tenant isolation", async () => {
   const pulse = await login("pulse@voxi.qa");
   check("login second gym (Pulse)", pulse.ok, JSON.stringify(pulse.json));
   const P = { cookie: pulse.cookie };
+  const tb = await call("POST", "/api/branches", { ...P, body: { name: "Trial Branch", address: null, phone: null, isActive: true } });
+  check("trial: only one location, a branch needs a plan", tb.status === 403 && /one location/.test(tb.json?.error ?? ""), tb.text);
   const m = await call("GET", "/api/members", P);
   check("Pulse sees only its own 12 members", m.json?.counts?.ALL === 12, m.json?.counts?.ALL);
   const other = await call("GET", `/api/members/${voxiMemberId}`, P);

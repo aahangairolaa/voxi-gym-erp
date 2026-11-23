@@ -16,8 +16,8 @@ export async function middleware(req: NextRequest) {
   if ((pathname === "/login" || pathname === "/register") && session) {
     return NextResponse.redirect(new URL(homeFor(session.role), req.url));
   }
-  // Public: marketing pages, login, and digital member cards (/c/<token>)
-  if (PUBLIC_PAGES.includes(pathname) || pathname.startsWith("/c/")) return NextResponse.next();
+  // Public: marketing pages, login, digital member cards (/c/<token>) and shared invoices (/r/<token>)
+  if (PUBLIC_PAGES.includes(pathname) || pathname.startsWith("/c/") || pathname.startsWith("/r/")) return NextResponse.next();
 
   if (!session) {
     const url = new URL("/login", req.url);

@@ -1,6 +1,7 @@
 "use client";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { LuBuilding2, LuKey, LuPlus } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
 import { GymProfileCard } from "@/components/settings/gym-profile-card";
@@ -17,6 +18,7 @@ export default function SettingsPage() {
   const user = useUser();
   const confirm = useConfirm();
   const toast = useToast();
+  const router = useRouter();
   const isOwner = can(user.role, "settings", user.gym?.rolePermissions);
   // VOXI admins only use this page to change their password
   const gymStaff = !!user.gymId;
@@ -39,7 +41,20 @@ export default function SettingsPage() {
     }
     try {
       const body = { ...branchForm, address: branchForm.address || null, phone: branchForm.phone || null };
-      if (branchEdit === "new") await api.post("/api/branches", body);
+      if (branchEdit === "new") {
+        try {
+          await api.post("/api/branches", body);
+        } catch (e) {
+          // Over the plan's location limit: go straight to Billing to add a branch
+          if (e instanceof Error && /Billing/.test(e.message)) {
+            setBranchEdit(null);
+            toast("info", e.message);
+            router.push("/billing?addon=branch");
+            return;
+          }
+          throw e;
+        }
+      }
       else if (branchEdit) await api.put(`/api/branches/${branchEdit.id}`, body);
       invalidate("/api/branches");
       toast("success", "Branch saved");
@@ -95,7 +110,17 @@ export default function SettingsPage() {
               icon={<LuBuilding2 className="h-[18px] w-[18px]" />}
               action={
                 isOwner && (
-                  <Button size="sm" variant="soft" onClick={() => setBranchEdit("new")}>
+                  <Button
+                    size="sm"
+                    variant="soft"
+                    onClick={() => {
+                      // Trials are for one location: adding a branch means choosing a plan
+                      if (user.gym?.status === "TRIAL") {
+                        toast("info", "The free trial is for one location. Choose a plan with extra branches to add another.");
+                        router.push("/billing?addon=branch");
+                      } else setBranchEdit("new");
+                    }}
+                  >
                     <LuPlus className="h-3.5 w-3.5" /> Add
                   </Button>
                 )

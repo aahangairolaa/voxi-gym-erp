@@ -1,14 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   LuArrowLeft, LuBanknote, LuDoorOpen, LuDumbbell, LuFingerprint, LuIdCard, LuMail, LuMapPin, LuPencil, LuPhone,
-  LuPrinter, LuSnowflake, LuTrash2, LuCircleX, LuPlay, LuQrCode, LuMessageCircle,
+  LuPrinter, LuSnowflake, LuTrash2, LuCircleX, LuPlay, LuQrCode, LuMessageCircle, LuSend,
 } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
 import { MemberCardModal } from "@/components/members/member-card-modal";
 import { MemberFormModal } from "@/components/members/member-form-modal";
+import { SendMemberModal, type SendPreset } from "@/components/members/send-member-modal";
 import { WhatsAppMenu } from "@/components/whatsapp/whatsapp-menu";
 import { RecordPaymentModal } from "@/components/members/record-payment-modal";
 import { SellMembershipModal } from "@/components/members/sell-membership-modal";
@@ -41,6 +42,18 @@ export default function MemberProfilePage() {
   const [paying, setPaying] = useState<{ open: boolean; membershipId?: string; amount?: number; description?: string }>({ open: false });
   const [bioId, setBioId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [sending, setSending] = useState<SendPreset | null>(null);
+
+  // Just joined (?welcome=1) or "Send to member" on an invoice (?send=<paymentId>): open the Send window
+  const loaded = !!m;
+  useEffect(() => {
+    if (!loaded) return;
+    const q = new URLSearchParams(window.location.search);
+    const pay = q.get("send");
+    if (q.get("welcome") === "1") setSending({ kind: "welcome" });
+    else if (pay) setSending({ kind: "invoice", paymentId: pay });
+    if (q.has("welcome") || q.has("send")) window.history.replaceState(null, "", window.location.pathname);
+  }, [loaded]);
 
   if (error) return <ErrorState message={error} onRetry={reload} />;
   if (!m)
@@ -192,6 +205,11 @@ export default function MemberProfilePage() {
             <Button variant="secondary" onClick={() => setShowCard(true)}>
               <LuQrCode className="h-4 w-4" /> Card
             </Button>
+            {canMessage && (
+              <Button variant="secondary" onClick={() => setSending({ kind: "custom" })}>
+                <LuSend className="h-4 w-4" /> Send
+              </Button>
+            )}
             {canMessage && <WhatsAppMenu memberId={m.id} memberName={m.name} />}
             {canSell && (
               <Button variant="ghost" size="icon" onClick={() => setEditing(true)} aria-label="Edit">
@@ -381,9 +399,19 @@ export default function MemberProfilePage() {
                             {formatQAR(p.amount)} {p.status !== "PAID" && <PaymentStatusBadge status={p.status} />}
                           </td>
                           <td className="text-right">
-                            <Link href={`/invoice/${p.id}`} target="_blank" className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-semibold text-ink hover:bg-surface-2">
-                              <LuPrinter className="h-3.5 w-3.5" /> Invoice
-                            </Link>
+                            <span className="inline-flex gap-1.5">
+                              {canMessage && (
+                                <button
+                                  onClick={() => setSending({ kind: "invoice", paymentId: p.id })}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-semibold text-ink hover:bg-surface-2"
+                                >
+                                  <LuSend className="h-3.5 w-3.5" /> Send
+                                </button>
+                              )}
+                              <Link href={`/invoice/${p.id}`} target="_blank" className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-xs font-semibold text-ink hover:bg-surface-2">
+                                <LuPrinter className="h-3.5 w-3.5" /> Invoice
+                              </Link>
+                            </span>
                           </td>
                         </tr>
                       ))}
@@ -579,6 +607,7 @@ export default function MemberProfilePage() {
         </div>
       </div>
 
+      {canMessage && <SendMemberModal open={!!sending} onClose={() => setSending(null)} member={canPay ? m : { ...m, payments: [] }} preset={sending ?? { kind: "custom" }} />}
       <MemberCardModal open={showCard} onClose={() => setShowCard(false)} member={m} onChanged={reload} />
       <MemberFormModal open={editing} onClose={() => setEditing(false)} member={m} onSaved={() => reload()} />
       <SellMembershipModal open={selling} onClose={() => setSelling(false)} member={asResult} onDone={reload} />

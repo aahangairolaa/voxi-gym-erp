@@ -247,6 +247,57 @@ export async function sendToMember(
   }
 }
 
+/** Upload a file to Meta and send it as a document / image message. */
+async function sendFileViaApi(creds: ApiCreds, to: string, file: { name: string; type: string; bytes: Buffer }, caption?: string) {
+  const form = new FormData();
+  form.append("messaging_product", "whatsapp");
+  form.append("type", file.type);
+  form.append("file", new Blob([new Uint8Array(file.bytes)], { type: file.type }), file.name);
+  const up = await fetch(`${GRAPH_URL}/${creds.phoneNumberId}/media`, { method: "POST", headers: { Authorization: `Bearer ${creds.token}` }, body: form });
+  const upJson = (await up.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+  if (!up.ok || !upJson.id) throw new Error(upJson.error?.message ?? `Upload failed (${up.status})`);
+  const kind = file.type === "application/pdf" ? "document" : "image";
+  const media = kind === "document" ? { id: upJson.id, filename: file.name, ...(caption ? { caption } : {}) } : { id: upJson.id, ...(caption ? { caption } : {}) };
+  const res = await fetch(`${GRAPH_URL}/${creds.phoneNumberId}/messages`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${creds.token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ messaging_product: "whatsapp", to, type: kind, [kind]: media }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { messages?: { id: string }[]; error?: { message?: string } };
+  if (!res.ok || !json.messages?.[0]?.id) throw new Error(json.error?.message ?? `WhatsApp API error (${res.status})`);
+  return json.messages[0].id;
+}
+
+/**
+ * Send a message with files (invoice, membership card, photos) to one member
+ * through the WhatsApp Business API. Without the API, the browser shares the
+ * files itself (see the Send modal), because a wa.me link can only carry text.
+ */
+export async function sendFilesToMember(session: GymSession, memberId: string, text: string, files: { name: string; type: string; bytes: Buffer }[]) {
+  const creds = await apiCreds(session.gymId);
+  if (!creds) throw new ApiError(400, "Sending files from VOXI needs the WhatsApp Business API (Settings → WhatsApp). You can still share them from your phone.");
+  const member = ownedOr404(await db.member.findFirst({ where: { id: memberId, gymId: session.gymId }, select: { id: true, firstName: true, lastName: true, phone: true } }), "Member");
+  const to = toWhatsAppNumber(member.phone);
+  if (to.length < 8) throw new ApiError(400, `${fullName(member)}'s phone number doesn't look valid for WhatsApp.`);
+  const body = `${text.trim()}${files.length ? `${text.trim() ? "\n" : ""}[${files.length} file${files.length === 1 ? "" : "s"}: ${files.map((f) => f.name).join(", ")}]` : ""}`;
+  let providerId: string | null = null;
+  let error: string | null = null;
+  try {
+    if (text.trim()) providerId = await sendViaApi(creds, to, text.trim(), { text: text.trim() }, {});
+    for (const f of files) {
+      const id = await sendFileViaApi(creds, to, f);
+      providerId ??= id;
+    }
+  } catch (e) {
+    error = e instanceof Error ? e.message : "Sending failed";
+  }
+  await db.whatsAppMessage.create({
+    data: { gymId: session.gymId, memberId: member.id, toPhone: to, type: "CUSTOM", channel: "API", status: error ? "FAILED" : "SENT", body, providerId, error, sentById: session.staffId },
+  });
+  if (error) throw new ApiError(400, `WhatsApp said: ${error}`);
+  return { ok: true, to };
+}
+
 /** Send the same kind of message to many members (API mode only). */
 export async function sendBulk(session: GymSession, memberIds: string[], type: MessageType, origin: string) {
   if (!(await apiCreds(session.gymId))) {

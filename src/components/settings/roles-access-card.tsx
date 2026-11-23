@@ -91,7 +91,7 @@ export function RolesAccessCard() {
                             <span className={cn("absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200", on && "translate-x-5")} />
                           </button>
                         ) : (
-                          <span className="text-xs text-muted">Not available</span>
+                          <span className="sr-only">Not available for this role</span>
                         )}
                       </td>
                     );

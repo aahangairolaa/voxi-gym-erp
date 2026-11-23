@@ -394,6 +394,30 @@ export const whatsappSendSchema = z.object({
   extra: z.record(z.string().max(300)).optional(),
 });
 
+/** Files sent to a member (invoice / card PDFs made in the browser, photos, documents). Base64, 3 MB in all (requests to the server are capped at 4.5 MB). */
+export const MEMBER_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+export const memberSendSchema = z
+  .object({
+    channel: z.enum(["EMAIL", "WHATSAPP"]),
+    subject: optStr(150),
+    text: str(4000),
+    attachments: z
+      .array(
+        z.object({
+          name: str(120).min(1),
+          type: z.enum(MEMBER_FILE_TYPES, { errorMap: () => ({ message: "Only PDF and image files (JPG, PNG, WebP) can be attached." }) }),
+          data: z.string().max(5_000_000).regex(/^[A-Za-z0-9+/=]*$/, "The file couldn't be read."),
+        }),
+      )
+      .max(6, "Attach up to 6 files.")
+      .default([]),
+  })
+  .superRefine((v, ctx) => {
+    const bytes = v.attachments.reduce((a, f) => a + Math.floor((f.data.length * 3) / 4), 0);
+    if (bytes > 3_000_000) ctx.addIssue({ code: "custom", path: ["attachments"], message: "Attachments are too big together (3 MB at most)." });
+    if (!v.text.trim() && !v.attachments.length) ctx.addIssue({ code: "custom", path: ["text"], message: "Write a message or attach a file." });
+  });
+
 export const whatsappBulkSchema = z.object({
   memberIds: z.array(id).min(1).max(200),
   type: messageType,
