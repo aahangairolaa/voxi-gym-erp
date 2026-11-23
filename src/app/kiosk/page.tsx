@@ -14,24 +14,22 @@ type Result = {
   member: { firstName: string; photoUrl: string | null; status: string; plan: string | null; endDate: string | null };
 };
 
-const PIN_KEY = "voxi-kiosk-pin";
 const RESULT_SECONDS = 5;
 
 /**
  * Self check-in screen for the front desk (tablet, iPad or a big screen).
  * Staff open it once; members then check themselves in and out by scanning their
- * VOXI card or typing their member number or phone. A 4-digit PIN closes it.
+ * VOXI card or typing their member number or phone. Close takes staff back to Attendance.
  */
 export default function KioskPage() {
   const [gym, setGym] = useState<{ name: string; logo: string | null; brandColor: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pin, setPin] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [notFound, setNotFound] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [exiting, setExiting] = useState(false);
+  const [isFull, setIsFull] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -40,19 +38,19 @@ export default function KioskPage() {
       .get<{ gym: { name: string; logo: string | null; brandColor: string } }>("/api/kiosk")
       .then((r) => setGym(r.gym))
       .catch((e: Error) => setError(e.message));
-    try {
-      setPin(sessionStorage.getItem(PIN_KEY));
-    } catch {
-      /* private mode: ask for a PIN every time */
-    }
     const t = setInterval(() => setNow(new Date()), 15_000);
-    return () => clearInterval(t);
+    const onFull = () => setIsFull(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFull);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("fullscreenchange", onFull);
+    };
   }, []);
 
   // Keep the hidden input focused so USB / Bluetooth QR scanners can "type" into it
   useEffect(() => {
-    if (!result && !scanning && !exiting && pin) inputRef.current?.focus();
-  }, [result, scanning, exiting, pin]);
+    if (!result && !scanning) inputRef.current?.focus();
+  }, [result, scanning]);
 
   // Back to the welcome screen after a few seconds
   useEffect(() => {
@@ -90,7 +88,20 @@ export default function KioskPage() {
     else setCode((c) => (c.length < 16 ? c + k : c));
   };
 
-  const fullscreen = () => document.documentElement.requestFullscreen?.().catch(() => {});
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+
+  /** Leave full screen first (browsers block navigation side effects otherwise), then go back to Attendance. */
+  const close = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch {
+      /* ignore */
+    }
+    window.location.assign("/attendance");
+  };
 
   if (error) {
     return (
@@ -103,50 +114,6 @@ export default function KioskPage() {
             Back to VOXI
           </a>
         </div>
-      </Shell>
-    );
-  }
-
-  // Staff set a PIN before handing the screen to members
-  if (!pin) {
-    return (
-      <Shell>
-        <PinPad
-          title="Set a 4-digit PIN"
-          hint="You'll need it to close the check-in screen. Members won't see it."
-          onDone={(p) => {
-            try {
-              sessionStorage.setItem(PIN_KEY, p);
-            } catch {
-              /* ignore */
-            }
-            setPin(p);
-            fullscreen();
-          }}
-        />
-      </Shell>
-    );
-  }
-
-  if (exiting) {
-    return (
-      <Shell>
-        <PinPad
-          title="Enter the PIN to close"
-          hint="Ask a member of staff."
-          onCancel={() => setExiting(false)}
-          onDone={(p) => {
-            if (p !== pin) return false;
-            try {
-              sessionStorage.removeItem(PIN_KEY);
-            } catch {
-              /* ignore */
-            }
-            document.exitFullscreen?.().catch(() => {});
-            window.location.href = "/attendance";
-            return true;
-          }}
-        />
       </Shell>
     );
   }
@@ -248,10 +215,10 @@ export default function KioskPage() {
       <footer className="flex items-center justify-between px-8 pb-6 text-xs text-white/35">
         <span>Powered by VOXI</span>
         <span className="flex gap-2">
-          <button type="button" onClick={fullscreen} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-white/10 hover:text-white/70">
-            <LuExpand className="h-3.5 w-3.5" /> Full screen
+          <button type="button" onClick={toggleFullscreen} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-white/10 hover:text-white/70">
+            <LuExpand className="h-3.5 w-3.5" /> {isFull ? "Exit full screen" : "Full screen"}
           </button>
-          <button type="button" onClick={() => setExiting(true)} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-white/10 hover:text-white/70">
+          <button type="button" onClick={close} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-white/10 hover:text-white/70">
             <LuLogOut className="h-3.5 w-3.5" /> Close
           </button>
         </span>
@@ -321,52 +288,3 @@ function ResultCard({ r }: { r: Result }) {
   );
 }
 
-function PinPad({ title, hint, onDone, onCancel }: { title: string; hint: string; onDone: (pin: string) => boolean | void; onCancel?: () => void }) {
-  const [pin, setPin] = useState("");
-  const [wrong, setWrong] = useState(false);
-  useEffect(() => {
-    if (pin.length === 4) {
-      if (onDone(pin) === false) {
-        setWrong(true);
-        setPin("");
-      }
-    }
-  }, [pin, onDone]);
-  return (
-    <div className="m-auto w-full max-w-sm px-6 text-center">
-      <VoxiOrb size={48} className="mx-auto" />
-      <h1 className="mt-6 text-2xl font-semibold">{title}</h1>
-      <p className={cn("mt-2 text-sm", wrong ? "text-rose-300" : "text-white/55")}>{wrong ? "That PIN isn't right. Try again." : hint}</p>
-      <div className="mt-6 flex justify-center gap-3">
-        {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={cn("h-4 w-4 rounded-full border border-white/40", i < pin.length && "border-white bg-white")} />
-        ))}
-      </div>
-      <div className="mt-8 grid grid-cols-3 gap-3">
-        {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"].map((k, i) =>
-          k === "" ? (
-            <span key={i} />
-          ) : (
-            <button
-              key={i}
-              type="button"
-              onClick={() => {
-                setWrong(false);
-                setPin((p) => (k === "del" ? p.slice(0, -1) : p.length < 4 ? p + k : p));
-              }}
-              className="grid h-16 place-items-center rounded-2xl bg-white/10 text-2xl font-semibold transition hover:bg-white/20 active:scale-95"
-              aria-label={k === "del" ? "Delete" : k}
-            >
-              {k === "del" ? <LuDelete className="h-6 w-6" /> : k}
-            </button>
-          ),
-        )}
-      </div>
-      {onCancel && (
-        <button type="button" onClick={onCancel} className="mt-6 text-sm text-white/55 hover:text-white">
-          Cancel
-        </button>
-      )}
-    </div>
-  );
-}

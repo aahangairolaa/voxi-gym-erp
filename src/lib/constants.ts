@@ -19,7 +19,7 @@ export const LEAD_STATUSES = [
   { value: "LOST", label: "Lost" },
 ] as const;
 
-export const EXPENSE_CATEGORIES = [
+export const EXPENSE_CATEGORIES: string[] = [
   "Rent",
   "Salaries",
   "Utilities",
@@ -27,8 +27,20 @@ export const EXPENSE_CATEGORIES = [
   "Maintenance",
   "Marketing",
   "Supplies",
+  "Cleaning",
+  "Internet and phone",
+  "Insurance",
+  "Licences and permits",
+  "Government fees",
+  "Software and subscriptions",
+  "Bank and card fees",
+  "Staff training",
+  "Staff visas",
+  "Transport",
+  "Refreshments",
+  "Laundry",
   "Other",
-] as const;
+];
 
 export const MUSCLE_GROUPS = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Full body", "Cardio"] as const;
 

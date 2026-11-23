@@ -219,20 +219,6 @@ export function MemberFormModal({
           </div>
         </section>
         <section>
-          <p className="mb-3 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Emergency & notes</p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Emergency contact" hint="Optional" error={err("emergencyName")}>
-              <Input {...form.bind("emergencyName")} maxLength={80} />
-            </Field>
-            <Field label="Emergency phone" hint="Optional" error={err("emergencyPhone")}>
-              <PhoneInput value={form.values.emergencyPhone} invalid={!!err("emergencyPhone")} onChange={(v) => form.set("emergencyPhone", v)} />
-            </Field>
-            <Field label="Notes" className="sm:col-span-2" hint="Injuries, preferences, corporate deal…">
-              <Textarea rows={2} {...form.bind("notes")} />
-            </Field>
-          </div>
-        </section>
-        <section>
           <p className="mb-3 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Joining</p>
           <div className="mb-4 grid gap-2 sm:grid-cols-2">
             {[
@@ -263,6 +249,20 @@ export function MemberFormModal({
               After saving, sell their PT package on the Personal Training page. PT clients can check in while their package has sessions left.
             </p>
           )}
+        </section>
+        <section>
+          <p className="mb-3 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Emergency & notes</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Emergency contact" hint="Optional" error={err("emergencyName")}>
+              <Input {...form.bind("emergencyName")} maxLength={80} />
+            </Field>
+            <Field label="Emergency phone" hint="Optional" error={err("emergencyPhone")}>
+              <PhoneInput value={form.values.emergencyPhone} invalid={!!err("emergencyPhone")} onChange={(v) => form.set("emergencyPhone", v)} />
+            </Field>
+            <Field label="Notes" className="sm:col-span-2" hint="Injuries, preferences, corporate deal…">
+              <Textarea rows={2} {...form.bind("notes")} />
+            </Field>
+          </div>
         </section>
         {!editing && !ptOnly && (
           <section>

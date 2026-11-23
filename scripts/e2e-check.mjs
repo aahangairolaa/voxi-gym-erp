@@ -447,6 +447,22 @@ await step("sales, PT, extras and lead import", async () => {
   if (newSrc.json?.id) await call("DELETE", `/api/leads/${newSrc.json.id}`, O);
 });
 
+await step("expense categories", async () => {
+  const O = { cookie: (await login("owner@voxi.qa")).cookie };
+  const R = { cookie: (await login("reception@voxi.qa")).cookie };
+  const c0 = (await call("GET", "/api/expenses/categories", O)).json;
+  check("more built-in expense categories", c0?.categories?.includes("Cleaning") && c0?.categories?.includes("Staff visas") && c0?.categories?.at(-1) === "Other", JSON.stringify(c0?.categories));
+  const put = await call("PUT", "/api/expenses/categories", { ...O, body: { custom: ["Supplements stock", "  supplements   STOCK ", "Rent", "Event costs"] } });
+  check("owner adds custom categories (no duplicates, no built-ins)", JSON.stringify(put.json?.custom) === JSON.stringify(["Supplements stock", "Event costs"]), put.text);
+  check("reception can't change categories", (await call("PUT", "/api/expenses/categories", { ...R, body: { custom: [] } })).status === 403);
+  const c1 = (await call("GET", "/api/expenses/categories", O)).json;
+  check("custom categories show up in the list", c1?.categories?.includes("Supplements stock"), JSON.stringify(c1?.categories));
+  const e = await call("POST", "/api/expenses", { ...O, body: { category: "Event costs", amount: 250, method: "BANK_TRANSFER" } });
+  check("expense saved in a custom category", e.status === 200, e.text);
+  if (e.json?.id) await call("DELETE", `/api/expenses/${e.json.id}`, O);
+  await call("PUT", "/api/expenses/categories", { ...O, body: { custom: [] } });
+});
+
 await step("cafe add-on", async () => {
   const O = { cookie: (await login("owner@voxi.qa")).cookie };
   const R = { cookie: (await login("reception@voxi.qa")).cookie };

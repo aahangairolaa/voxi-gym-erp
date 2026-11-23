@@ -58,7 +58,7 @@ export const GUIDES: Guide[] = [
     summary: "Front desk, self check-in screen, QR codes and biometrics.",
     steps: [
       { title: "Check in at the front desk", body: "Open Attendance, search for the member and press Check in. VOXI warns you if their membership has expired, is frozen or has no visits left." },
-      { title: "Set up the self check-in screen", body: "On a tablet or screen at reception, open voxiai.co/kiosk and set a PIN. Members check themselves in and out with their QR code, member code or full mobile number. The PIN stops anyone leaving the screen." },
+      { title: "Set up the self check-in screen", body: "On a tablet or screen at reception, open voxiai.co/kiosk (or the Self check-in button on Attendance) and press Full screen. Members check themselves in and out with their QR code, member code or full mobile number. Staff press Close to go back to Attendance." },
       { title: "Show attendance on a big screen", body: "Attendance has a big-screen view for a TV at reception, showing who's in the gym right now." },
       { title: "Connect a biometric entrance", body: "Open Biometric and add your terminal. Face or fingerprint devices that support webhooks, and ZKTeco terminals in ADMS cloud mode, work out of the box. VOXI opens the turnstile only for members with an active membership." },
     ],

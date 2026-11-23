@@ -183,6 +183,7 @@ model Gym {
   trialEndsAt    DateTime?
   billingMonths  Int              @default(12) // subscription term: 1, 3, 6 or 12 months
   extraBranches  Int              @default(0)  // paid branch add-ons on top of the main location
+  expenseCategories String[]      @default([]) // the gym's own expense categories, on top of the built-in ones
   extrasSeeded   Boolean          @default(false) // starter extras price list (towel, sauna...) already added once
   cafeEnabled    Boolean          @default(false) // VOXI Café add-on paid for: menu, café sales and café team unlocked
   paidUntil      DateTime?
