@@ -325,9 +325,14 @@ await step("roles and access", async () => {
   check("owner still sees full phones", !(mO.json?.members?.[0]?.phone ?? "").includes("•"), mO.json?.members?.[0]?.phone);
   const me = await call("GET", "/api/auth/me", R);
   check("session carries role access for the app", me.json?.gym?.rolePermissions?.RECEPTION?.revenue === true, me.text?.slice(0, 160));
+  // Every switch works for every role: give trainers payments, reception the team page
+  await call("PUT", "/api/settings/permissions", { ...O, body: { permissions: { TRAINER: { payments: true }, RECEPTION: { staff: true } } } });
+  check("owner can give trainers payments", (await call("GET", "/api/payments", T)).status === 200);
+  check("owner can give reception the team page", (await call("GET", "/api/staff", R)).status === 200);
   // Back to defaults
   await call("PUT", "/api/settings/permissions", { ...O, body: { permissions: {} } });
   check("defaults restored", (await call("GET", "/api/payments", R)).status === 200);
+  check("defaults: trainers have no payments", (await call("GET", "/api/payments", T)).status === 403);
 });
 
 // ── Staff photos ───────────────────────────────────────────────────────────
@@ -512,6 +517,9 @@ await step("admin: storage, export, announcements, delete gym", async () => {
   const list = (await call("GET", "/api/admin/gyms", A)).json?.gyms ?? [];
   check("deleted gym is gone from the list", !list.some((x) => x.id === gid));
   check("its staff can't sign in any more", (await call("GET", "/api/auth/me", TO)).status === 401);
+  const gone = await call("GET", "/api/admin/deleted", A);
+  check("deleted gyms list keeps just the name", gone.json?.gyms?.some((x) => x.name === `Delete Me ${stamp}` && x.ownerEmail === `temp${stamp}@example.com`), gone.text?.slice(0, 200));
+  check("only VOXI admins see deleted gyms", (await call("GET", "/api/admin/deleted", O)).status === 403);
 });
 
 await step("expense categories", async () => {

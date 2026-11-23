@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  LuArrowLeft, LuBanknote, LuDoorOpen, LuDumbbell, LuFingerprint, LuIdCard, LuMail, LuMapPin, LuPencil, LuPhone,
+  LuArrowLeft, LuDoorOpen, LuDumbbell, LuFingerprint, LuIdCard, LuMail, LuMapPin, LuPencil, LuPhone,
   LuPrinter, LuSnowflake, LuTrash2, LuCircleX, LuPlay, LuQrCode, LuMessageCircle, LuSend,
 } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
 import { MemberCardModal } from "@/components/members/member-card-modal";
 import { MemberFormModal } from "@/components/members/member-form-modal";
 import { SendMemberModal, type SendPreset } from "@/components/members/send-member-modal";
-import { WhatsAppMenu } from "@/components/whatsapp/whatsapp-menu";
+import { SendMenu } from "@/components/members/send-menu";
 import { RecordPaymentModal } from "@/components/members/record-payment-modal";
 import { SellMembershipModal } from "@/components/members/sell-membership-modal";
 import {
@@ -197,20 +197,10 @@ export default function MemberProfilePage() {
                 <LuIdCard className="h-4 w-4" /> {cur ? "Renew" : "Sell plan"}
               </Button>
             )}
-            {canPay && (
-              <Button variant="secondary" onClick={() => setPaying({ open: true })}>
-                <LuBanknote className="h-4 w-4" /> Payment
-              </Button>
-            )}
             <Button variant="secondary" onClick={() => setShowCard(true)}>
               <LuQrCode className="h-4 w-4" /> Card
             </Button>
-            {canMessage && (
-              <Button variant="secondary" onClick={() => setSending({ kind: "custom" })}>
-                <LuSend className="h-4 w-4" /> Send
-              </Button>
-            )}
-            {canMessage && <WhatsAppMenu memberId={m.id} memberName={m.name} />}
+            {canMessage && <SendMenu memberId={m.id} latestInvoiceId={canPay ? (m.payments.find((p) => p.status === "PAID")?.id ?? null) : null} onOpen={setSending} />}
             {canSell && (
               <Button variant="ghost" size="icon" onClick={() => setEditing(true)} aria-label="Edit">
                 <LuPencil className="h-4 w-4" />
@@ -375,6 +365,13 @@ export default function MemberProfilePage() {
                 ) : (
                   <EmptyState title="No memberships" />
                 ))}
+              {tab === "payments" && canPay && (
+                <div className="flex justify-end px-4 pt-3">
+                  <Button size="sm" variant="soft" onClick={() => setPaying({ open: true })}>
+                    Record a payment
+                  </Button>
+                </div>
+              )}
               {tab === "payments" &&
                 (m.payments.length ? (
                   <table className="table">
@@ -418,7 +415,7 @@ export default function MemberProfilePage() {
                     </tbody>
                   </table>
                 ) : (
-                  <EmptyState title="No payments yet" message="An invoice is created every time you take a payment. Use Take payment on a membership, or Record payment above." />
+                  <EmptyState title="No payments yet" message="An invoice is created every time you take a payment. Renewing a plan, Take payment on a balance, or Record a payment here all create one." />
                 ))}
               {tab === "visits" &&
                 (m.attendance.length ? (

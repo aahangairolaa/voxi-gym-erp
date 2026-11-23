@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { LuBuilding2, LuCopy, LuPencil, LuPlus, LuTicket, LuTrendingUp, LuUsers } from "react-icons/lu";
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, Modal, PageHeader, Segmented, Select, Skeleton, StatCard, Textarea, Toggle, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
-import { Announcements, GrowthCard, GymDangerZone, NeedsAttention, StorageCard, formatBytes, type Storage } from "@/components/admin/platform-tools";
+import { Announcements, DeletedGyms, GrowthCard, GymDangerZone, NeedsAttention, StorageCard, formatBytes, type Storage } from "@/components/admin/platform-tools";
 import { api, fieldErrors } from "@/lib/api-client";
 import { toDateInput } from "@/lib/dates";
 import { formatDate, formatQAR, timeAgo } from "@/lib/format";
@@ -16,9 +16,29 @@ const STATUS_TONE: Record<GymStatus, "green" | "amber" | "red"> = { ACTIVE: "gre
 const STATUS_LABEL: Record<GymStatus, string> = { ACTIVE: "Active", TRIAL: "Trial", SUSPENDED: "Suspended" };
 
 /** VOXI platform admin: every gym using VOXI, its plan, status and activity. */
+type Section = "overview" | "gyms" | "storage" | "announcements" | "promos" | "deleted";
+const SECTIONS: { value: Section; label: string }[] = [
+  { value: "overview", label: "Overview" },
+  { value: "gyms", label: "Gyms" },
+  { value: "storage", label: "Storage" },
+  { value: "announcements", label: "Announcements" },
+  { value: "promos", label: "Promo codes" },
+  { value: "deleted", label: "Deleted gyms" },
+];
+
 export default function AdminPage() {
   const { data, error, loading, reload } = useApi<AdminGymsResponse>("/api/admin/gyms");
   const [filter, setFilter] = useState<"ALL" | GymStatus>("ALL");
+  const [section, setSection] = useState<Section>("overview");
+  // Remember the open section in the address (?s=gyms) so a refresh stays put
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get("s") as Section | null;
+    if (s && SECTIONS.some((x) => x.value === s)) setSection(s);
+  }, []);
+  const go = (s: Section) => {
+    setSection(s);
+    window.history.replaceState(null, "", s === "overview" ? window.location.pathname : `?s=${s}`);
+  };
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AdminGym | null>(null);
   const storage = useApi<Storage>("/api/admin/storage");
@@ -39,6 +59,19 @@ export default function AdminPage() {
         }
       />
 
+      <div className="no-scrollbar -mx-1 mb-6 overflow-x-auto px-1">
+        <Segmented<Section>
+          value={section}
+          onChange={go}
+          options={SECTIONS.map((x) => ({
+            ...x,
+            count: x.value === "gyms" ? data?.stats.total : x.value === "overview" && data?.stats.requests ? data.stats.requests : undefined,
+          }))}
+        />
+      </div>
+
+      {section === "overview" && (
+        <>
       <div className="stagger mb-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard accent label="Monthly recurring revenue" value={data ? formatQAR(data.stats.mrr) : "–"} icon={<LuTrendingUp className="h-[18px] w-[18px]" />} hint="Active subscriptions" />
         <StatCard label="Gyms" value={data?.stats.total ?? "–"} icon={<LuBuilding2 className="h-[18px] w-[18px]" />} hint={data ? `${data.stats.active} active · ${data.stats.trial} on trial${data.stats.requests ? ` · ${data.stats.requests} plan request${data.stats.requests === 1 ? "" : "s"}` : ""}` : undefined} />
@@ -55,6 +88,11 @@ export default function AdminPage() {
         </div>
       )}
 
+        </>
+      )}
+
+      {section === "gyms" && (
+        <>
       <div className="mb-4">
         <Segmented
           value={filter}
@@ -144,12 +182,13 @@ export default function AdminPage() {
       </Card>
       <p className="mt-3 text-xs text-muted">For privacy, VOXI admins see each gym’s totals only, never its members’ details.</p>
 
-      <div className="mt-10 grid items-start gap-5 xl:grid-cols-2">
-        <StorageCard storage={storage.data} gyms={data?.gyms ?? []} />
-        <Announcements />
-      </div>
+        </>
+      )}
 
-      <PromoCodes />
+      {section === "storage" && <StorageCard storage={storage.data} gyms={data?.gyms ?? []} />}
+      {section === "announcements" && <Announcements />}
+      {section === "promos" && <PromoCodes />}
+      {section === "deleted" && <DeletedGyms />}
 
       <CreateGymModal open={creating} onClose={() => setCreating(false)} onDone={reload} />
       <EditGymModal
@@ -448,6 +487,10 @@ function EditGymModal({ gym, storageBytes, onClose, onDone }: { gym: AdminGym | 
             onDone();
             onClose();
           }}
+          onChanged={() => {
+            onDone();
+            onClose();
+          }}
         />
       )}
     </Modal>
@@ -484,7 +527,7 @@ function PromoCodes() {
   };
 
   return (
-    <div className="mt-10">
+    <div>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-ink">Promo codes</h2>

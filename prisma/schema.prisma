@@ -898,3 +898,15 @@ model PlatformNotice {
   endsAt    DateTime?
   createdAt DateTime  @default(now())
 }
+
+/// A plain record that a gym was deleted from VOXI (no gym data is kept)
+model DeletedGym {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String
+  ownerEmail String?
+  /// How many members it had when it was deleted
+  members    Int      @default(0)
+  deletedBy  String?
+  deletedAt  DateTime @default(now())
+}

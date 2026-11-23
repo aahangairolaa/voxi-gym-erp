@@ -34,7 +34,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         <button onClick={onMenu} className="-ml-1 rounded-xl p-2 text-ink-soft hover:bg-surface-2 lg:hidden" aria-label="Open menu">
           <LuMenu className="h-5 w-5" />
         </button>
-        <Link href={homeFor(user.role)} className="lg:hidden">
+        <Link href={homeFor(user.role, user.gym?.rolePermissions)} className="lg:hidden">
           <Logo size="sm" />
         </Link>
 

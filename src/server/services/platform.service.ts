@@ -114,8 +114,11 @@ export async function exportGym(gymId: string) {
  * Permanently delete a gym and everything in it. Only for suspended gyms, and only when
  * the exact gym name is typed to confirm. This can't be undone.
  */
-export async function deleteGym(gymId: string, confirmName: string) {
-  const gym = await db.gym.findUnique({ where: { id: gymId }, select: { id: true, name: true, status: true } });
+export async function deleteGym(gymId: string, confirmName: string, deletedBy?: string) {
+  const gym = await db.gym.findUnique({
+    where: { id: gymId },
+    select: { id: true, name: true, slug: true, status: true, _count: { select: { members: true } }, staff: { where: { role: "OWNER" }, take: 1, orderBy: { createdAt: "asc" }, select: { email: true } } },
+  });
   if (!gym) throw new ApiError(404, "Gym not found");
   if (gym.status !== "SUSPENDED") throw new ApiError(400, "Suspend the gym first. Only suspended gyms can be deleted.");
   if (confirmName.trim().toLowerCase() !== gym.name.trim().toLowerCase()) throw new ApiError(400, "The name you typed doesn't match the gym's name.");
@@ -145,10 +148,16 @@ export async function deleteGym(gymId: string, confirmName: string) {
       await tx.passwordReset.deleteMany({ where: { staff: { gymId } } });
       await tx.staff.deleteMany(w);
       await tx.gym.delete({ where: { id: gymId } }); // the rest goes with the gym
+      // Keep only a line saying it existed
+      await tx.deletedGym.create({ data: { name: gym.name, slug: gym.slug, ownerEmail: gym.staff[0]?.email ?? null, members: gym._count.members, deletedBy: deletedBy ?? null } });
     },
     { timeout: 120_000 },
   );
   return { deleted: gym.name };
+}
+
+export async function listDeletedGyms() {
+  return db.deletedGym.findMany({ orderBy: { deletedAt: "desc" }, take: 500 });
 }
 
 // ── Announcements ────────────────────────────────────────────────────────────

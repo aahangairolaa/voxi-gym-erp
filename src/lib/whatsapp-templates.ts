@@ -36,6 +36,10 @@ export const MESSAGE_TYPES: { type: MessageType; label: string; description: str
   { type: "CUSTOM", label: "Custom message", description: "Write your own" },
 ];
 
+/** One-tap text messages (receipts go out from payments; custom ones are written in Send). */
+export const QUICK_TYPES = MESSAGE_TYPES.filter((t) => t.type !== "CUSTOM" && t.type !== "PAYMENT_RECEIPT");
+
+
 export const DEFAULT_TEMPLATES: Record<MessageType, TemplateConfig> = {
   RENEWAL_REMINDER: {
     text: "Hi {firstName}, your {plan} membership at {gym} ends on {endDate} ({daysLeft} days left). Renew at reception or reply here so your training continues without a break.",

@@ -42,26 +42,29 @@ const MANAGEMENT: Role[] = ["OWNER", "MANAGER"];
  * The most each role could ever reach. Modules marked with a key in MODULE_PERMISSION
  * are confidential: the gym owner switches them on or off per role (Settings → Roles and access).
  */
+/** Areas the owner can switch on or off for every role (Settings → Roles and access). */
+const SWITCHABLE: Role[] = ["OWNER", "MANAGER", "RECEPTION", "TRAINER"];
+
 export const ACCESS: Record<Module, Role[]> = {
-  dashboard: GYM_FLOOR,
-  members: GYM_FLOOR,
+  dashboard: SWITCHABLE,
+  members: SWITCHABLE,
   memberships: FRONT_DESK,
   plans: FRONT_DESK, // reception can view; editing is owner/manager only
-  attendance: GYM_FLOOR,
-  biometric: ["OWNER", "MANAGER", "RECEPTION"],
-  workouts: ["OWNER", "MANAGER", "TRAINER"],
-  classes: GYM_FLOOR,
+  attendance: SWITCHABLE,
+  biometric: SWITCHABLE,
+  workouts: SWITCHABLE,
+  classes: SWITCHABLE,
   leaderboard: GYM_FLOOR,
   pt: GYM_FLOOR, // trainers see only their own clients
-  sales: FRONT_DESK,
-  payments: FRONT_DESK,
-  cash: FRONT_DESK,
-  expenses: FRONT_DESK,
+  sales: SWITCHABLE,
+  payments: SWITCHABLE,
+  cash: SWITCHABLE,
+  expenses: SWITCHABLE,
   cafe: FRONT_DESK, // the menu and café team: owner/manager; selling: front desk too
-  reports: FRONT_DESK,
+  reports: SWITCHABLE,
   leads: FRONT_DESK,
   messages: FRONT_DESK,
-  staff: MANAGEMENT,
+  staff: SWITCHABLE,
   activity: ["OWNER"], // the owner only: who did what, including managers
   settings: ["OWNER"],
   billing: MANAGEMENT,
@@ -78,20 +81,22 @@ export type RolePermissions = Partial<Record<Role, Partial<Record<PermissionKey,
 
 export const CONFIGURABLE_ROLES: Role[] = ["MANAGER", "RECEPTION", "TRAINER"];
 
+const ALL: Role[] = ["MANAGER", "RECEPTION", "TRAINER"];
+/** Every switch can be set for every role; `defaults` is what a new gym starts with. */
 export const PERMISSIONS: { key: PermissionKey; label: string; hint: string; roles: Role[]; defaults: Role[] }[] = [
-  { key: "revenue", label: "Revenue figures", hint: "Money totals on the dashboard", roles: ["MANAGER", "RECEPTION"], defaults: ["MANAGER"] },
-  { key: "payments", label: "Payments and cash drawer", hint: "Take payments, see invoices and open the drawer", roles: ["MANAGER", "RECEPTION"], defaults: ["MANAGER", "RECEPTION"] },
-  { key: "refunds", label: "Refunds and deletions", hint: "Refund payments and delete members", roles: ["MANAGER", "RECEPTION"], defaults: ["MANAGER"] },
-  { key: "reports", label: "Reports and exports", hint: "Financial reports and Excel downloads", roles: ["MANAGER", "RECEPTION"], defaults: ["MANAGER"] },
-  { key: "expenses", label: "Expenses", hint: "Record and view gym expenses", roles: ["MANAGER", "RECEPTION"], defaults: ["MANAGER"] },
-  { key: "contacts", label: "Member phone and email", hint: "Hidden when off, so contacts can't be copied", roles: ["MANAGER", "RECEPTION", "TRAINER"], defaults: ["MANAGER", "RECEPTION", "TRAINER"] },
-  { key: "staff", label: "Team management", hint: "Add and edit staff (never owners or salaries)", roles: ["MANAGER"], defaults: ["MANAGER"] },
-  { key: "biometric", label: "Biometric devices", hint: "Connect devices and see the scan log", roles: ["MANAGER", "RECEPTION"], defaults: ["MANAGER"] },
-  { key: "trainerDashboard", label: "Dashboard", hint: "Trainers always have their PT page; switch these off to keep them focused on it", roles: ["TRAINER"], defaults: ["TRAINER"] },
-  { key: "trainerMembers", label: "Members list", hint: "Browse all members (PT clients are always on their PT page)", roles: ["TRAINER"], defaults: ["TRAINER"] },
-  { key: "trainerAttendance", label: "Attendance", hint: "Check members in and see who's inside", roles: ["TRAINER"], defaults: ["TRAINER"] },
-  { key: "trainerClasses", label: "Classes", hint: "The class timetable", roles: ["TRAINER"], defaults: ["TRAINER"] },
-  { key: "trainerWorkouts", label: "Workout plans", hint: "Build and assign workout plans", roles: ["TRAINER"], defaults: ["TRAINER"] },
+  { key: "trainerDashboard", label: "Dashboard", hint: "The gym's dashboard (trainers always have their PT page)", roles: ALL, defaults: ["MANAGER", "RECEPTION", "TRAINER"] },
+  { key: "revenue", label: "Revenue figures", hint: "Money totals on the dashboard", roles: ALL, defaults: ["MANAGER"] },
+  { key: "trainerMembers", label: "Members list", hint: "Browse all members (PT clients are always on the PT page)", roles: ALL, defaults: ["MANAGER", "RECEPTION", "TRAINER"] },
+  { key: "contacts", label: "Member phone and email", hint: "Hidden when off, so contacts can't be copied", roles: ALL, defaults: ["MANAGER", "RECEPTION", "TRAINER"] },
+  { key: "trainerAttendance", label: "Attendance", hint: "Check members in and see who's inside", roles: ALL, defaults: ["MANAGER", "RECEPTION", "TRAINER"] },
+  { key: "trainerClasses", label: "Classes", hint: "The class timetable", roles: ALL, defaults: ["MANAGER", "RECEPTION", "TRAINER"] },
+  { key: "trainerWorkouts", label: "Workout plans", hint: "Build and assign workout plans", roles: ALL, defaults: ["MANAGER", "TRAINER"] },
+  { key: "payments", label: "Payments, sales and cash drawer", hint: "Take payments, record sales, see invoices, open the drawer", roles: ALL, defaults: ["MANAGER", "RECEPTION"] },
+  { key: "refunds", label: "Refunds and deletions", hint: "Refund payments and delete members", roles: ALL, defaults: ["MANAGER"] },
+  { key: "reports", label: "Reports and exports", hint: "Financial reports and Excel downloads", roles: ALL, defaults: ["MANAGER"] },
+  { key: "expenses", label: "Expenses", hint: "Record and view gym expenses", roles: ALL, defaults: ["MANAGER"] },
+  { key: "staff", label: "Team management", hint: "Add and edit reception, trainers and housekeeping (never owners, managers or salaries)", roles: ALL, defaults: ["MANAGER"] },
+  { key: "biometric", label: "Biometric devices", hint: "Connect devices and see the scan log", roles: ALL, defaults: ["MANAGER"] },
 ];
 
 /** Modules that are switched by a confidential permission. */
@@ -124,9 +129,6 @@ export function can(role: Role | undefined | null, module: Module, perms?: RoleP
   if (!role || !ACCESS[module].includes(role)) return false;
   const key = MODULE_PERMISSION[module];
   if (!key) return true;
-  // A switch only applies to the roles it lists (e.g. the trainer switches never limit reception)
-  const p = PERMISSIONS.find((x) => x.key === key)!;
-  if (role !== "OWNER" && !p.roles.includes(role)) return true;
   return allowed(role, key, perms);
 }
 
@@ -139,11 +141,14 @@ export const ROLE_LABEL: Record<Role, string> = {
   HOUSEKEEPING: "Housekeeping",
 };
 
-/** The page each role lands on after signing in. */
+/** The page each role lands on after signing in: the dashboard, or the first area they're allowed into. */
 export function homeFor(role: Role, perms?: RolePermissions | null): string {
   if (role === "SUPER_ADMIN") return "/admin";
-  if (role === "TRAINER" && !can(role, "dashboard", perms)) return "/pt";
-  return "/dashboard";
+  if (can(role, "dashboard", perms)) return "/dashboard";
+  for (const m of ["pt", "attendance", "members", "sales", "classes", "workouts", "leads"] as Module[]) {
+    if (can(role, m, perms)) return PATH_MODULE.find(([, mod]) => mod === m)![0];
+  }
+  return "/settings";
 }
 
 /** Which module a URL belongs to (for redirecting people away from pages they can't use). */

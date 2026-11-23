@@ -16,7 +16,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 items-center px-6">
-        <Link href={homeFor(user.role)} onClick={onNavigate}>
+        <Link href={homeFor(user.role, user.gym?.rolePermissions)} onClick={onNavigate}>
           <Logo />
         </Link>
         <span className="ml-2.5 rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">

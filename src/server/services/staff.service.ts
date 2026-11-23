@@ -19,11 +19,11 @@ const safeSelect = {
   branch: { select: { id: true, name: true } },
 } as const;
 
-/** Managers may only manage reception, trainers & housekeeping; the owner can manage everyone. */
+/** Staff the owner allowed to manage the team may only manage reception, trainers & housekeeping; the owner can manage everyone. */
 function assertCanManage(session: Session, targetRole: string) {
   if (targetRole === "SUPER_ADMIN") throw new ApiError(403, "That role is reserved for the VOXI team.");
   if (session.role === "OWNER") return;
-  if (session.role === "MANAGER" && ["RECEPTION", "TRAINER", "HOUSEKEEPING"].includes(targetRole)) return;
+  if (["RECEPTION", "TRAINER", "HOUSEKEEPING"].includes(targetRole)) return; // the route already checked the Team management switch
   throw new ApiError(403, "Only the owner can manage owner and manager accounts.");
 }
 

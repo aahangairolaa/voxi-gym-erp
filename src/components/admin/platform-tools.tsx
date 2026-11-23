@@ -4,7 +4,7 @@ import {
   LuBell, LuCalendarClock, LuCircleAlert, LuDatabase, LuDownload, LuHourglass, LuMegaphone, LuMoon, LuSend, LuTrash2, LuTriangleAlert,
 } from "react-icons/lu";
 import { BarChart } from "@/components/charts";
-import { Badge, Button, Card, CardHeader, Field, Input, Modal, Select, Skeleton, Textarea, useToast } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, Modal, Select, Skeleton, Textarea, useConfirm, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
 import { api, fieldErrors } from "@/lib/api-client";
 import { addDays, addMonths, qatarParts, toDateInput } from "@/lib/dates";
@@ -296,8 +296,10 @@ export function Announcements() {
 
 // ── Danger zone (inside Manage gym) ──────────────────────────────────────────
 /** Download a gym's data, and permanently delete a suspended gym (type its name to confirm). */
-export function GymDangerZone({ gym, storageBytes, onDeleted }: { gym: AdminGym; storageBytes?: number; onDeleted: () => void }) {
+export function GymDangerZone({ gym, storageBytes, onDeleted, onChanged }: { gym: AdminGym; storageBytes?: number; onDeleted: () => void; onChanged: () => void }) {
   const toast = useToast();
+  const confirm = useConfirm();
+  const [switching, setSwitching] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -309,6 +311,29 @@ export function GymDangerZone({ gym, storageBytes, onDeleted }: { gym: AdminGym;
 
   const suspended = gym.status === "SUSPENDED";
   const matches = typed.trim().toLowerCase() === gym.name.trim().toLowerCase();
+
+  /** Suspend: staff are signed out, devices and card links stop. Nothing is deleted. Reactivate brings it back as it was. */
+  const setSuspended = async (on: boolean) => {
+    const back = gym.paidUntil && new Date(gym.paidUntil) > new Date() ? "ACTIVE" : "TRIAL";
+    const ok = await confirm({
+      title: on ? `Suspend ${gym.name}?` : `Reactivate ${gym.name}?`,
+      message: on
+        ? "Its staff are signed out and can't sign in, and its devices and member card links stop working. All data is kept and you can reactivate any time."
+        : `Its staff can sign in again and everything works as before (${back === "ACTIVE" ? "paid plan" : "free trial"}).`,
+      confirmLabel: on ? "Suspend" : "Reactivate",
+    });
+    if (!ok) return;
+    setSwitching(true);
+    try {
+      await api.put(`/api/admin/gyms/${gym.id}`, { status: on ? "SUSPENDED" : back });
+      toast("success", on ? `${gym.name} is suspended` : `${gym.name} is active again`);
+      onChanged();
+    } catch (e) {
+      toast("error", e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   const remove = async () => {
     setBusy(true);
@@ -327,16 +352,25 @@ export function GymDangerZone({ gym, storageBytes, onDeleted }: { gym: AdminGym;
   return (
     <div className="mt-6 rounded-2xl border border-rose-200 p-4 dark:border-rose-500/30">
       <p className="flex items-center gap-2 text-sm font-semibold text-rose-700 dark:text-rose-400">
-        <LuTriangleAlert className="h-4 w-4" /> Data and deletion
+        <LuTriangleAlert className="h-4 w-4" /> Suspend or delete
       </p>
       <p className="mt-1 text-xs text-muted">
         Uses about {storageBytes != null ? formatBytes(storageBytes) : "…"} of the database. Suspending keeps all data; deleting removes it for good.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
+        {suspended ? (
+          <Button size="sm" variant="secondary" loading={switching} onClick={() => setSuspended(false)}>
+            Reactivate gym
+          </Button>
+        ) : (
+          <Button size="sm" variant="secondary" loading={switching} className="text-rose-600" onClick={() => setSuspended(true)}>
+            Suspend gym
+          </Button>
+        )}
         <a
           href={`/api/admin/gyms/${gym.id}/export`}
           onClick={() => setDownloaded(true)}
-          className="inline-flex h-9 items-center gap-2 rounded-xl border border-line px-3 text-sm font-semibold text-ink transition hover:bg-surface-2"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line px-3 text-xs font-semibold text-ink transition hover:bg-surface-2"
         >
           <LuDownload className="h-4 w-4" /> Download all data
         </a>
@@ -344,7 +378,7 @@ export function GymDangerZone({ gym, storageBytes, onDeleted }: { gym: AdminGym;
           <LuTrash2 className="h-4 w-4" /> Delete gym permanently
         </Button>
       </div>
-      {!suspended && <p className="mt-2 text-xs text-muted">To delete, set the status to Suspended and save first.</p>}
+      {!suspended && <p className="mt-2 text-xs text-muted">A gym has to be suspended before it can be deleted.</p>}
 
       <Modal
         open={confirming}
@@ -380,5 +414,36 @@ export function GymDangerZone({ gym, storageBytes, onDeleted }: { gym: AdminGym;
         </div>
       </Modal>
     </div>
+  );
+}
+
+type DeletedGymRow = { id: string; name: string; slug: string; ownerEmail: string | null; members: number; deletedBy: string | null; deletedAt: string };
+
+/** A plain list of gyms that were deleted. No gym data is kept, only this line. */
+export function DeletedGyms() {
+  const { data } = useApi<{ gyms: DeletedGymRow[] }>("/api/admin/deleted");
+  return (
+    <Card>
+      <CardHeader icon={<LuTrash2 className="h-[18px] w-[18px]" />} title="Deleted gyms" subtitle="Only the name is kept, all their data is gone" />
+      {!data ? (
+        <div className="p-5">
+          <Skeleton className="h-24" />
+        </div>
+      ) : data.gyms.length === 0 ? (
+        <EmptyState icon={LuTrash2} title="No deleted gyms" message="Gyms you delete permanently are listed here." />
+      ) : (
+        <ul className="divide-y divide-line px-5 pb-3">
+          {data.gyms.map((g) => (
+            <li key={g.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-3 text-sm">
+              <span className="font-semibold text-ink">{g.name}</span>
+              <span className="text-xs text-muted">
+                {g.ownerEmail ?? "no owner email"} · {g.members} member{g.members === 1 ? "" : "s"} · deleted {formatDate(g.deletedAt)}
+                {g.deletedBy ? ` by ${g.deletedBy}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }

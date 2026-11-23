@@ -9,21 +9,22 @@
  * Email (free): sent by VOXI with the files attached, replies go to the gym.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LuDownload, LuFileText, LuIdCard, LuMail, LuMessageCircle, LuPaperclip, LuShare2, LuX } from "react-icons/lu";
+import { LuChevronRight, LuDownload, LuFileText, LuIdCard, LuMail, LuMessageCircle, LuPaperclip, LuShare2, LuX, LuZap } from "react-icons/lu";
 import { useUser } from "@/components/layout/session-context";
 import { useWhatsApp } from "@/components/whatsapp/use-whatsapp";
 import { Button, Field, Input, Modal, Segmented, Textarea, useToast } from "@/components/ui";
 import { invalidate } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
 import { MEMBER_STATUS } from "@/lib/constants";
+import { QUICK_TYPES } from "@/lib/whatsapp-templates";
 import { formatDate, formatQAR } from "@/lib/format";
 import type { InvoiceData } from "@/lib/docs/invoice-model";
 import { blobToBase64, cardPdf, downloadBlob, invoicePdf } from "@/lib/docs/render";
-import type { MemberDetail } from "@/types/api";
+import type { MemberDetail, MessageType } from "@/types/api";
 import { cn } from "@/lib/utils";
 
 export type SendPreset = { kind: "welcome" } | { kind: "invoice"; paymentId: string } | { kind: "custom" };
-type Channel = "WHATSAPP" | "EMAIL";
+type Channel = "WHATSAPP" | "EMAIL" | "QUICK";
 const MAX_BYTES = 3_000_000;
 const FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
@@ -136,7 +137,7 @@ export function SendMemberModal({ open, onClose, member: m, preset }: { open: bo
     if (fileInput.current) fileInput.current.value = "";
   };
 
-  const postToServer = async (ch: Channel) => {
+  const postToServer = async (ch: "WHATSAPP" | "EMAIL") => {
     if (!ready) return;
     const attachments = await Promise.all(ready.files.map(async (f) => ({ name: f.name, type: f.type, data: await blobToBase64(f) })));
     const r = await api.post<{ to: string }>(`/api/members/${m.id}/send`, { channel: ch, subject: ch === "EMAIL" ? subject : null, text, attachments });
@@ -173,14 +174,21 @@ export function SendMemberModal({ open, onClose, member: m, preset }: { open: bo
       onClose();
     });
 
+  const quick = (type: MessageType) =>
+    run(type, async () => {
+      const r = await sendWa(m.id, type);
+      if (r) onClose();
+    });
+
   const downloadAll = () => ready?.files.forEach((f) => downloadBlob(f, f.name));
 
   const toggleInvoice = (id: string) => setInvoiceIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const noEmail = channel === "EMAIL" && !m.email;
+  const description = channel === "EMAIL" ? m.email ?? "No email address on file" : m.phone;
   const blocked = !ready || building || tooBig;
 
   const footer =
-    channel === "EMAIL" ? (
+    channel === "QUICK" ? null : channel === "EMAIL" ? (
       <Button onClick={() => run("email", () => postToServer("EMAIL"))} loading={busy === "email"} disabled={blocked || noEmail || !text.trim()}>
         <LuMail className="h-4 w-4" /> Send email
       </Button>
@@ -231,7 +239,7 @@ export function SendMemberModal({ open, onClose, member: m, preset }: { open: bo
   );
 
   return (
-    <Modal open={open} onClose={onClose} size="lg" title={`Send to ${m.name}`} description={channel === "EMAIL" ? m.email ?? "No email address on file" : m.phone} footer={footer}>
+    <Modal open={open} onClose={onClose} size="lg" title={`Send to ${m.name}`} description={description} footer={footer ?? undefined}>
       <div className="space-y-4">
         <Segmented<Channel>
           value={channel}
@@ -239,8 +247,35 @@ export function SendMemberModal({ open, onClose, member: m, preset }: { open: bo
           options={[
             { value: "WHATSAPP", label: <><LuMessageCircle className="h-3.5 w-3.5" /> WhatsApp</> },
             { value: "EMAIL", label: <><LuMail className="h-3.5 w-3.5" /> Email</> },
+            { value: "QUICK", label: <><LuZap className="h-3.5 w-3.5" /> Quick texts</> },
           ]}
         />
+        {channel === "QUICK" ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted">One tap sends a ready-made WhatsApp message (edit the wording in Settings → WhatsApp).</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {QUICK_TYPES.map((t) => (
+                <button
+                  key={t.type}
+                  type="button"
+                  onClick={() => quick(t.type)}
+                  disabled={!!busy}
+                  className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-left transition-colors hover:border-brand-400 hover:bg-surface-2 disabled:opacity-60"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10">
+                    <LuMessageCircle className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{t.label}</span>
+                    <span className="block text-xs text-muted">{t.description}</span>
+                  </span>
+                  {busy === t.type ? <span className="text-xs text-muted">Sending…</span> : <LuChevronRight className="h-4 w-4 text-muted" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
         {noEmail && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">{m.firstName} has no email address. Add one with Edit on their profile, or send on WhatsApp.</p>}
 
         {channel === "EMAIL" && (
@@ -302,6 +337,8 @@ export function SendMemberModal({ open, onClose, member: m, preset }: { open: bo
           </p>
         )}
         {channel === "EMAIL" && <p className="text-xs text-muted">Sent as &ldquo;{gymName} via VOXI&rdquo;. If the member replies, it goes to your gym&apos;s email in Settings.</p>}
+          </>
+        )}
       </div>
     </Modal>
   );
