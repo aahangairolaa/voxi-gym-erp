@@ -137,7 +137,7 @@ export const FAQS: FaqGroup[] = [
     items: [
       ["I didn't get the 6-digit code. What now?", "Check your spam or promotions folder, then press Resend after 30 seconds. Codes expire after 10 minutes. If it still doesn't arrive, email support@voxiai.co."],
       ["How do my staff sign in?", "Each person signs in at voxiai.co/login with the email and password you set for them on the Staff page. They only see what their role allows."],
-      ["I forgot my password.", "On the sign-in page press Forgot password, enter your email, and follow the link we send you."],
+      ["I forgot my password.", "On the sign-in page type your account email, then press Forgot password. We email a reset link to that account’s own address; open it within an hour to choose a new password."],
       ["Can I sign in with Google?", "Yes. Use Continue with Google on the sign-in or sign-up page. Your Google email must match your VOXI email."],
       ["Can two people use the same login?", "Please don't. Give everyone their own login so the Activity log shows who did what, and so you can remove access when someone leaves."],
     ],

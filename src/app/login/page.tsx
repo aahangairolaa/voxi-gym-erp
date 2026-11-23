@@ -1,12 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LuArrowRight, LuEye, LuEyeOff, LuLock, LuMail } from "react-icons/lu";
+import { LuArrowRight, LuEye, LuEyeOff, LuLock, LuMail, LuMailCheck } from "react-icons/lu";
 import { AUTH_ERRORS, AuthShell, CodeStep, Divider, SocialButtons, useAuthConfig } from "@/components/auth/auth-shell";
 import { VoxiOrb } from "@/components/brand/logo";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api-client";
+import { emailError } from "@/lib/validate";
 
 const SHOW_DEMO = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "true";
 
@@ -18,6 +19,38 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codeFor, setCodeFor] = useState<string | null>(null);
+  const [resetNote, setResetNote] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Forgot password: the reset link goes to the email typed above, and only ever to the
+   * address saved on that account. There's no separate box where a different address could be entered.
+   */
+  const forgot = async () => {
+    setError(null);
+    setResetNote(null);
+    const typed = email.trim();
+    const bad = emailError(typed, true);
+    if (bad) {
+      setError(typed ? bad : "Type your account email above first, then tap Forgot password.");
+      emailRef.current?.focus();
+      return;
+    }
+    setResetting(true);
+    try {
+      const r = await api.post<{ emailEnabled: boolean }>("/api/auth/forgot", { email: typed });
+      setResetNote(
+        r.emailEnabled
+          ? `If ${typed} has a VOXI account, we've emailed a reset link to it. The link works for 1 hour; check spam too.`
+          : "Password emails aren't switched on yet. Ask your gym owner or manager to set a new password for you in Staff.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't send the reset link");
+    } finally {
+      setResetting(false);
+    }
+  };
   const cfg = useAuthConfig();
 
   useEffect(() => {
@@ -93,15 +126,27 @@ export default function LoginPage() {
               <span className="label">Email</span>
               <div className="relative">
                 <LuMail className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input className="input h-12 pl-10" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@yourgym.qa" />
+                <input
+                  ref={emailRef}
+                  className="input h-12 pl-10"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setResetNote(null);
+                  }}
+                  placeholder="you@yourgym.qa"
+                />
               </div>
             </label>
             <label className="block">
               <span className="label flex items-center justify-between">
                 Password
-                <Link href="/forgot-password" className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300">
-                  Forgot password?
-                </Link>
+                <button type="button" onClick={forgot} disabled={resetting} className="text-xs font-medium text-brand-600 hover:underline disabled:opacity-50 dark:text-brand-300">
+                  {resetting ? "Sending…" : "Forgot password?"}
+                </button>
               </span>
               <div className="relative">
                 <LuLock className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -119,6 +164,11 @@ export default function LoginPage() {
                 </button>
               </div>
             </label>
+            {resetNote && (
+              <p className="flex animate-scale-in items-start gap-2 rounded-xl bg-brand-50 px-3 py-2.5 text-sm text-brand-800 dark:bg-brand-500/10 dark:text-brand-200">
+                <LuMailCheck className="mt-0.5 h-4 w-4 shrink-0" /> {resetNote}
+              </p>
+            )}
             {error && <p className="animate-scale-in rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{error}</p>}
             <Button type="submit" size="lg" className="w-full" loading={loading}>
               Sign in <LuArrowRight className="h-4 w-4" />
