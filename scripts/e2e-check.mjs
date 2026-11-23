@@ -53,11 +53,11 @@ async function codeFor(email) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function login(email) {
+async function login(email, password = PASSWORD, code) {
   const res = await fetch(BASE + "/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password: PASSWORD }),
+    body: JSON.stringify({ email, password, ...(code ? { code } : {}) }),
   });
   const json = await res.json().catch(() => ({}));
   return { ok: res.ok, json, cookie: sessionCookie(res) };
@@ -445,6 +445,48 @@ await step("sales, PT, extras and lead import", async () => {
   const newSrc = await call("POST", "/api/leads", { ...R, body: { name: "Phone Caller", phone: "+974 55443322", source: "PHONE_CALL" } });
   check("new lead sources (phone call, Google, TikTok...)", newSrc.status === 200 && newSrc.json?.source === "PHONE_CALL", newSrc.text);
   if (newSrc.json?.id) await call("DELETE", `/api/leads/${newSrc.json.id}`, O);
+});
+
+await step("admin: storage, export, announcements, delete gym", async () => {
+  const A = { cookie: (await login("admin@voxi.qa")).cookie };
+  const O = { cookie: (await login("owner@voxi.qa")).cookie };
+  const st = await call("GET", "/api/admin/storage", A);
+  check("storage: database size and per-gym usage", st.json?.database?.bytes > 0 && st.json?.gyms?.length > 0 && st.json?.gyms?.every((g) => g.bytes >= 0), st.text?.slice(0, 200));
+  check("gyms can't see storage", (await call("GET", "/api/admin/storage", O)).status === 403);
+
+  // Announcements
+  const n = await call("POST", "/api/admin/notices", { ...A, body: { message: "Maintenance tonight from 2 to 3 am", tone: "WARNING", audience: "ALL", link: "/help" } });
+  check("admin posts an announcement", n.status === 200 && n.json?.active === true, n.text);
+  const seen = await call("GET", "/api/notice", O);
+  check("gyms see the announcement", seen.json?.notice?.message === "Maintenance tonight from 2 to 3 am" && seen.json?.notice?.tone === "WARNING", seen.text);
+  const trialOnly = await call("POST", "/api/admin/notices", { ...A, body: { message: "Your trial includes everything", audience: "TRIAL" } });
+  check("a new announcement replaces the old one, by audience", (await call("GET", "/api/notice", O)).json?.notice === null, "");
+  await call("PATCH", `/api/admin/notices/${trialOnly.json?.id}`, { ...A, body: { active: false } });
+  check("gyms can't post announcements", (await call("POST", "/api/admin/notices", { ...O, body: { message: "hello there" } })).status === 403);
+
+  // A throwaway gym: create, export, refuse to delete until suspended, then delete
+  const stamp = Date.now().toString().slice(-6);
+  const g = await call("POST", "/api/admin/gyms", { ...A, body: { name: `Delete Me ${stamp}`, branchName: "Main", billingMonths: 12, extraBranches: 0, status: "TRIAL", trialDays: 7, ownerName: "Temp Owner", ownerEmail: `temp${stamp}@example.com`, ownerPassword: "longpassword1" } });
+  check("admin creates a throwaway gym", g.status === 200, g.text);
+  const gid = g.json?.id;
+  let tl = await login(`temp${stamp}@example.com`, "longpassword1");
+  if (tl.json?.needsCode) tl = await login(`temp${stamp}@example.com`, "longpassword1", await codeFor(`temp${stamp}@example.com`));
+  const TO = { cookie: tl.cookie };
+  const mem = await call("POST", "/api/members", { ...TO, body: { firstName: "Temp", lastName: "Member", phone: "+974 55112233", gender: "MALE", dateOfBirth: "1990-01-01", qid: "28463400129" } });
+  check("throwaway gym has a member", mem.status === 200, mem.text);
+  const ex = await call("GET", `/api/admin/gyms/${gid}/export`, A);
+  check("export downloads all the gym's data", ex.status === 200 && ex.json?.counts?.members === 1 && ex.json?.members?.[0]?.photo === undefined && !JSON.stringify(ex.json?.staff).includes("passwordHash"), ex.text?.slice(0, 160));
+  const notYet = await call("DELETE", `/api/admin/gyms/${gid}`, { ...A, body: { confirmName: `Delete Me ${stamp}` } });
+  check("can't delete a gym that isn't suspended", notYet.status === 400 && /Suspend/.test(notYet.json?.error ?? ""), notYet.text);
+  await call("PUT", `/api/admin/gyms/${gid}`, { ...A, body: { status: "SUSPENDED" } });
+  const wrong = await call("DELETE", `/api/admin/gyms/${gid}`, { ...A, body: { confirmName: "Some Other Gym" } });
+  check("delete needs the exact gym name", wrong.status === 400 && /match/.test(wrong.json?.error ?? ""), wrong.text);
+  check("only VOXI admins can delete gyms", (await call("DELETE", `/api/admin/gyms/${gid}`, { ...O, body: { confirmName: `Delete Me ${stamp}` } })).status === 403);
+  const del = await call("DELETE", `/api/admin/gyms/${gid}`, { ...A, body: { confirmName: `delete me ${stamp}` } });
+  check("suspended gym deleted with everything in it", del.status === 200, del.text);
+  const list = (await call("GET", "/api/admin/gyms", A)).json?.gyms ?? [];
+  check("deleted gym is gone from the list", !list.some((x) => x.id === gid));
+  check("its staff can't sign in any more", (await call("GET", "/api/auth/me", TO)).status === 401);
 });
 
 await step("expense categories", async () => {

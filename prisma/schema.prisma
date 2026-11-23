@@ -883,3 +883,18 @@ model PtSession {
   @@index([gymId, doneAt])
   @@index([gymId, trainerId, doneAt])
 }
+
+/// A message from VOXI shown at the top of every gym's app (e.g. planned maintenance, new features).
+model PlatformNotice {
+  id        String    @id @default(cuid())
+  message   String
+  /// INFO | WARNING | SUCCESS
+  tone      String    @default("INFO")
+  /// ALL | TRIAL | ACTIVE: which gyms see it
+  audience  String    @default("ALL")
+  /// Optional link, e.g. to the Help Centre
+  link      String?
+  active    Boolean   @default(true)
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+}

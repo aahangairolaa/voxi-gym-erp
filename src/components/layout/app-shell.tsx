@@ -8,6 +8,7 @@ import { can, homeFor, moduleForPath } from "@/lib/permissions";
 import { gymLocked } from "@/lib/pricing";
 import { BottomNav } from "./bottom-nav";
 import { TrialBanner } from "./trial-banner";
+import { NoticeBanner } from "./notice-banner";
 import { SessionContext, type CurrentGym, type CurrentUser, type SessionValue } from "./session-context";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
@@ -87,6 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div style={glow} className="pointer-events-none fixed inset-x-0 top-0 -z-0 h-[420px] bg-[radial-gradient(60%_60%_at_70%_0%,var(--glow),transparent_70%)]" />
           <Sidebar mobileOpen={menuOpen} onClose={() => setMenuOpen(false)} />
           <div className="relative lg:pl-[264px]">
+            {user.gym && <NoticeBanner />}
             <TrialBanner />
             <Topbar onMenu={() => setMenuOpen(true)} />
             <main key={pathname} className="mx-auto w-full max-w-[1480px] animate-fade-up px-4 pt-6 pb-28 sm:px-6 lg:px-8 lg:pb-12">

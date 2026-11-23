@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LuBuilding2, LuCopy, LuPencil, LuPlus, LuTicket, LuTrendingUp, LuUsers } from "react-icons/lu";
 import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, Modal, PageHeader, Segmented, Select, Skeleton, StatCard, Textarea, Toggle, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
+import { Announcements, GrowthCard, GymDangerZone, NeedsAttention, StorageCard, formatBytes, type Storage } from "@/components/admin/platform-tools";
 import { api, fieldErrors } from "@/lib/api-client";
 import { toDateInput } from "@/lib/dates";
 import { formatDate, formatQAR, timeAgo } from "@/lib/format";
@@ -20,6 +21,8 @@ export default function AdminPage() {
   const [filter, setFilter] = useState<"ALL" | GymStatus>("ALL");
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AdminGym | null>(null);
+  const storage = useApi<Storage>("/api/admin/storage");
+  const sizeOf = (id: string) => storage.data?.gyms.find((x) => x.gymId === id)?.bytes;
 
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const gyms = (data?.gyms ?? []).filter((g) => filter === "ALL" || g.status === filter);
@@ -42,6 +45,15 @@ export default function AdminPage() {
         <StatCard label="Members across all gyms" value={data?.stats.members.toLocaleString("en") ?? "–"} icon={<LuUsers className="h-[18px] w-[18px]" />} />
         <StatCard label="Suspended" value={data?.stats.suspended ?? "–"} icon={<LuBuilding2 className="h-[18px] w-[18px]" />} />
       </div>
+
+      {data && (
+        <div className="mb-6 grid items-start gap-5 xl:grid-cols-3">
+          <div className="xl:col-span-2">
+            <NeedsAttention gyms={data.gyms} onOpen={setEditing} onChanged={reload} />
+          </div>
+          <GrowthCard gyms={data.gyms} />
+        </div>
+      )}
 
       <div className="mb-4">
         <Segmented
@@ -70,6 +82,7 @@ export default function AdminPage() {
                   <th className="text-right">Members</th>
                   <th className="text-right">Revenue (30d)</th>
                   <th>Last active</th>
+                  <th className="text-right">Storage</th>
                   <th />
                 </tr>
               </thead>
@@ -116,6 +129,7 @@ export default function AdminPage() {
                     </td>
                     <td className="text-right font-semibold tabular-nums">{formatQAR(g.revenue30d)}</td>
                     <td className="text-sm text-ink-soft">{g.lastActiveAt ? timeAgo(g.lastActiveAt) : "Never"}</td>
+                    <td className="text-right text-sm text-ink-soft tabular-nums">{sizeOf(g.id) != null ? formatBytes(sizeOf(g.id)!) : "–"}</td>
                     <td className="text-right">
                       <Button size="sm" variant="ghost" onClick={() => setEditing(g)}>
                         <LuPencil className="h-3.5 w-3.5" /> Manage
@@ -130,10 +144,23 @@ export default function AdminPage() {
       </Card>
       <p className="mt-3 text-xs text-muted">For privacy, VOXI admins see each gym’s totals only, never its members’ details.</p>
 
+      <div className="mt-10 grid items-start gap-5 xl:grid-cols-2">
+        <StorageCard storage={storage.data} gyms={data?.gyms ?? []} />
+        <Announcements />
+      </div>
+
       <PromoCodes />
 
       <CreateGymModal open={creating} onClose={() => setCreating(false)} onDone={reload} />
-      <EditGymModal gym={editing} onClose={() => setEditing(null)} onDone={reload} />
+      <EditGymModal
+        gym={editing}
+        storageBytes={editing ? sizeOf(editing.id) : undefined}
+        onClose={() => setEditing(null)}
+        onDone={() => {
+          reload();
+          storage.reload();
+        }}
+      />
     </>
   );
 }
@@ -281,7 +308,7 @@ function CreateGymModal({ open, onClose, onDone }: { open: boolean; onClose: () 
   );
 }
 
-function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose: () => void; onDone: () => void }) {
+function EditGymModal({ gym, storageBytes, onClose, onDone }: { gym: AdminGym | null; storageBytes?: number; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
   const [form, setForm] = useState({ status: "TRIAL" as GymStatus, trialEndsAt: "", billingMonths: "12", extraBranches: "0", cafeEnabled: false, paidUntil: "", platformNotes: "" });
   const [busy, setBusy] = useState(false);
@@ -413,6 +440,16 @@ function EditGymModal({ gym, onClose, onDone }: { gym: AdminGym | null; onClose:
           <Textarea rows={3} value={form.platformNotes} onChange={(e) => setForm({ ...form, platformNotes: e.target.value })} />
         </Field>
       </div>
+      {gym && (
+        <GymDangerZone
+          gym={gym}
+          storageBytes={storageBytes}
+          onDeleted={() => {
+            onDone();
+            onClose();
+          }}
+        />
+      )}
     </Modal>
   );
 }
