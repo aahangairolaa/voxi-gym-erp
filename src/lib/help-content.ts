@@ -43,7 +43,7 @@ export const GUIDES: Guide[] = [
     title: "Members and memberships",
     summary: "Add members, sell memberships, freeze, cancel and invoice.",
     steps: [
-      { title: "Add a member", body: "Press Add member. First name, last name, mobile, gender and date of birth are required (members must be at least 10). Email, QID, nationality, emergency contact, photo and notes are optional." },
+      { title: "Add a member", body: "Press Add member. First name, last name, mobile, gender, date of birth (members must be at least 10) and QID number (11 digits) are required. Email, nationality, emergency contact, photo and notes are optional." },
       { title: "Sell a membership", body: "On the member's page, press New membership, pick a plan and start date, and take the payment by cash, card, bank transfer or Fawran. The member becomes Active straight away." },
       { title: "Freeze or cancel", body: "From the member's page you can freeze a membership (for travel or injury) or cancel it. VOXI shows a warning first, because freezing moves the end date and cancelling stops access." },
       { title: "Invoices and receipts", body: "Each membership has Invoice and Take payment buttons. Invoices are printable and show your gym's details." },

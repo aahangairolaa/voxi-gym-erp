@@ -104,7 +104,7 @@ export const memberSchema = z.object({
     .superRefine(rule((v) => dobError(v, true)))
     .transform((v) => fromDateInput(v.slice(0, 10))),
   qid: optStr(20).superRefine((v, ctx) => {
-    const msg = qidError(v);
+    const msg = qidError(v, true);
     if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
   }),
   nationality: optStr(60),

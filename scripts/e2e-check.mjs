@@ -114,7 +114,7 @@ await step("payments", async () => {
 await step("photo", async () => {
   const cur = (await call("GET", `/api/members/${voxiMemberId}`, O)).json;
   const dohaDob = cur.dateOfBirth ? new Date(new Date(cur.dateOfBirth).getTime() + 3 * 3600_000).toISOString().slice(0, 10) : "1990-01-15";
-  const base = { firstName: cur.firstName, lastName: cur.lastName || "Member", phone: cur.phone, email: cur.email, gender: cur.gender ?? "MALE", dateOfBirth: dohaDob, branchId: cur.branch?.id ?? null };
+  const base = { firstName: cur.firstName, lastName: cur.lastName || "Member", phone: cur.phone, email: cur.email, gender: cur.gender ?? "MALE", dateOfBirth: dohaDob, qid: cur.qid || "28463400123", branchId: cur.branch?.id ?? null };
   const u = await call("PUT", `/api/members/${voxiMemberId}`, { ...O, body: { ...base, photo: PNG } });
   check("upload member photo", u.status === 200, u.text);
   const detail = await call("GET", `/api/members/${voxiMemberId}`, O);
@@ -156,7 +156,7 @@ await step("self check-in screen", async () => {
 
 await step("member rules", async () => {
   const young = new Date(Date.now() - 5 * 365 * 86_400_000).toISOString().slice(0, 10);
-  const good = { firstName: "Rule", lastName: "Tester", phone: "+974 5000 0002", gender: "FEMALE", dateOfBirth: "1995-06-15" };
+  const good = { firstName: "Rule", lastName: "Tester", phone: "+974 5000 0002", gender: "FEMALE", dateOfBirth: "1995-06-15", qid: "28463400123" };
   const kid = await call("POST", "/api/members", { ...O, body: { ...good, dateOfBirth: young } });
   check("members must be 10 or older", kid.status === 400 && /10 years/.test(kid.json?.error ?? "") && !!kid.json?.fields?.dateOfBirth, kid.text);
   const bads = [
@@ -173,6 +173,7 @@ await step("member rules", async () => {
     ["date of birth is required", { dateOfBirth: null }, "dateOfBirth"],
     ["future birthdays are refused", { dateOfBirth: "2099-01-01" }, "dateOfBirth"],
     ["QID must be 11 digits", { qid: "12345" }, "qid"],
+    ["QID is required", { qid: "" }, "qid"],
     ["emergency phone is checked too", { emergencyPhone: "+974 12" }, "emergencyPhone"],
   ];
   for (const [label, patch, field] of bads) {

@@ -75,7 +75,7 @@ export function MemberFormModal({
     email: emailError(v0.email, false),
     gender: v0.gender ? null : "Choose male or female",
     dateOfBirth: dobError(v0.dateOfBirth),
-    qid: qidError(v0.qid),
+    qid: qidError(v0.qid, true),
     emergencyName: v0.emergencyName.trim() ? nameError(v0.emergencyName, "Contact name", false) : null,
     emergencyPhone: phoneError(v0.emergencyPhone, false),
   });
@@ -180,7 +180,7 @@ export function MemberFormModal({
             <Field label="Date of birth" required hint="Members must be 10 or older" error={err("dateOfBirth")}>
               <Input type="date" {...form.bind("dateOfBirth")} max={bounds.max} min={bounds.min} />
             </Field>
-            <Field label="QID number" hint="Optional. Qatar ID, 11 digits" error={err("qid")}>
+            <Field label="QID number" required hint="Qatar ID, 11 digits" error={err("qid")}>
               <Input
                 value={form.values.qid}
                 onChange={(e) => form.set("qid", e.target.value.replace(/\D/g, "").slice(0, 11))}

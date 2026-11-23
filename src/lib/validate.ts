@@ -121,9 +121,9 @@ export function dobBounds(today = new Date()) {
 }
 
 // ── Other IDs ────────────────────────────────────────────────────────────────
-export function qidError(value: string | null | undefined): string | null {
+export function qidError(value: string | null | undefined, required = true): string | null {
   const v = (value ?? "").trim();
-  if (!v) return null;
+  if (!v) return required ? "QID number is required" : null;
   if (!/^\d{11}$/.test(v)) return "QID must be exactly 11 digits";
   return null;
 }
