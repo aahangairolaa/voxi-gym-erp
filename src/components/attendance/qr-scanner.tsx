@@ -10,9 +10,30 @@ declare global {
   }
 }
 
-/** True when this browser can read QR codes from the camera (Chrome, Edge, Android, Safari 17+). */
+/**
+ * True when this device has a camera VOXI can use. Browsers with a built-in QR reader
+ * (Chrome on Android/Mac, Edge) use it; the rest (Safari, Firefox, Chrome on Windows)
+ * use a small JavaScript reader instead.
+ */
 export function canScanQr() {
-  return typeof window !== "undefined" && !!window.BarcodeDetector && !!navigator.mediaDevices?.getUserMedia;
+  return typeof window !== "undefined" && !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
+}
+
+/** Read a QR code from the current video frame without BarcodeDetector. */
+type FrameReader = (v: HTMLVideoElement) => Promise<string | null>;
+async function jsReader(): Promise<FrameReader> {
+  const { default: jsQR } = await import("jsqr");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  return async (v) => {
+    // Scale down big camera frames: faster, and QR cards still read well
+    const scale = Math.min(1, 640 / Math.max(v.videoWidth, v.videoHeight));
+    canvas.width = Math.round(v.videoWidth * scale);
+    canvas.height = Math.round(v.videoHeight * scale);
+    ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" })?.data ?? null;
+  };
 }
 
 /**
@@ -39,28 +60,28 @@ export function QrScanner({
     let raf = 0;
     let stopped = false;
     const Detector = window.BarcodeDetector;
-    if (!Detector) {
-      setError("This browser can't read QR codes from the camera. Use Chrome or a USB QR scanner.");
-      return;
-    }
-    const detector = new Detector({ formats: ["qr_code"] });
+    // Built-in reader where the browser has one, otherwise the JavaScript reader
+    const readerReady: Promise<FrameReader> = Detector
+      ? Promise.resolve(new Detector({ formats: ["qr_code"] })).then((d) => async (v: HTMLVideoElement) => (await d.detect(v).catch(() => []))[0]?.rawValue ?? null)
+      : jsReader();
 
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: { ideal: facing } }, audio: false })
       .then(async (s) => {
         if (stopped) return s.getTracks().forEach((t) => t.stop());
         stream = s;
+        const read = await readerReady;
         const v = videoRef.current!;
         v.srcObject = s;
         await v.play().catch(() => {});
         const tick = async () => {
           if (stopped || done.current) return;
           if (v.readyState >= 2) {
-            const codes = await detector.detect(v).catch(() => []);
-            if (codes[0]?.rawValue && !done.current) {
+            const text = await read(v).catch(() => null);
+            if (text && !done.current) {
               done.current = true;
               navigator.vibrate?.(60);
-              onScan(codes[0].rawValue);
+              onScan(text);
               return;
             }
           }

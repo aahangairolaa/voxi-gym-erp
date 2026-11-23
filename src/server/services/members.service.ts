@@ -220,14 +220,16 @@ export async function regenerateCard(gymId: string, id: string) {
 }
 
 /** Quick lookup used by the global search & check-in box. */
-export async function quickSearch(gymId: string, q: string) {
-  if (!q.trim()) return [];
+/** Members matching a name / code / phone. With `recent` and no text: the newest members (for pickers). */
+export async function quickSearch(gymId: string, q: string, opts: { recent?: boolean } = {}) {
+  const empty = !q.trim();
+  if (empty && !opts.recent) return [];
   const warnDays = await getWarnDays(gymId);
   const members = await db.member.findMany({
     where: { gymId, ...searchWhere(q) },
-    take: 8,
+    take: empty ? 10 : 12,
     select: { id: true, code: true, firstName: true, lastName: true, phone: true, photoUpdatedAt: true, memberships: currentMembershipInclude },
-    orderBy: { firstName: "asc" },
+    orderBy: empty ? { createdAt: "desc" } : { firstName: "asc" },
   });
   return members.map((m) => ({
     id: m.id,

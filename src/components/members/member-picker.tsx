@@ -25,15 +25,20 @@ export function MemberPicker({
   const dq = useDebounce(q, 200);
   const box = useRef<HTMLDivElement>(null);
 
+  // Nothing typed yet: show the newest members, so you can pick without searching
   useEffect(() => {
-    if (!dq.trim()) return setResults([]);
+    if (!open && !dq.trim()) return;
+    let live = true;
     setLoading(true);
     api
-      .get<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(dq)}`)
-      .then((r) => setResults(r.results))
-      .catch(() => setResults([]))
-      .finally(() => setLoading(false));
-  }, [dq]);
+      .get<{ results: SearchResult[] }>(dq.trim() ? `/api/search?q=${encodeURIComponent(dq)}` : "/api/search?recent=1")
+      .then((r) => live && setResults(r.results))
+      .catch(() => live && setResults([]))
+      .finally(() => live && setLoading(false));
+    return () => {
+      live = false;
+    };
+  }, [dq, open]);
 
   useEffect(() => {
     const close = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
@@ -74,9 +79,10 @@ export function MemberPicker({
         onFocus={() => setOpen(true)}
       />
       {loading && <Spinner className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-brand-500" />}
-      {open && q && (
+      {open && (
         <ul className="absolute z-20 mt-1.5 max-h-72 w-full animate-scale-in overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-xl">
-          {results.length === 0 && !loading && <li className="px-3 py-4 text-center text-sm text-muted">No members found</li>}
+          {!q.trim() && results.length > 0 && <li className="px-2.5 pt-1 pb-1.5 text-[10px] font-bold tracking-[0.12em] text-muted uppercase">Newest members · type to search</li>}
+          {results.length === 0 && !loading && <li className="px-3 py-4 text-center text-sm text-muted">{q.trim() ? "No members found. Check the spelling, or search by phone or member number." : "No members yet"}</li>}
           {results.map((r) => (
             <li key={r.id}>
               <button

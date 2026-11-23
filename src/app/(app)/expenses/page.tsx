@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { LuChevronLeft, LuChevronRight, LuPlus, LuSettings2, LuTrash2, LuWallet, LuX } from "react-icons/lu";
 import { BarsList } from "@/components/charts";
 import { PaymentMethodPicker } from "@/components/members/payment-fields";
@@ -56,6 +57,14 @@ export default function ExpensesPage() {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ category: "Utilities", description: "", amount: 0, method: "BANK_TRANSFER", spentAt: toDateInput(), branchId: "" });
   const [saving, setSaving] = useState(false);
+  // Click a category (chart, table or Categories window) to filter the list by it
+  const [catFilter, setCatFilter] = useState<string | null>(null);
+  const pickCategory = (c: string) => setCatFilter((cur) => (cur === c ? null : c));
+  const addIn = (c: string) => {
+    setManaging(false);
+    setForm((f) => ({ ...f, category: c }));
+    setAdding(true);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -77,6 +86,7 @@ export default function ExpensesPage() {
     reload();
   };
 
+  const shown = (data?.expenses ?? []).filter((e) => !catFilter || e.category === catFilter);
   const cats = Object.entries(data?.byCategory ?? {}).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
 
   return (
@@ -142,13 +152,38 @@ export default function ExpensesPage() {
           <StatCard accent label="Total spent" value={data ? formatQAR(data.total) : "–"} hint={data ? `${data.expenses.length} entries` : undefined} icon={<LuWallet className="h-[18px] w-[18px]" />} />
           <Card>
             <CardHeader title="By category" />
-            <div className="px-5 pb-5">{data ? <BarsList data={cats} format={formatQAR} /> : <Skeleton className="h-40" />}</div>
+            <div className="px-5 pb-5">
+              {data ? (
+                cats.length ? (
+                  <>
+                    <BarsList data={cats} format={formatQAR} onSelect={pickCategory} selected={catFilter} />
+                    <p className="mt-3 text-xs text-muted">Tap a category to see only its expenses.</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted">Nothing spent in this period.</p>
+                )
+              ) : (
+                <Skeleton className="h-40" />
+              )}
+            </div>
           </Card>
         </div>
         <Card className="lg:col-span-2">
           {loading && <div className="space-y-3 p-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-11" />)}</div>}
-          {data && data.expenses.length === 0 && <EmptyState icon={LuWallet} title="No expenses in this period" />}
-          {data && data.expenses.length > 0 && (
+          {catFilter && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3 text-sm">
+              <span className="text-muted">Showing</span>
+              <button type="button" onClick={() => setCatFilter(null)} className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100 dark:bg-brand-500/15 dark:text-brand-200">
+                {catFilter} <LuX className="h-3 w-3" />
+              </button>
+              <span className="text-muted">· {formatQAR(shown.reduce((a, e) => a + e.amount, 0))}</span>
+              <button type="button" onClick={() => addIn(catFilter)} className="ml-auto text-xs font-semibold text-brand-600 hover:underline dark:text-brand-300">
+                + Add {catFilter} expense
+              </button>
+            </div>
+          )}
+          {data && shown.length === 0 && <EmptyState icon={LuWallet} title={catFilter ? `No ${catFilter} expenses in this period` : "No expenses in this period"} />}
+          {data && shown.length > 0 && (
             <div className="overflow-x-auto">
               <table className="table min-w-[640px]">
                 <thead>
@@ -162,11 +197,21 @@ export default function ExpensesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.expenses.map((e) => (
+                  {shown.map((e) => (
                     <tr key={e.id}>
                       <td className="whitespace-nowrap">{formatDate(e.spentAt)}</td>
                       <td>
-                        <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold">{e.category}</span>
+                        <button
+                          type="button"
+                          onClick={() => pickCategory(e.category)}
+                          title={catFilter === e.category ? "Show all categories" : `Show only ${e.category}`}
+                          className={cn(
+                            "rounded-md px-2 py-0.5 text-xs font-semibold transition",
+                            catFilter === e.category ? "bg-brand-600 text-white" : "bg-surface-2 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-500/15",
+                          )}
+                        >
+                          {e.category}
+                        </button>
                       </td>
                       <td className="text-ink-soft">
                         {e.description ?? "–"}
@@ -231,12 +276,17 @@ export default function ExpensesPage() {
           </div>
         </div>
       </Modal>
-      <Modal open={managing} onClose={() => setManaging(false)} title="Expense categories" description="The built-in ones are always there. Add your own, like Supplements stock or Event costs.">
+      <Modal open={managing} onClose={() => setManaging(false)} title="Expense categories" description="Tap a category to add an expense in it. The built-in ones are always there; add your own, like Supplements stock or Event costs.">
         <div className="flex flex-wrap gap-1.5">
           {EXPENSE_CATEGORIES.map((c) => (
-            <span key={c} className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-soft">
+            <button
+              key={c}
+              type="button"
+              onClick={() => addIn(c)}
+              className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-500/15 dark:hover:text-brand-200"
+            >
               {c}
-            </span>
+            </button>
           ))}
         </div>
         <p className="mt-5 mb-2 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Your categories</p>
@@ -246,7 +296,9 @@ export default function ExpensesPage() {
           <div className="flex flex-wrap gap-1.5">
             {(cats_.data?.custom ?? []).map((c) => (
               <span key={c} className="inline-flex items-center gap-1 rounded-full border border-brand-300 bg-brand-50 py-1 pr-1.5 pl-2.5 text-xs font-semibold text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-300">
-                {c}
+                <button type="button" onClick={() => addIn(c)} className="hover:underline">
+                  {c}
+                </button>
                 <button
                   type="button"
                   aria-label={`Remove ${c}`}

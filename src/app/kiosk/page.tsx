@@ -30,10 +30,13 @@ export default function KioskPage() {
   const [notFound, setNotFound] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [isFull, setIsFull] = useState(false);
+  // Decided after load (the server can't know if this device has a camera)
+  const [hasCamera, setHasCamera] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setHasCamera(canScanQr());
     api
       .get<{ gym: { name: string; logo: string | null; brandColor: string } }>("/api/kiosk")
       .then((r) => setGym(r.gym))
@@ -132,10 +135,10 @@ export default function KioskPage() {
           <p className="text-lg font-semibold">{gym?.name ?? ""}</p>
         </div>
         <div className="text-right">
-          <p className="font-display text-3xl font-semibold tabular-nums">
+          <p className="font-display text-3xl font-semibold tabular-nums" suppressHydrationWarning>
             {now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Qatar" })}
           </p>
-          <p className="text-xs tracking-[0.2em] text-white/50 uppercase">
+          <p className="text-xs tracking-[0.2em] text-white/50 uppercase" suppressHydrationWarning>
             {now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Qatar" })}
           </p>
         </div>
@@ -154,7 +157,7 @@ export default function KioskPage() {
                 <span className="bg-gradient-to-r from-[#c9b8ff] via-[#a78bff] to-[#e5a3ff] bg-clip-text text-transparent">Check in or out.</span>
               </h1>
               <p className="mt-5 text-lg text-white/60">Scan your VOXI member card, or type your member number or phone.</p>
-              {canScanQr() && (
+              {hasCamera && (
                 <button
                   type="button"
                   onClick={() => setScanning(true)}
