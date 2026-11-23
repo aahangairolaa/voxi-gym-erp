@@ -6,8 +6,8 @@
 
 /** Billing terms. 12 months is the reference price; shorter terms cost more per month. */
 export const TERMS = [
-  { months: 3, price: 10_000, label: "3 months", name: "Quarterly", tagline: "Try VOXI properly, with room to grow." },
-  { months: 6, price: 15_000, label: "6 months", name: "Half-year", tagline: "For gyms settling into a smarter routine." },
+  { months: 3, price: 11_000, label: "3 months", name: "Quarterly", tagline: "Try VOXI properly, with room to grow." },
+  { months: 6, price: 16_500, label: "6 months", name: "Half-year", tagline: "For gyms settling into a smarter routine." },
   { months: 12, price: 25_000, label: "12 months", name: "Annual", tagline: "The best value for gyms that are here to stay." },
 ] as const;
 
@@ -19,8 +19,11 @@ export const BRANCH_PRICE_YEAR = 12_000;
 /** Locations per gym: the main one plus up to 4 added branches (5 in total). */
 export const MAX_LOCATIONS = 5;
 export const MAX_EXTRA_BRANCHES = MAX_LOCATIONS - 1;
-/** Discount on the 1st, 2nd, 3rd... added branch: full price, then 20% off, then more. */
-export const BRANCH_DISCOUNTS = [0, 0.2, 0.25, 0.3] as const;
+/**
+ * Discount on each added branch (Branch 2 = the first one you add): Branch 2 full price,
+ * Branch 3 20% off, then much cheaper from Branch 4 (50% off) and Branch 5 (60% off).
+ */
+export const BRANCH_DISCOUNTS = [0, 0.2, 0.5, 0.6] as const;
 
 const round10 = (n: number) => Math.round(n / 10) * 10;
 

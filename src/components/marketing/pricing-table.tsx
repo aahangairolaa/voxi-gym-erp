@@ -189,7 +189,7 @@ export function PricingTable({ mode = "marketing", initialMonths = DEFAULT_TERM,
                 </span>
                 <div>
                   <p className="font-semibold text-ink">Extra branches</p>
-                  <p className="mt-0.5 text-sm text-muted">Your main location is included. Run up to 5 in total: the 2nd added branch is 20% off, and every one after costs even less.</p>
+                  <p className="mt-0.5 text-sm text-muted">Your main location is included. Run up to 5 in total: Branch 3 is 20% off, and from Branch 4 it’s half price or less.</p>
                 </div>
               </div>
               <Stepper value={branches} max={MAX_EXTRA_BRANCHES} onChange={setBranches} label="branches" />

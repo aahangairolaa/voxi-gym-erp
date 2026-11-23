@@ -122,7 +122,7 @@ export const GUIDES: Guide[] = [
     summary: "Choose a plan, add-ons, promo codes and what happens after the trial.",
     steps: [
       { title: "Choose your plan", body: "Open Billing. Pick 3 months, 6 months or Annual (best value). Every plan includes every feature." },
-      { title: "Tailor it with add-ons", body: `Add branches (the 2nd added branch is 20% off and each one after costs less), biometric entrances (${qar(ENTRANCE_PRICE)} each, with a discount on every extra one), onboarding and data migration (free on Annual), and VOXI Café.` },
+      { title: "Tailor it with add-ons", body: `Add branches (Branch 3 is 20% off, and from Branch 4 it’s half price or less), biometric entrances (${qar(ENTRANCE_PRICE)} each, with a discount on every extra one), onboarding and data migration (free on Annual), and VOXI Café.` },
       { title: "Apply a promo code", body: "If you have a code, type it in the Promo code box in the summary and press Apply. The discount comes off your first invoice." },
       { title: "Send the request", body: "Press Choose this plan. The VOXI team confirms and sends your invoice within one business day. Pay by bank transfer, card or Fawran, and your plan is switched on." },
       { title: "When the trial ends", body: `After ${TRIAL_DAYS} days the app pauses until a plan is chosen. Your data is safe and nothing is deleted. Owners and managers can still open Billing and Settings.` },

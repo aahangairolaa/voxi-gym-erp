@@ -595,7 +595,7 @@ await step("cafe add-on", async () => {
   const q = await call("POST", "/api/billing", { ...O, body: { months: 12, extraBranches: 0, cafe: true } });
   check("billing: VOXI Café adds QAR 8,000 a year", q.json?.quote?.total === 25000 + 8000 && q.json?.request?.cafe === true, q.text);
   const q3 = await call("POST", "/api/billing", { ...O, body: { months: 3, extraBranches: 0, cafe: true } });
-  check("billing: VOXI Café is pro rata on 3 months", q3.json?.quote?.cafe === 3200, q3.text);
+  check("billing: VOXI Café is pro rata on 3 months", q3.json?.quote?.cafe === 3520, q3.text);
   await call("DELETE", "/api/billing", O);
 
   // Tidy up so the test can run again
@@ -614,8 +614,12 @@ await step("billing", async () => {
   const P = { cookie: pulse.cookie };
   const req = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 2 } });
   check("billing: trial gym requests 12 months + 2 branches", req.status === 200 && req.json?.quote?.total === 25000 + 12000 + 9600, req.text);
+  const four = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 4 } });
+  check("billing: branches 4 and 5 are 50% and 60% off", four.json?.quote?.total === 25000 + 12000 + 9600 + 6000 + 4800, four.text);
+  const half = await call("POST", "/api/billing", { ...P, body: { months: 6, extraBranches: 0 } });
+  check("billing: 6 months is QAR 2,750 a month", half.json?.quote?.total === 16500 && half.json?.quote?.perMonth === 2750, half.text);
   const one = await call("POST", "/api/billing", { ...P, body: { months: 3, extraBranches: 0, entrances: 2, onboarding: true } });
-  check("billing: one-time add-ons priced (2 entrances + onboarding)", one.json?.oneTime === 1500 + 1430 + 1500 && one.json?.quote?.total === 10000, one.text);
+  check("billing: one-time add-ons priced (2 entrances + onboarding)", one.json?.oneTime === 1500 + 1430 + 1500 && one.json?.quote?.total === 11000, one.text);
   const noMonthly = await call("POST", "/api/billing", { ...P, body: { months: 1, extraBranches: 0 } });
   check("billing: no 1-month plan", noMonthly.status === 400, noMonthly.status);
   const tooMany = await call("POST", "/api/billing", { ...P, body: { months: 12, extraBranches: 5 } });
