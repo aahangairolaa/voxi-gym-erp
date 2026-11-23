@@ -14,10 +14,12 @@ import type { MemberDetail } from "@/types/api";
 import { PaymentMethodPicker } from "./payment-fields";
 import { PhotoInput } from "./photo-input";
 import { PlanChooser } from "./plan-chooser";
+import { cn } from "@/lib/utils";
+import { SoldBySelect, SourceSelect } from "@/components/sales/sold-by-fields";
 
 const empty = {
   firstName: "", lastName: "", phone: "+974 ", email: "", gender: "", dateOfBirth: "", qid: "", nationality: "",
-  emergencyName: "", emergencyPhone: "", notes: "", branchId: "",
+  emergencyName: "", emergencyPhone: "", notes: "", branchId: "", source: "", soldById: "",
 };
 
 /** Create a new member (optionally selling a plan right away) or edit an existing one. */
@@ -26,17 +28,21 @@ export function MemberFormModal({
   onClose,
   member,
   onSaved,
+  presetPtOnly = false,
 }: {
   open: boolean;
   onClose: () => void;
   member?: MemberDetail | null;
   onSaved?: (id: string) => void;
+  /** Open a new member already set to "Personal training only" (from the PT page) */
+  presetPtOnly?: boolean;
 }) {
   const toast = useToast();
   const plans = usePlans();
   const branches = useBranches();
   const form = useForm(empty);
   const [planId, setPlanId] = useState("");
+  const [ptOnly, setPtOnly] = useState(false);
   const [method, setMethod] = useState("CARD");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +59,7 @@ export function MemberFormModal({
     setTried(false);
     setServerFields({});
     setPlanId("");
+    setPtOnly(member?.ptOnly ?? presetPtOnly);
     setPhoto(member?.photoUrl ?? null);
     setPhotoChange(undefined);
     if (member) {
@@ -60,7 +67,7 @@ export function MemberFormModal({
         firstName: member.firstName, lastName: member.lastName, phone: member.phone, email: member.email ?? "",
         gender: member.gender ?? "", dateOfBirth: member.dateOfBirth ? toDateInput(new Date(member.dateOfBirth)) : "", qid: member.qid ?? "",
         nationality: member.nationality ?? "", emergencyName: member.emergencyName ?? "", emergencyPhone: member.emergencyPhone ?? "",
-        notes: member.notes ?? "", branchId: member.branchId ?? "",
+        notes: member.notes ?? "", branchId: member.branchId ?? "", source: member.source ?? "", soldById: member.soldById ?? "",
       });
     } else form.reset(empty);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -98,6 +105,9 @@ export function MemberFormModal({
       gender: v.gender || null,
       dateOfBirth: v.dateOfBirth || null,
       branchId: v.branchId || null,
+      source: v.source || null,
+      soldById: v.soldById || null,
+      ptOnly,
       ...(photoChange !== undefined ? { photo: photoChange } : {}),
     };
     try {
@@ -109,7 +119,7 @@ export function MemberFormModal({
       } else {
         const created = await api.post<{ id: string; code: string }>("/api/members", {
           ...body,
-          planId: planId || null,
+          planId: ptOnly ? null : planId || null,
           amountPaid: plan ? plan.price : 0,
           paymentMethod: method,
         });
@@ -222,7 +232,39 @@ export function MemberFormModal({
             </Field>
           </div>
         </section>
-        {!editing && (
+        <section>
+          <p className="mb-3 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Joining</p>
+          <div className="mb-4 grid gap-2 sm:grid-cols-2">
+            {[
+              { v: false, title: "Gym membership", text: "Uses the gym on a plan" },
+              { v: true, title: "Personal training only", text: "No membership, trains with a PT" },
+            ].map((o) => (
+              <button
+                key={o.title}
+                type="button"
+                onClick={() => setPtOnly(o.v)}
+                aria-pressed={ptOnly === o.v}
+                className={cn(
+                  "rounded-xl border p-3 text-left transition",
+                  ptOnly === o.v ? "border-brand-400 bg-brand-50/70 ring-2 ring-brand-500/15 dark:border-brand-500/50 dark:bg-brand-500/10" : "border-line hover:border-brand-300",
+                )}
+              >
+                <span className="block text-sm font-semibold text-ink">{o.title}</span>
+                <span className="block text-xs text-muted">{o.text}</span>
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SoldBySelect value={form.values.soldById} onChange={(v) => form.set("soldById", v)} />
+            <SourceSelect value={form.values.source} onChange={(v) => form.set("source", v)} />
+          </div>
+          {ptOnly && !editing && (
+            <p className="mt-3 rounded-xl bg-surface-2/70 px-3 py-2 text-xs text-muted">
+              After saving, sell their PT package on the Personal Training page. PT clients can check in while their package has sessions left.
+            </p>
+          )}
+        </section>
+        {!editing && !ptOnly && (
           <section>
             <p className="mb-3 text-xs font-bold tracking-[0.12em] text-brand-600 uppercase dark:text-brand-300">Membership (optional)</p>
             <PlanChooser plans={plans} value={planId} onChange={(id) => setPlanId(id === planId ? "" : id)} />

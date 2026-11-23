@@ -43,6 +43,7 @@ export const GUIDES: Guide[] = [
     title: "Members and memberships",
     summary: "Add members, sell memberships, freeze, cancel and invoice.",
     steps: [
+      { title: "Record who sold it", body: "On every new member, membership, PT package and extra, choose Sold by (your staff list, or None) and How did they find us (walk-in, WhatsApp lead, Instagram, referral and more). This feeds the Sales page." },
       { title: "Add a member", body: "Press Add member. First name, last name, mobile, gender, date of birth (members must be at least 10) and QID number (11 digits) are required. Email, nationality, emergency contact, photo and notes are optional." },
       { title: "Sell a membership", body: "On the member's page, press New membership, pick a plan and start date, and take the payment by cash, card, bank transfer or Fawran. The member becomes Active straight away." },
       { title: "Freeze or cancel", body: "From the member's page you can freeze a membership (for travel or injury) or cancel it. VOXI shows a warning first, because freezing moves the end date and cancelling stops access." },
@@ -64,9 +65,14 @@ export const GUIDES: Guide[] = [
   },
   {
     id: "money",
-    title: "Payments, cash and reports",
-    summary: "Take payments, close the till, track expenses and see your numbers.",
+    title: "Sales, payments and reports",
+    summary: "Daily sales, the staff sales board, extras like towels and sauna, the till and your numbers.",
     steps: [
+      { title: "See today's sales", body: "Open Sales. Switch between Day, Month and Year, and use the arrows to go back in time. You see total sales, new members, memberships and PT sold, a breakdown by type, where new members came from, and every single sale." },
+      { title: "The staff sales board", body: "On the Sales page, Sales by staff shows each person's memberships, PT packages and extras sold, and the revenue they brought in. It counts whoever was chosen as Sold by." },
+      { title: "Charge extras (towel, sauna...)", body: "On the Sales page press Charge an extra, pick the item (for example Towel or Sauna session), how many, the member (or leave empty for a walk-in) and the payment method. It's added to today's revenue straight away." },
+      { title: "Set your extras prices", body: "Owners and managers press Extras price list on the Sales page to add, rename, re-price or switch off extras. You start with towel, sauna, steam room, locker, day pass and body scan, which you can change." },
+      { title: "Revenue on the dashboard", body: "The Revenue chart on the Dashboard has Day, Month and Year buttons: daily sales for the last 30 days, monthly for the last 12 months, or yearly." },
       { title: "Take a payment", body: "Payments are recorded against a membership or as a one-off. Choose cash, card, bank transfer or Fawran. Every payment gets a receipt." },
       { title: "Refunds", body: "Only roles allowed to refund (set by the owner) can refund a payment. Refunds are recorded in the Activity log." },
       { title: "Open and close the cash drawer", body: "Cash Sessions: open the drawer with the starting float, and close it at the end of the shift. VOXI shows the expected cash so you can spot differences." },
@@ -81,9 +87,21 @@ export const GUIDES: Guide[] = [
     steps: [
       { title: "Build your class timetable", body: "Classes: add each class with its trainer, time, room and capacity. Members book a spot, and attendance is tracked." },
       { title: "Give members workout plans", body: "Workouts: trainers build plans from 160+ exercises with sets, reps and rest, and assign them to members." },
-      { title: "Motivate with the leaderboard", body: "The Leaderboard ranks members by visits and activity, which is great on the reception screen." },
-      { title: "Turn enquiries into members", body: "Leads: record walk-ins and calls, assign them to a staff member, and move them through New, Contacted, Trial and Converted." },
+      { title: "Turn enquiries into members", body: "Leads: record walk-ins and calls, assign them to a staff member, and move them through New, Contacted, Trial and Converted. Use the source tabs (WhatsApp, Walk-in, Instagram...) to focus on one channel, and Import to bring in leads from a spreadsheet." },
       { title: "Message members on WhatsApp", body: "WhatsApp: send renewal reminders, birthday wishes and announcements to members." },
+    ],
+  },
+  {
+    id: "pt",
+    title: "Personal training",
+    summary: "PT packages, PT-only clients, logging sessions and the trainer leaderboard.",
+    steps: [
+      { title: "Add a PT-only client", body: "Someone who only wants a personal trainer doesn't need a membership. When adding them, choose Personal training only. They can check in while their PT package has sessions left." },
+      { title: "Sell a PT package", body: "Open Personal Training and press Sell PT package. Choose the client, the trainer, the number of sessions and the price, and take the payment. Choose Sold by so it counts on the Sales board." },
+      { title: "Log every session", body: "After each session the trainer opens Personal Training and taps Session done on the client's card, with an optional note on what they trained. The sessions left count down; when they reach zero the package is completed." },
+      { title: "Undo a mistake", body: "Logged a session by mistake? Tap the undo arrow next to it under Recent sessions. Managers can also move a client to another trainer or cancel a package." },
+      { title: "See who's doing the work", body: "The trainer leaderboard ranks your trainers by sessions delivered this month, with their active clients and PT sales." },
+      { title: "Keep trainers focused", body: "Trainers only see their own PT clients. In Settings, under Roles and access, the owner can also switch off the Dashboard, Members list, Attendance, Classes and Workout plans for trainers, so they only see Personal Training." },
     ],
   },
   {
@@ -131,6 +149,8 @@ export const FAQS: FaqGroup[] = [
       ["Why can't I save a member?", "VOXI checks every field. The field with a problem is outlined in red with a message under it, such as a phone number with the wrong number of digits or an email that isn't valid."],
       ["How many digits can a phone number have?", "Up to 15 digits after the country code. Each country has a minimum, for example 8 for Qatar and 10 for India. Pick the country code first, then type the number."],
       ["What's the minimum age for a member?", "Members must be at least 10 years old."],
+      ["Can someone join just for personal training?", "Yes. Choose Personal training only when adding them, then sell them a PT package. They don't need a membership, and they can check in while their package has sessions left."],
+      ["What is “Sold by”?", "The staff member who made the sale. It's synced with your Staff page, so new staff appear automatically, and None is always an option. It powers the Sales by staff board."],
       ["Can a member be in two branches?", "Each member has a home branch, which you choose on their profile. Reports and lists can be filtered by branch."],
       ["How do I bring in members from my old system?", "Use Members, then Import, with an Excel or CSV file, or choose Onboarding and data migration on the Billing page and we do it for you."],
     ],

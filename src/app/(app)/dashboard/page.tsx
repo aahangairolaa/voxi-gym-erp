@@ -2,9 +2,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  LuArrowUpRight, LuBanknote, LuCalendarDays, LuDoorOpen, LuIdCard, LuScanFace, LuTimer, LuUserPlus, LuUsers,
+  LuBanknote, LuCalendarDays, LuDoorOpen, LuIdCard, LuScanFace, LuTimer, LuUserPlus, LuUsers,
 } from "react-icons/lu";
-import { AreaChart, BarChart, Donut } from "@/components/charts";
+import { BarChart, Donut } from "@/components/charts";
+import { RevenueTimeline } from "@/components/sales/revenue-timeline";
 import { Celebrations } from "@/components/dashboard/celebrations";
 import { GetStarted } from "@/components/dashboard/get-started";
 import { RenewalReminders } from "@/components/dashboard/renewal-reminders";
@@ -120,22 +121,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {canMoney && (
-          <Card className="lg:col-span-2">
-            <CardHeader
-              title="Revenue"
-              subtitle="Collected payments, last 6 months"
-              action={
-                <Link href="/reports" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline dark:text-brand-300">
-                  Reports <LuArrowUpRight className="h-3.5 w-3.5" />
-                </Link>
-              }
-            />
-            <div className="px-3 pb-4">
-              {data ? <AreaChart data={data.revenueByMonth} height={250} format={formatQAR} /> : <Skeleton className="m-2 h-[240px]" />}
-            </div>
-          </Card>
-        )}
+        {canMoney && <RevenueTimeline className="lg:col-span-2" />}
         <Card className={canMoney ? "" : "lg:col-span-1"}>
           <CardHeader title="Active plans" subtitle="What members are on right now" />
           <div className="px-5 pb-5">

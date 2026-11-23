@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ((locked && canBill && pathname !== "/billing") ||
       (mod ? !can(user.role, mod, user.gym?.rolePermissions) : pathname !== "/settings" && user.role === "SUPER_ADMIN"));
   useEffect(() => {
-    if (user && blocked) router.replace(locked && canBill ? "/billing" : homeFor(user.role));
+    if (user && blocked) router.replace(locked && canBill ? "/billing" : homeFor(user.role, user.gym?.rolePermissions));
   }, [user, blocked, locked, canBill, router]);
 
   // Each gym's own brand colour tints the accent glow

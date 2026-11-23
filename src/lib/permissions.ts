@@ -19,6 +19,8 @@ export type Module =
   | "workouts"
   | "classes"
   | "leaderboard"
+  | "pt"
+  | "sales"
   | "payments"
   | "cash"
   | "expenses"
@@ -50,6 +52,8 @@ export const ACCESS: Record<Module, Role[]> = {
   workouts: ["OWNER", "MANAGER", "TRAINER"],
   classes: GYM_FLOOR,
   leaderboard: GYM_FLOOR,
+  pt: GYM_FLOOR, // trainers see only their own clients
+  sales: FRONT_DESK,
   payments: FRONT_DESK,
   cash: FRONT_DESK,
   expenses: FRONT_DESK,
@@ -65,7 +69,10 @@ export const ACCESS: Record<Module, Role[]> = {
 };
 
 // ── Confidential permissions the owner controls per role ─────────────────────
-export type PermissionKey = "payments" | "revenue" | "reports" | "expenses" | "refunds" | "contacts" | "staff" | "biometric";
+export type PermissionKey =
+  | "payments" | "revenue" | "reports" | "expenses" | "refunds" | "contacts" | "staff" | "biometric"
+  // What trainers see besides PT (switch off to keep them focused on their PT clients)
+  | "trainerDashboard" | "trainerMembers" | "trainerAttendance" | "trainerClasses" | "trainerWorkouts";
 /** Role → permission → on/off. Only differences from the defaults need to be stored. */
 export type RolePermissions = Partial<Record<Role, Partial<Record<PermissionKey, boolean>>>>;
 
@@ -80,10 +87,21 @@ export const PERMISSIONS: { key: PermissionKey; label: string; hint: string; rol
   { key: "contacts", label: "Member phone and email", hint: "Hidden when off, so contacts can't be copied", roles: ["MANAGER", "RECEPTION", "TRAINER"], defaults: ["MANAGER", "RECEPTION", "TRAINER"] },
   { key: "staff", label: "Team management", hint: "Add and edit staff (never owners or salaries)", roles: ["MANAGER"], defaults: ["MANAGER"] },
   { key: "biometric", label: "Biometric devices", hint: "Connect devices and see the scan log", roles: ["MANAGER", "RECEPTION"], defaults: ["MANAGER"] },
+  { key: "trainerDashboard", label: "Dashboard", hint: "Trainers always have their PT page; switch these off to keep them focused on it", roles: ["TRAINER"], defaults: ["TRAINER"] },
+  { key: "trainerMembers", label: "Members list", hint: "Browse all members (PT clients are always on their PT page)", roles: ["TRAINER"], defaults: ["TRAINER"] },
+  { key: "trainerAttendance", label: "Attendance", hint: "Check members in and see who's inside", roles: ["TRAINER"], defaults: ["TRAINER"] },
+  { key: "trainerClasses", label: "Classes", hint: "The class timetable", roles: ["TRAINER"], defaults: ["TRAINER"] },
+  { key: "trainerWorkouts", label: "Workout plans", hint: "Build and assign workout plans", roles: ["TRAINER"], defaults: ["TRAINER"] },
 ];
 
 /** Modules that are switched by a confidential permission. */
 const MODULE_PERMISSION: Partial<Record<Module, PermissionKey>> = {
+  dashboard: "trainerDashboard",
+  members: "trainerMembers",
+  attendance: "trainerAttendance",
+  classes: "trainerClasses",
+  workouts: "trainerWorkouts",
+  sales: "payments",
   payments: "payments",
   cash: "payments",
   reports: "reports",
@@ -105,7 +123,11 @@ export function allowed(role: Role | undefined | null, key: PermissionKey, perms
 export function can(role: Role | undefined | null, module: Module, perms?: RolePermissions | null) {
   if (!role || !ACCESS[module].includes(role)) return false;
   const key = MODULE_PERMISSION[module];
-  return key ? allowed(role, key, perms) : true;
+  if (!key) return true;
+  // A switch only applies to the roles it lists (e.g. the trainer switches never limit reception)
+  const p = PERMISSIONS.find((x) => x.key === key)!;
+  if (role !== "OWNER" && !p.roles.includes(role)) return true;
+  return allowed(role, key, perms);
 }
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -118,8 +140,9 @@ export const ROLE_LABEL: Record<Role, string> = {
 };
 
 /** The page each role lands on after signing in. */
-export function homeFor(role: Role): string {
+export function homeFor(role: Role, perms?: RolePermissions | null): string {
   if (role === "SUPER_ADMIN") return "/admin";
+  if (role === "TRAINER" && !can(role, "dashboard", perms)) return "/pt";
   return "/dashboard";
 }
 
@@ -135,6 +158,9 @@ export const PATH_MODULE: [string, Module][] = [
   ["/workouts", "workouts"],
   ["/classes", "classes"],
   ["/leaderboard", "leaderboard"],
+  ["/pt", "pt"],
+  ["/sales", "sales"],
+  ["/cafe", "cafe"],
   ["/payments", "payments"],
   ["/cash-sessions", "cash"],
   ["/expenses", "expenses"],

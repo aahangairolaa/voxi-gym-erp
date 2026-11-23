@@ -1,3 +1,4 @@
+import { SOURCE_SHORT, SOURCES } from "@/lib/sources";
 /** Labels and colours for values stored in the database. */
 
 export const PAYMENT_METHODS = [
@@ -8,14 +9,7 @@ export const PAYMENT_METHODS = [
   { value: "ONLINE", label: "Online link" },
 ] as const;
 
-export const LEAD_SOURCES = [
-  { value: "WALK_IN", label: "Walk-in" },
-  { value: "INSTAGRAM", label: "Instagram" },
-  { value: "WHATSAPP", label: "WhatsApp" },
-  { value: "WEBSITE", label: "Website" },
-  { value: "REFERRAL", label: "Referral" },
-  { value: "OTHER", label: "Other" },
-] as const;
+export const LEAD_SOURCES = SOURCES.map((value) => ({ value, label: SOURCE_SHORT[value] }));
 
 export const LEAD_STATUSES = [
   { value: "NEW", label: "New" },

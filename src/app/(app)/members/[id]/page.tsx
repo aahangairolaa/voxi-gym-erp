@@ -19,6 +19,7 @@ import {
 import { invalidate, useApi } from "@/hooks/use-api";
 import { api } from "@/lib/api-client";
 import { daysBetween } from "@/lib/dates";
+import { SOURCE_LABEL, type Source } from "@/lib/sources";
 import { formatDate, formatDateTime, formatQAR, formatTime, humanize, timeAgo } from "@/lib/format";
 import { allowed, can } from "@/lib/permissions";
 import { MESSAGE_TYPES } from "@/lib/whatsapp-templates";
@@ -470,6 +471,9 @@ export default function MemberProfilePage() {
                 ["Date of birth", m.dateOfBirth ? formatDate(m.dateOfBirth) : null],
                 ["Emergency", m.emergencyName ? `${m.emergencyName}${m.emergencyPhone ? ` · ${m.emergencyPhone}` : ""}` : null],
                 ["Member since", formatDate(m.createdAt)],
+                ["Joined for", m.ptOnly ? "Personal training only" : "Gym membership"],
+                ["Sold by", m.soldBy?.name ?? null],
+                ["Found us via", m.source ? SOURCE_LABEL[m.source as Source] ?? m.source : null],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4">
                   <dt className="text-muted">{k}</dt>
@@ -479,6 +483,30 @@ export default function MemberProfilePage() {
             </dl>
             {m.notes && <p className="mx-5 mb-5 rounded-xl bg-surface-2 p-3 text-sm text-ink-soft">{m.notes}</p>}
           </Card>
+
+          {m.ptPackages.length > 0 && (
+            <Card>
+              <CardHeader title="Personal training" action={<Link href="/pt" className="text-xs font-semibold text-brand-600 hover:underline dark:text-brand-300">Open PT</Link>} />
+              <ul className="space-y-3 px-5 pb-5">
+                {m.ptPackages.map((p) => (
+                  <li key={p.id}>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-medium text-ink">{p.name}</span>
+                      <span className="text-xs text-muted tabular-nums">
+                        {p.sessionsUsed}/{p.sessionsTotal} done
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted">
+                      {p.trainer ? `With ${p.trainer.name}` : "No trainer"} · {p.status === "ACTIVE" ? `${p.sessionsTotal - p.sessionsUsed} left` : humanize(p.status)}
+                    </p>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                      <div className="h-full rounded-full brand-gradient" style={{ width: `${Math.min(100, (p.sessionsUsed / p.sessionsTotal) * 100)}%` }} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           <Card>
             <CardHeader title="Biometric access" subtitle="The user ID this member has on the device" icon={<LuFingerprint className="h-[18px] w-[18px]" />} />

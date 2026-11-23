@@ -77,6 +77,12 @@ export type MemberDetail = {
   notes: string | null;
   branchId: string | null;
   branch: { id: string; name: string } | null;
+  /** How they found the gym */
+  source: string | null;
+  soldById: string | null;
+  soldBy: { id: string; name: string } | null;
+  ptOnly: boolean;
+  ptPackages: { id: string; name: string; sessionsTotal: number; sessionsUsed: number; status: string; createdAt: ISODate; trainer: { name: string } | null }[];
   biometricId: string | null;
   biometricEnrolled: ISODate | null;
   photoUrl: string | null;

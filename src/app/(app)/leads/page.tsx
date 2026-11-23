@@ -2,7 +2,8 @@
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LuPhone, LuPlus, LuUserCheck, LuTrash2, LuMessageCircle, LuCalendar } from "react-icons/lu";
+import { LuPhone, LuPlus, LuUserCheck, LuTrash2, LuMessageCircle, LuCalendar, LuUpload } from "react-icons/lu";
+import { ImportLeadsModal } from "@/components/leads/import-leads-modal";
 import { Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Skeleton, Textarea, useConfirm, useToast } from "@/components/ui";
 import { useApi } from "@/hooks/use-api";
 import { api, fieldErrors } from "@/lib/api-client";
@@ -51,7 +52,10 @@ export default function LeadsPage() {
       });
   }, [editing]);
 
-  const leads = data?.leads ?? [];
+  const allLeads = data?.leads ?? [];
+  const [sourceTab, setSourceTab] = useState("ALL");
+  const [importing, setImporting] = useState(false);
+  const leads = sourceTab === "ALL" ? allLeads : allLeads.filter((l) => l.source === sourceTab);
 
   const save = async () => {
     setTried(true);
@@ -102,11 +106,38 @@ export default function LeadsPage() {
         title="Leads"
         subtitle="Enquiries from walk-ins, Instagram and WhatsApp. Follow up and convert"
         actions={
-          <Button onClick={() => setEditing("new")}>
-            <LuPlus className="h-4 w-4" /> New lead
-          </Button>
+          <>
+            <Button variant="secondary" onClick={() => setImporting(true)}>
+              <LuUpload className="h-4 w-4" /> Import
+            </Button>
+            <Button onClick={() => setEditing("new")}>
+              <LuPlus className="h-4 w-4" /> New lead
+            </Button>
+          </>
         }
       />
+      {data && allLeads.length > 0 && (
+        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 no-scrollbar sm:mx-0 sm:flex-wrap sm:px-0">
+          {[{ value: "ALL", label: "All leads" }, ...LEAD_SOURCES.filter((s) => allLeads.some((l) => l.source === s.value))].map((s) => {
+            const n = s.value === "ALL" ? allLeads.length : allLeads.filter((l) => l.source === s.value).length;
+            const on = sourceTab === s.value;
+            return (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => setSourceTab(s.value)}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition",
+                  on ? "border-brand-400 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/15 dark:text-brand-300" : "border-line bg-surface text-ink-soft hover:border-brand-300",
+                )}
+              >
+                {s.label}
+                <span className={cn("rounded-full px-1.5 text-xs tabular-nums", on ? "bg-brand-600 text-white" : "bg-surface-2 text-muted")}>{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       {loading && <Skeleton className="h-96 rounded-2xl" />}
       <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 no-scrollbar">
         {data &&
@@ -235,6 +266,7 @@ export default function LeadsPage() {
           </Field>
         </div>
       </Modal>
+      <ImportLeadsModal open={importing} onClose={() => setImporting(false)} onDone={() => { setImporting(false); reload(); }} />
     </>
   );
 }

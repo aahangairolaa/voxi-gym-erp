@@ -4,7 +4,7 @@ import { db, type Tx } from "../db";
 import { ApiError } from "../http";
 import type { GymSession } from "../auth";
 import type { paymentSchema } from "../validators";
-import { fullName, nextNumber, ownedOr404 } from "./_shared";
+import { fullName, nextNumber, ownedOr404, checkSeller } from "./_shared";
 
 type PaymentInput = z.infer<typeof paymentSchema>;
 
@@ -22,6 +22,11 @@ export async function createPaymentTx(
     description: string | null;
     reference: string | null;
     paidAt?: Date | null;
+    /** Staff member the sale counts for */
+    soldById?: string | null;
+    ptPackageId?: string | null;
+    extraItemId?: string | null;
+    quantity?: number | null;
   },
   session: GymSession,
 ) {
@@ -51,6 +56,10 @@ export async function createPaymentTx(
       paidAt: input.paidAt ?? new Date(),
       receivedById: session.staffId,
       cashSessionId,
+      soldById: input.soldById ?? null,
+      ptPackageId: input.ptPackageId ?? null,
+      extraItemId: input.extraItemId ?? null,
+      quantity: input.quantity ?? null,
     },
   });
 }
@@ -61,6 +70,12 @@ export async function createPayment(input: PaymentInput, session: GymSession) {
     input.memberId = ms.memberId;
   } else if (input.memberId) {
     ownedOr404(await db.member.findFirst({ where: { id: input.memberId, gymId: session.gymId }, select: { id: true } }), "Member");
+  }
+  // A payment towards a membership counts for whoever sold that membership, unless someone else is chosen
+  if (input.soldById) input.soldById = await checkSeller(session.gymId, input.soldById);
+  else if (input.membershipId) {
+    const ms = await db.membership.findFirst({ where: { id: input.membershipId }, select: { soldById: true } });
+    input.soldById = ms?.soldById ?? null;
   }
   return db.$transaction((tx) => createPaymentTx(tx, input, session));
 }

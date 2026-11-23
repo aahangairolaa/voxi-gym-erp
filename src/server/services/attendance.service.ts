@@ -80,8 +80,16 @@ export async function recordAccess(opts: {
     return { allowed: true, action: "OUT", reason: "No open visit today", member: info, attendanceId: null };
   }
 
-  // Check IN — needs a valid membership
-  const valid = status === "ACTIVE" || status === "EXPIRING";
+  // Check IN — needs a valid membership, or an active personal training package (PT-only clients)
+  let valid = status === "ACTIVE" || status === "EXPIRING";
+  let viaPt = false;
+  if (!valid) {
+    const pt = await db.ptPackage.findFirst({
+      where: { gymId: opts.gymId, memberId: member.id, status: "ACTIVE", OR: [{ expiresAt: null }, { expiresAt: { gte: startOfDay(at) } }] },
+      select: { id: true, sessionsUsed: true, sessionsTotal: true },
+    });
+    if (pt && pt.sessionsUsed < pt.sessionsTotal) valid = viaPt = true;
+  }
   if (!valid && !opts.override) {
     const reason =
       status === "FROZEN"
@@ -91,7 +99,7 @@ export async function recordAccess(opts: {
           : "No active membership";
     return { allowed: false, action: "DENIED", reason, member: info, attendanceId: null };
   }
-  if (current && current.startDate > endOfDay(at) && !opts.override) {
+  if (!viaPt && current && current.startDate > endOfDay(at) && !opts.override) {
     return { allowed: false, action: "DENIED", reason: "Membership hasn't started yet", member: info, attendanceId: null };
   }
 
@@ -105,7 +113,7 @@ export async function recordAccess(opts: {
       checkInAt: at,
     },
   });
-  return { allowed: true, action: "IN", reason: valid ? null : "Admitted by staff override", member: info, attendanceId: visit.id };
+  return { allowed: true, action: "IN", reason: viaPt ? "Personal training client" : valid ? null : "Admitted by staff override", member: info, attendanceId: visit.id };
 }
 
 /**

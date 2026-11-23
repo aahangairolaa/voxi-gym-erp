@@ -339,6 +339,112 @@ await step("staff email check", async () => {
 });
 
 // ── Billing: plan requests, activation and branch limits ───────────────────
+await step("sales, PT, extras and lead import", async () => {
+  const O = { cookie: (await login("owner@voxi.qa")).cookie };
+  const R = { cookie: (await login("reception@voxi.qa")).cookie };
+  const T = { cookie: (await login("trainer@voxi.qa")).cookie };
+  const sellers = (await call("GET", "/api/staff/sellers", R)).json?.staff ?? [];
+  const rec = sellers.find((x) => x.role === "RECEPTION");
+  const trainer = sellers.find((x) => x.role === "TRAINER");
+  check("Sold by list is synced with staff", !!rec && !!trainer && sellers.every((x) => x.name), JSON.stringify(sellers.slice(0, 3)));
+
+  const before = (await call("GET", "/api/sales?period=day", O)).json;
+  check("sales page loads for today", typeof before?.totals?.revenue === "number" && Array.isArray(before?.board), JSON.stringify(before?.totals));
+
+  // A new member sold by reception, found via WhatsApp, with a plan
+  const plans = (await call("GET", "/api/plans?active=1", O)).json?.plans ?? [];
+  const plan = plans.find((p) => p.price > 0);
+  const m = await call("POST", "/api/members", { ...R, body: { firstName: "Sales", lastName: "Tester", phone: `+974 5${String(Date.now()).slice(-7)}`, gender: "MALE", dateOfBirth: "1992-04-10", qid: "28463400124", source: "WHATSAPP", soldById: rec.id, planId: plan.id, amountPaid: plan.price, paymentMethod: "CARD" } });
+  check("member saved with Sold by and source", m.status === 200, m.text);
+  const md = (await call("GET", `/api/members/${m.json?.id}`, O)).json;
+  check("member shows who sold it and where they came from", md?.soldBy?.id === rec.id && md?.source === "WHATSAPP" && md?.memberships?.[0]?.soldById === rec.id, JSON.stringify([md?.soldBy, md?.source]));
+  const badSeller = await call("POST", "/api/members", { ...R, body: { firstName: "Bad", lastName: "Seller", phone: "+974 55001199", gender: "MALE", dateOfBirth: "1992-04-10", qid: "28463400125", soldById: "not-a-staff-id" } });
+  check("Sold by must be someone on your staff", badSeller.status === 400, badSeller.text);
+
+  // Extras
+  const extras = (await call("GET", "/api/extras", R)).json?.items ?? [];
+  check("starter extras price list (towel, sauna...)", extras.some((x) => /towel/i.test(x.name)) && extras.some((x) => /sauna/i.test(x.name)), JSON.stringify(extras.map((x) => x.name)));
+  const sauna = extras.find((x) => /sauna/i.test(x.name));
+  const recEdit = await call("POST", "/api/extras", { ...R, body: { name: "Ice bath", price: 40 } });
+  check("reception can't change the extras price list", recEdit.status === 403, recEdit.text);
+  const ch = await call("POST", "/api/extras/charge", { ...R, body: { extraItemId: sauna.id, quantity: 2, memberId: m.json?.id, method: "CASH", soldById: rec.id } });
+  check("charge 2 sauna sessions to a member", ch.status === 200 && ch.json?.amount === sauna.price * 2, ch.text);
+  const walkIn = await call("POST", "/api/extras/charge", { ...R, body: { extraItemId: extras[0].id, quantity: 1, method: "CARD" } });
+  check("charge an extra to a walk-in", walkIn.status === 200 && walkIn.json?.memberId == null, walkIn.text);
+
+  // PT: a PT-only client, a package, sessions
+  const ptc = await call("POST", "/api/members", { ...R, body: { firstName: "Pt", lastName: "Only", phone: `+974 6${String(Date.now()).slice(-7)}`, gender: "FEMALE", dateOfBirth: "1996-08-01", qid: "28463400126", ptOnly: true, source: "WALK_IN" } });
+  check("PT-only client saved without a membership", ptc.status === 200, ptc.text);
+  const trainerSell = await call("POST", "/api/pt/packages", { ...T, body: { memberId: ptc.json?.id, trainerId: trainer.id, sessionsTotal: 3, price: 900, amountPaid: 900, paymentMethod: "CARD" } });
+  check("trainers can't sell PT packages", trainerSell.status === 403, trainerSell.text);
+  const pkg = await call("POST", "/api/pt/packages", { ...R, body: { memberId: ptc.json?.id, trainerId: trainer.id, sessionsTotal: 2, price: 600, amountPaid: 600, paymentMethod: "CARD", soldById: trainer.id } });
+  check("reception sells a 2-session PT package", pkg.status === 200 && pkg.json?.pkg?.name === "2 PT sessions" && pkg.json?.payment?.amount === 600, pkg.text);
+  const pid = pkg.json?.pkg?.id;
+  const visit = await call("POST", "/api/attendance", { ...R, body: { code: ptc.json?.code } });
+  check("PT-only client can check in with sessions left", visit.status === 200 && visit.json?.allowed === true, visit.text);
+
+  const tView = (await call("GET", "/api/pt", T)).json;
+  check("trainer sees their PT client", tView?.isTrainer === true && tView?.packages?.some((p) => p.id === pid), JSON.stringify(tView?.packages?.map((p) => p.id)));
+  const s1 = await call("POST", "/api/pt/sessions", { ...T, body: { packageId: pid, notes: "Legs: squats 5x5" } });
+  check("trainer logs session 1 of 2", s1.status === 200 && s1.json?.sessionsUsed === 1, s1.text);
+  const s2 = await call("POST", "/api/pt/sessions", { ...T, body: { packageId: pid } });
+  check("session 2 completes the package", s2.json?.completed === true, s2.text);
+  const s3 = await call("POST", "/api/pt/sessions", { ...T, body: { packageId: pid } });
+  check("no sessions past the package", s3.status === 400, s3.text);
+  const undo = await call("DELETE", `/api/pt/sessions/${s2.json?.session?.id}`, T);
+  const after = (await call("GET", "/api/pt?status=all", O)).json?.packages?.find((p) => p.id === pid);
+  check("undo puts the session back and reopens the package", undo.status === 200 && after?.sessionsUsed === 1 && after?.status === "ACTIVE", JSON.stringify(after));
+  const board = (await call("GET", "/api/pt", O)).json?.board ?? [];
+  check("trainer leaderboard counts sessions", (board.find((b) => b.trainerId === trainer.id)?.sessions ?? 0) >= 1, JSON.stringify(board));
+
+  // Sales page adds it all up, by staff
+  const day = (await call("GET", "/api/sales?period=day", O)).json;
+  const recRow = day?.board?.find((b) => b.staffId === rec.id);
+  const tRow = day?.board?.find((b) => b.staffId === trainer.id);
+  check("sales board: reception's membership and extras", recRow?.memberships >= 1 && recRow?.extras >= 2 && recRow?.revenue >= plan.price + sauna.price * 2, JSON.stringify(recRow));
+  check("sales board: PT sale counted for its seller", tRow?.pt >= 1 && tRow?.revenue >= 600, JSON.stringify(tRow));
+  check("sales by type and source", day?.byKind?.PT?.amount >= 600 && day?.byKind?.EXTRA?.amount >= sauna.price * 2 && day?.bySource?.some((x) => x.source === "WHATSAPP"), JSON.stringify(day?.byKind));
+  check("today's revenue went up by everything sold", day?.totals?.revenue - before?.totals?.revenue >= plan.price + sauna.price * 2 + 600, `${before?.totals?.revenue} -> ${day?.totals?.revenue}`);
+  const month = await call("GET", "/api/sales?period=month", O);
+  check("monthly sales view", month.status === 200 && month.json?.totals?.revenue >= day?.totals?.revenue, month.text?.slice(0, 120));
+  check("reception can see the day but not month or year", (await call("GET", "/api/sales?period=year", R)).status === 403);
+  for (const period of ["day", "month", "year"]) {
+    const t = (await call("GET", `/api/dashboard/revenue?period=${period}`, O)).json;
+    const want = { day: 30, month: 12, year: 5 }[period];
+    check(`dashboard revenue timeline: ${period}`, t?.buckets?.length === want && typeof t?.current === "number", JSON.stringify(t)?.slice(0, 120));
+  }
+
+  // Trainer focus: the owner switches off the trainer's dashboard and members list
+  await call("PUT", "/api/settings/permissions", { ...O, body: { permissions: { TRAINER: { trainerDashboard: false, trainerMembers: false } } } });
+  const T2 = { cookie: (await login("trainer@voxi.qa")).cookie };
+  check("trainer focus: dashboard switched off", (await call("GET", "/api/dashboard", T2)).status === 403);
+  check("trainer focus: PT still works", (await call("GET", "/api/pt", T2)).status === 200);
+  check("trainer switches don't affect reception", (await call("GET", "/api/members", R)).status === 200);
+  await call("PUT", "/api/settings/permissions", { ...O, body: { permissions: {} } });
+
+  // Lead import + sources
+  const stamp = String(Date.now()).slice(-6);
+  const rows = [
+    { name: "Import One", phone: `55${stamp}`, source: "whatsapp", interest: "Annual" },
+    { name: "Import Two", phone: `+974 66${stamp}`, source: "Walk in" },
+    { name: "Bad Phone", phone: "12ab" },
+    { name: "", phone: "55001234" },
+    { name: "Dup One", phone: `55${stamp}` },
+  ];
+  const dry = await call("POST", "/api/leads/import", { ...R, body: { rows, commit: false } });
+  check("lead import check: 2 ready, 3 skipped", dry.json?.ready === 2 && dry.json?.skipped?.length === 3 && dry.json?.imported === 0, dry.text);
+  const real = await call("POST", "/api/leads/import", { ...R, body: { rows, commit: true } });
+  const leads = (await call("GET", "/api/leads", R)).json?.leads ?? [];
+  const one = leads.find((l) => l.name === "Import One");
+  check("leads imported with their source", real.json?.imported === 2 && one?.source === "WHATSAPP" && leads.find((l) => l.name === "Import Two")?.source === "WALK_IN", real.text);
+  const again = await call("POST", "/api/leads/import", { ...R, body: { rows, commit: false } });
+  check("importing the same file twice skips duplicates", again.json?.ready === 0, again.text);
+  for (const l of leads.filter((x) => x.name.startsWith("Import "))) await call("DELETE", `/api/leads/${l.id}`, O);
+  const newSrc = await call("POST", "/api/leads", { ...R, body: { name: "Phone Caller", phone: "+974 55443322", source: "PHONE_CALL" } });
+  check("new lead sources (phone call, Google, TikTok...)", newSrc.status === 200 && newSrc.json?.source === "PHONE_CALL", newSrc.text);
+  if (newSrc.json?.id) await call("DELETE", `/api/leads/${newSrc.json.id}`, O);
+});
+
 await step("cafe add-on", async () => {
   const O = { cookie: (await login("owner@voxi.qa")).cookie };
   const R = { cookie: (await login("reception@voxi.qa")).cookie };

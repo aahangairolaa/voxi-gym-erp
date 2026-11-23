@@ -1,7 +1,9 @@
 import type { z } from "zod";
 import { db } from "../db";
 import { ApiError } from "../http";
-import type { leadSchema } from "../validators";
+import type { leadImportSchema, leadSchema } from "../validators";
+import { parseSource } from "@/lib/sources";
+import { emailError, normalizePhone, phoneError } from "@/lib/validate";
 import { nextNumber, ownedOr404 } from "./_shared";
 import { randomToken } from "../crypto";
 
@@ -55,9 +57,58 @@ export async function convertLead(gymId: string, id: string, branchId: string | 
         email: lead.email,
         branchId,
         notes: lead.notes,
+        // Keep where they came from and who worked the lead, for the Sales page
+        source: lead.source,
+        soldById: lead.assignedToId,
       },
     });
     await tx.lead.update({ where: { id }, data: { status: "CONVERTED", convertedMemberId: member.id } });
     return member;
   });
+}
+
+/** Spreadsheets hold local numbers: "5512 3456" means +974, "00974..." means +974. */
+function importPhone(raw: string) {
+  const v = raw.trim().replace(/^00/, "+");
+  return v.startsWith("+") ? v : `+974 ${v}`;
+}
+
+/**
+ * Import leads from a spreadsheet. With commit=false it only checks the rows and
+ * reports what would be imported or skipped; with commit=true it saves them.
+ * Leads whose phone is already a lead are skipped, so importing twice is safe.
+ */
+export async function importLeads(gymId: string, input: z.infer<typeof leadImportSchema>) {
+  const existing = new Set((await db.lead.findMany({ where: { gymId }, select: { phone: true } })).map((l) => l.phone));
+  const ready: { name: string; phone: string; email: string | null; source: NonNullable<ReturnType<typeof parseSource>>; interest: string | null; notes: string | null }[] = [];
+  const skipped: { row: number; name: string; reason: string }[] = [];
+  const seen = new Set<string>();
+
+  input.rows.forEach((r, i) => {
+    const row = i + 2; // row 1 is the header
+    const name = (r.name ?? "").trim().replace(/\s+/g, " ");
+    const rawPhone = (r.phone ?? "").trim();
+    if (!name) return skipped.push({ row, name: "", reason: "No name" });
+    if (!rawPhone) return skipped.push({ row, name, reason: "No phone number" });
+    const phoneProblem = phoneError(importPhone(rawPhone), true);
+    if (phoneProblem) return skipped.push({ row, name, reason: `Phone “${rawPhone}”: ${phoneProblem.toLowerCase()}` });
+    const phone = normalizePhone(importPhone(rawPhone));
+    if (existing.has(phone) || seen.has(phone)) return skipped.push({ row, name, reason: "Already a lead with this phone" });
+    const email = (r.email ?? "").trim().toLowerCase() || null;
+    if (email && emailError(email, false)) return skipped.push({ row, name, reason: `Email “${email}” isn't valid` });
+    seen.add(phone);
+    ready.push({
+      name: name.slice(0, 100),
+      phone,
+      email,
+      source: parseSource(r.source) ?? "OTHER",
+      interest: (r.interest ?? "").trim().slice(0, 200) || null,
+      notes: (r.notes ?? "").trim().slice(0, 1000) || null,
+    });
+  });
+
+  if (input.commit && ready.length) {
+    await db.lead.createMany({ data: ready.map((l) => ({ ...l, gymId })) });
+  }
+  return { ready: ready.length, skipped, imported: input.commit ? ready.length : 0, preview: ready.slice(0, 5) };
 }

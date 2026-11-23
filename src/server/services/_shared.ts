@@ -73,3 +73,11 @@ export function toCsv(rows: Record<string, unknown>[]): string {
   };
   return [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
 }
+
+/** "Sold by" must be someone on this gym's staff. Returns the id, or null for none. */
+export async function checkSeller(gymId: string, staffId: string | null | undefined): Promise<string | null> {
+  if (!staffId) return null;
+  const s = await db.staff.findFirst({ where: { id: staffId, gymId }, select: { id: true } });
+  if (!s) throw new ApiError(400, "Choose someone from your staff for “Sold by”.");
+  return s.id;
+}

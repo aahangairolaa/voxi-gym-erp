@@ -5,7 +5,7 @@ import { db, type Tx } from "../db";
 import { ApiError } from "../http";
 import type { GymSession } from "../auth";
 import type { sellMembershipSchema } from "../validators";
-import { daysLeft, effectiveStatus, fullName, getWarnDays, ownedOr404 } from "./_shared";
+import { daysLeft, effectiveStatus, fullName, getWarnDays, ownedOr404, checkSeller } from "./_shared";
 import { createPaymentTx } from "./payments.service";
 
 type SellInput = z.infer<typeof sellMembershipSchema>;
@@ -33,9 +33,11 @@ export async function sellMembershipTx(tx: Tx, input: SellInput, session: GymSes
   const due = plan.price - input.discount;
   if (input.amountPaid > due) throw new ApiError(400, `Amount paid is more than the amount due (QAR ${due}).`);
 
+  const soldById = await checkSeller(session.gymId, input.soldById);
   const membership = await tx.membership.create({
     data: {
       gymId: session.gymId,
+      soldById,
       memberId: input.memberId,
       planId: plan.id,
       startDate: start,
@@ -57,6 +59,7 @@ export async function sellMembershipTx(tx: Tx, input: SellInput, session: GymSes
             method: input.paymentMethod,
             description: `${plan.name} membership`,
             reference: input.reference,
+            soldById,
           },
           session,
         )

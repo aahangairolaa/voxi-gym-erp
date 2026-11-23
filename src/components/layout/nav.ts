@@ -5,8 +5,8 @@
 import type { IconType } from "react-icons";
 import {
   LuLayoutDashboard, LuUsers, LuIdCard, LuClipboardList, LuUserPlus, LuScanFace, LuFingerprint, LuDumbbell,
-  LuCalendarDays, LuTrophy, LuReceipt, LuBanknote, LuWallet, LuChartColumn, LuUserCog, LuSettings,
-  LuMessageCircle, LuHistory, LuBuilding2, LuCreditCard, LuCoffee,
+  LuCalendarDays, LuReceipt, LuBanknote, LuWallet, LuChartColumn, LuUserCog, LuSettings,
+  LuMessageCircle, LuHistory, LuBuilding2, LuCreditCard, LuCoffee, LuTrendingUp, LuBicepsFlexed,
 } from "react-icons/lu";
 import type { Module } from "@/lib/permissions";
 
@@ -39,12 +39,13 @@ export const NAV: NavSection[] = [
       { href: "/biometric", label: "Biometric", icon: LuFingerprint, module: "biometric" },
       { href: "/workouts", label: "Workouts", icon: LuDumbbell, module: "workouts" },
       { href: "/classes", label: "Classes", icon: LuCalendarDays, module: "classes" },
-      { href: "/leaderboard", label: "Leaderboard", icon: LuTrophy, module: "leaderboard" },
+      { href: "/pt", label: "Personal Training", icon: LuBicepsFlexed, module: "pt" },
     ],
   },
   {
     title: "Business",
     items: [
+      { href: "/sales", label: "Sales", icon: LuTrendingUp, module: "sales" },
       { href: "/payments", label: "Payments", icon: LuReceipt, module: "payments" },
       { href: "/cash-sessions", label: "Cash Sessions", icon: LuBanknote, module: "cash" },
       { href: "/expenses", label: "Expenses", icon: LuWallet, module: "expenses" },

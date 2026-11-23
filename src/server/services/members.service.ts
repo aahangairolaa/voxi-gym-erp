@@ -7,7 +7,7 @@ import { ApiError } from "../http";
 import type { GymSession } from "../auth";
 import { randomToken } from "../crypto";
 import type { createMemberSchema, memberSchema } from "../validators";
-import { effectiveStatus, daysLeft, fullName, getWarnDays, memberPhotoUrl, nextNumber, ownedOr404 } from "./_shared";
+import { effectiveStatus, daysLeft, fullName, getWarnDays, memberPhotoUrl, nextNumber, ownedOr404, checkSeller } from "./_shared";
 import { sellMembershipTx } from "./memberships.service";
 
 type MemberInput = z.infer<typeof memberSchema>;
@@ -98,7 +98,13 @@ export async function getMember(gymId: string, id: string) {
       where: { id, gymId },
       include: {
         branch: { select: { id: true, name: true } },
-        memberships: { orderBy: { endDate: "desc" }, include: { plan: true, payments: { select: { amount: true, status: true } } } },
+        soldBy: { select: { id: true, name: true } },
+        ptPackages: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: { id: true, name: true, sessionsTotal: true, sessionsUsed: true, status: true, createdAt: true, trainer: { select: { name: true } } },
+        },
+        memberships: { orderBy: { endDate: "desc" }, include: { plan: true, soldBy: { select: { name: true } }, payments: { select: { amount: true, status: true } } } },
         payments: { orderBy: { paidAt: "desc" }, take: 25, include: { receivedBy: { select: { name: true } } } },
         attendance: { orderBy: { checkInAt: "desc" }, take: 25, include: { branch: { select: { name: true } } } },
         workoutPlans: { include: { trainer: { select: { name: true } }, _count: { select: { items: true } } } },
@@ -151,6 +157,7 @@ async function checkBranch(gymId: string, branchId: string | null | undefined) {
 export async function createMember(input: CreateMemberInput, session: GymSession) {
   const { planId, startDate, discount, amountPaid, paymentMethod, photo, ...data } = input;
   await checkBranch(session.gymId, data.branchId);
+  data.soldById = await checkSeller(session.gymId, data.soldById);
   return db.$transaction(async (tx) => {
     const n = await nextNumber(tx, session.gymId, "member", 1001);
     const member = await tx.member.create({
@@ -167,7 +174,7 @@ export async function createMember(input: CreateMemberInput, session: GymSession
     if (planId) {
       await sellMembershipTx(
         tx,
-        { memberId: member.id, planId, startDate, discount, amountPaid, paymentMethod, reference: null, notes: null },
+        { memberId: member.id, planId, startDate, discount, amountPaid, paymentMethod, reference: null, notes: null, soldById: data.soldById },
         session,
       );
     }
@@ -179,6 +186,7 @@ export async function updateMember(gymId: string, id: string, input: MemberInput
   ownedOr404(await db.member.findFirst({ where: { id, gymId }, select: { id: true } }), "Member");
   await checkBranch(gymId, input.branchId);
   const { photo, ...data } = input;
+  data.soldById = await checkSeller(gymId, data.soldById);
   return db.member.update({
     where: { id },
     data: {

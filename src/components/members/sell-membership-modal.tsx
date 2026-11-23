@@ -9,6 +9,7 @@ import type { SearchResult } from "@/types/api";
 import { MemberPicker } from "./member-picker";
 import { PaymentMethodPicker } from "./payment-fields";
 import { PlanChooser } from "./plan-chooser";
+import { SoldBySelect } from "@/components/sales/sold-by-fields";
 
 /** Sell a new plan or renew an existing member — records the payment too. */
 export function SellMembershipModal({
@@ -31,6 +32,7 @@ export function SellMembershipModal({
   const [amountPaid, setAmountPaid] = useState<number | null>(null);
   const [method, setMethod] = useState("CARD");
   const [reference, setReference] = useState("");
+  const [soldById, setSoldById] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +45,7 @@ export function SellMembershipModal({
       setAmountPaid(null);
       setMethod("CARD");
       setReference("");
+      setSoldById("");
       setError(null);
     }
   }, [open, member]);
@@ -64,6 +67,7 @@ export function SellMembershipModal({
         amountPaid: paying,
         paymentMethod: method,
         reference: reference || null,
+        soldById: soldById || null,
       });
       invalidate("/api/");
       toast("success", `${plan.name} sold to ${who.name}`);
@@ -117,6 +121,7 @@ export function SellMembershipModal({
           <span className="label">Payment method</span>
           <PaymentMethodPicker value={method} onChange={setMethod} />
         </div>
+        <SoldBySelect value={soldById} onChange={setSoldById} />
         {method !== "CASH" && (
           <Field label="Reference" hint="Card slip no., Fawran or transfer reference (optional)">
             <Input value={reference} onChange={(e) => setReference(e.target.value)} />

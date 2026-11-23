@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { MAX_EXTRA_BRANCHES } from "@/lib/pricing";
 import { fromDateInput } from "@/lib/dates";
+import { SOURCES } from "@/lib/sources";
 import { dobError, emailError, nameError, normalizePhone, passwordError, phoneError, qidError, websiteError } from "@/lib/validate";
 
 // ── Reusable pieces ──────────────────────────────────────────────────────────
@@ -113,6 +114,12 @@ export const memberSchema = z.object({
     if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg });
   }),
   emergencyPhone: optPhone,
+  /** How they found the gym; empty = not recorded */
+  source: z.enum(SOURCES).optional().nullable(),
+  /** Staff member who sold the membership / signed them up; empty = none */
+  soldById: z.string().optional().nullable().transform((v) => v || null),
+  /** Personal training only, no gym membership */
+  ptOnly: z.boolean().optional().default(false),
   notes: optStr(1000),
   branchId: optId,
   /** undefined = keep the current photo, null = remove it */
@@ -145,6 +152,7 @@ export const planSchema = z.object({
 // ── Memberships ──────────────────────────────────────────────────────────────
 export const sellMembershipSchema = z.object({
   memberId: id,
+  soldById: optId,
   planId: id,
   startDate: optDate,
   discount: money.default(0),
@@ -161,6 +169,7 @@ export const membershipActionSchema = z.object({
 // ── Payments ─────────────────────────────────────────────────────────────────
 export const paymentSchema = z.object({
   memberId: optId,
+  soldById: optId,
   membershipId: optId,
   amount: money.refine((v) => v > 0, "Amount must be more than 0"),
   method: paymentMethod,
@@ -287,7 +296,7 @@ export const leadSchema = z.object({
   name: fullName,
   phone,
   email: optEmail,
-  source: z.enum(["WALK_IN", "INSTAGRAM", "WHATSAPP", "WEBSITE", "REFERRAL", "OTHER"]).default("WALK_IN"),
+  source: z.enum(SOURCES).default("WALK_IN"),
   status: z.enum(["NEW", "CONTACTED", "TRIAL", "CONVERTED", "LOST"]).default("NEW"),
   interest: optStr(120),
   notes: optStr(1000),
@@ -516,3 +525,57 @@ export const promoSchema = z
     note: optStr(200),
   })
   .refine((p) => p.kind !== "PERCENT" || p.value <= 100, { message: "A percentage can't be more than 100", path: ["value"] });
+
+// ── Personal training ────────────────────────────────────────────────────────
+export const ptPackageSchema = z.object({
+  memberId: id,
+  trainerId: z.string().min(1, "Choose the trainer"),
+  name: z.string().trim().max(60).optional().nullable(),
+  sessionsTotal: z.coerce.number().int("Whole sessions only").min(1, "At least 1 session").max(500),
+  price: money,
+  expiresAt: optDate,
+  amountPaid: money.default(0),
+  paymentMethod: paymentMethod.default("CASH"),
+  soldById: optId,
+  notes: optStr(300),
+});
+
+export const ptSessionSchema = z.object({
+  packageId: id,
+  notes: optStr(500),
+  doneAt: optDate,
+});
+
+// ── Extras (towel, sauna...) ─────────────────────────────────────────────────
+export const extraItemSchema = z.object({
+  name: z.string().trim().min(2, "Give it a name").max(60),
+  price: money.refine((v) => v > 0, "Price must be more than 0"),
+  active: z.boolean().default(true),
+});
+
+export const extraChargeSchema = z.object({
+  extraItemId: id,
+  quantity: z.coerce.number().int().min(1).max(100).default(1),
+  memberId: optId,
+  method: paymentMethod,
+  soldById: optId,
+  reference: optStr(100),
+});
+
+// ── Lead import ──────────────────────────────────────────────────────────────
+export const leadImportSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        name: z.string().optional().nullable(),
+        phone: z.string().optional().nullable(),
+        email: z.string().optional().nullable(),
+        source: z.string().optional().nullable(),
+        interest: z.string().optional().nullable(),
+        notes: z.string().optional().nullable(),
+      }),
+    )
+    .min(1, "The file has no rows")
+    .max(2000, "Import up to 2,000 leads at a time"),
+  commit: z.boolean().default(false),
+});
